@@ -1,0 +1,16 @@
+{
+  "_help": "What can land on each reel. Every id here needs a matching file: themes/<id>.json, twists/<id>.json, or an entry in genres.json. Add \"weight\" to make an entry rarer or more common (default 1).",
+  "themes": [
+    { "id": "haunted-castle" },
+    { "id": "neon-space" }
+  ],
+  "genres": [
+    { "id": "platformer" },
+    { "id": "shmup" }
+  ],
+  "twists": [
+    { "id": "classic", "weight": 0.5 },
+    { "id": "low-gravity" },
+    { "id": "darkness" }
+  ]
+}

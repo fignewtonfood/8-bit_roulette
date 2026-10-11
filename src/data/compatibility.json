@@ -1,0 +1,4 @@
+{
+  "_help": "Combos the machine must never land on. Each rule matches on any mix of theme / genre / twist; a spin that matches is re-rolled. Twists also list the genres they support in their own file, and a theme can add a 'genres' list to limit itself. Example rule: { \"genre\": \"shmup\", \"twist\": \"darkness\", \"reason\": \"too hard to read bullets\" }",
+  "blocked": []
+}

@@ -1,6 +1,7 @@
 {
   "id": "haunted-castle",
   "name": "Haunted Castle",
+  "short": "HAUNTED",
   "palette": {
     "sky": "#140c1c",
     "ground": "#4e4a6e",
@@ -15,6 +16,7 @@
   },
   "names": {
     "enemy": "Bat",
-    "coin": "Soul shard"
+    "coin": "Soul shard",
+    "hudCoin": "SHARDS"
   }
 }

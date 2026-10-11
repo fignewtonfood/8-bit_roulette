@@ -1,0 +1,10 @@
+{
+  "id": "classic",
+  "name": "Classic",
+  "short": "CLASSIC",
+  "description": "No twist. The game as it was meant to be.",
+  "genres": {
+    "platformer": {},
+    "shmup": {}
+  }
+}

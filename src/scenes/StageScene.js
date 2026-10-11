@@ -1,10 +1,15 @@
 import Phaser from 'phaser';
-import theme from '../data/themes/haunted-castle.json';
 import { buildStage } from '../gen/buildStage.js';
+import { content } from '../data/index.js';
+import { twistSettings } from '../engine/content.js';
+import { describeRun } from '../engine/spin.js';
+import { addDarkness, GLOW_DEPTH } from '../engine/darkness.js';
+import { makePlaceholderTextures, tex } from '../art/placeholder.js';
 
 const TILE = 16;
 
 // Feel knobs — tweak these while playtesting.
+const GRAVITY = 800;          // px/s² (the Low Gravity twist scales this)
 const RUN_SPEED = 110;        // px/s
 const JUMP_VELOCITY = 300;    // px/s upward; ~3.5 tiles high with gravity 800
 const SHORT_HOP = 0.4;        // releasing jump early caps upward speed at 40%
@@ -19,8 +24,12 @@ export default class StageScene extends Phaser.Scene {
     super('Stage');
   }
 
+  // data.run = { seed, theme, genre, twist } from the slot machine
   init(data) {
-    this.seed = data.seed;
+    this.run = data.run;
+    this.seed = data.run.seed;
+    this.theme = content.themes[data.run.theme];
+    this.mods = twistSettings(content, data.run.twist, 'platformer'); // the twist's settings
     this.lives = START_LIVES;
     this.coinsCollected = 0;
     this.dying = false;
@@ -30,44 +39,54 @@ export default class StageScene extends Phaser.Scene {
   }
 
   create() {
+    const theme = this.theme;
+    const mods = this.mods;
+    const t = (name) => tex(theme, name);
+    makePlaceholderTextures(this, theme);
+
     const level = buildStage({ seed: this.seed, stage: 1 });
     this.level = level;
     const worldW = level.widthTiles * TILE;
     const worldH = level.heightTiles * TILE;
-    console.log(`[8-Bit Roulette] seed ${this.seed} · cost ${level.cost}/${level.budget}\n  ${level.chunks.join(' → ')}`);
+    console.log(`[8-Bit Roulette] ${describeRun(content, this.run)} · seed ${this.seed} · cost ${level.cost}/${level.budget}\n  ${level.chunks.join(' → ')}`);
 
     this.cameras.main.setBackgroundColor(theme.palette.sky);
+
+    // Twist: Low Gravity. Set every time, because the physics world remembers
+    // its gravity between runs.
+    this.physics.world.gravity.y = GRAVITY * (mods.gravityScale ?? 1);
+    this.jumpVelocity = JUMP_VELOCITY * (mods.jumpScale ?? 1);
 
     // Ground: tile 1 where the block has open air above it, tile 0 otherwise, -1 = empty
     const data = level.solid.map((row, y) =>
       row.map((solid, x) => (solid ? (y > 0 && level.solid[y - 1][x] ? 0 : 1) : -1)),
     );
     const map = this.make.tilemap({ data, tileWidth: TILE, tileHeight: TILE });
-    const tileset = map.addTilesetImage('tiles');
+    const tileset = map.addTilesetImage('tiles', t('tiles'));
     this.layer = map.createLayer(0, tileset, 0, 0);
     this.layer.setCollision([0, 1]);
 
     // Hazards, pickups, exit
     this.spikes = this.physics.add.staticGroup();
-    level.spikes.forEach(({ x, y }) => this.spikes.create(x * TILE + 8, y * TILE + 12, 'spike'));
+    level.spikes.forEach(({ x, y }) => this.spikes.create(x * TILE + 8, y * TILE + 12, t('spike')));
 
     this.coins = this.physics.add.staticGroup();
-    level.coins.forEach(({ x, y }) => this.coins.create(x * TILE + 8, y * TILE + 8, 'coin'));
+    level.coins.forEach(({ x, y }) => this.coins.create(x * TILE + 8, y * TILE + 8, t('coin')));
 
     const f = level.flag;
-    this.flag = this.physics.add.staticImage(f.x * TILE + 8, (f.y + 1) * TILE - 16, 'flag');
+    this.flag = this.physics.add.staticImage(f.x * TILE + 8, (f.y + 1) * TILE - 16, t('flag'));
 
     // Enemies walk back and forth, turning at walls and ledges
     this.enemies = this.physics.add.group();
     level.enemies.forEach(({ x, y }) => {
-      const e = this.enemies.create(x * TILE + 8, (y + 1) * TILE - 5, 'enemy');
+      const e = this.enemies.create(x * TILE + 8, (y + 1) * TILE - 5, t('enemy'));
       e.dir = -1;
     });
 
     // Player
     const s = level.playerStart;
     this.spawnPoint = { x: s.x * TILE + 8, y: (s.y + 1) * TILE - 7 };
-    this.player = this.physics.add.sprite(this.spawnPoint.x, this.spawnPoint.y, 'player');
+    this.player = this.physics.add.sprite(this.spawnPoint.x, this.spawnPoint.y, t('player'));
     this.player.setCollideWorldBounds(true);
 
     // World edges block left/right/top but not the bottom, so pits are deadly
@@ -81,6 +100,17 @@ export default class StageScene extends Phaser.Scene {
     this.physics.add.overlap(this.player, this.coins, (_p, coin) => this.collectCoin(coin));
     this.physics.add.overlap(this.player, this.enemies, (_p, enemy) => this.touchEnemy(enemy));
     this.physics.add.overlap(this.player, this.flag, () => this.finish(true));
+
+    // Twist: Darkness. Anything listed under "glow" stays visible in the dark.
+    this.darkness = null; // the scene object is reused between runs, so reset it
+    if (mods.lightRadius) {
+      this.darkness = addDarkness(this, mods);
+      const glow = new Set(mods.glow || []);
+      if (glow.has('coins')) this.coins.setDepth(GLOW_DEPTH);
+      if (glow.has('spikes')) this.spikes.setDepth(GLOW_DEPTH);
+      if (glow.has('enemies')) this.enemies.setDepth(GLOW_DEPTH);
+      if (glow.has('flag')) this.flag.setDepth(GLOW_DEPTH);
+    }
 
     // Camera
     this.cameras.main.setBounds(0, 0, worldW, worldH);
@@ -118,18 +148,19 @@ export default class StageScene extends Phaser.Scene {
     this.jumpBuffer = jumpPressed ? JUMP_BUFFER : this.jumpBuffer - dt;
 
     if (this.jumpBuffer > 0 && this.coyote > 0) {
-      p.setVelocityY(-JUMP_VELOCITY);
+      p.setVelocityY(-this.jumpVelocity);
       this.jumpBuffer = 0;
       this.coyote = 0;
     }
-    if (!jumpHeld && body.velocity.y < -JUMP_VELOCITY * SHORT_HOP) {
-      p.setVelocityY(-JUMP_VELOCITY * SHORT_HOP);
+    if (!jumpHeld && body.velocity.y < -this.jumpVelocity * SHORT_HOP) {
+      p.setVelocityY(-this.jumpVelocity * SHORT_HOP);
     }
 
     // Fell into a pit
     if (p.y > this.level.heightTiles * TILE + 16) this.die();
 
     this.updateEnemies();
+    this.darkness?.update(p);
   }
 
   updateEnemies() {
@@ -159,7 +190,7 @@ export default class StageScene extends Phaser.Scene {
     const stomp = p.velocity.y > 0 && p.bottom <= enemy.body.top + 6;
     if (stomp) {
       enemy.disableBody(true, true);
-      this.player.setVelocityY(-JUMP_VELOCITY * STOMP_BOUNCE);
+      this.player.setVelocityY(-this.jumpVelocity * STOMP_BOUNCE);
     } else {
       this.die();
     }
@@ -195,7 +226,7 @@ export default class StageScene extends Phaser.Scene {
     this.time.delayedCall(cleared ? 600 : 300, () =>
       this.scene.start('Result', {
         cleared,
-        seed: this.seed,
+        run: this.run,
         coins: this.coinsCollected,
         totalCoins: this.level.coins.length,
         seconds,
@@ -205,7 +236,7 @@ export default class StageScene extends Phaser.Scene {
 
   updateHud() {
     this.hud.setText(
-      `LIVES ${this.lives}   SHARDS ${this.coinsCollected}/${this.level.coins.length}   SEED ${this.seed}`,
+      `LIVES ${this.lives}   ${this.theme.names.hudCoin} ${this.coinsCollected}/${this.level.coins.length}   SEED ${this.seed}`,
     );
   }
 }

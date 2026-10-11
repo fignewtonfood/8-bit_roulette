@@ -1,0 +1,22 @@
+{
+  "id": "neon-space",
+  "name": "Neon Space",
+  "short": "NEON",
+  "palette": {
+    "sky": "#05051a",
+    "ground": "#1c3558",
+    "groundDark": "#0d1c33",
+    "groundTop": "#36e2ff",
+    "player": "#f4f4ff",
+    "enemy": "#ff3cc8",
+    "spike": "#ffe24a",
+    "coin": "#5cff94",
+    "flag": "#ffa032",
+    "text": "#e0f0ff"
+  },
+  "names": {
+    "enemy": "Drone",
+    "coin": "Data shard",
+    "hudCoin": "DATA"
+  }
+}

@@ -1,6 +1,10 @@
 import Phaser from 'phaser';
-import theme from '../data/themes/haunted-castle.json';
 import { buildShmup } from '../gen/buildShmup.js';
+import { content } from '../data/index.js';
+import { twistSettings } from '../engine/content.js';
+import { describeRun } from '../engine/spin.js';
+import { addDarkness, GLOW_DEPTH } from '../engine/darkness.js';
+import { makePlaceholderTextures, tex } from '../art/placeholder.js';
 import { makeShmupTextures } from '../art/shmupPlaceholder.js';
 
 const LANE = 16;
@@ -29,8 +33,12 @@ export default class ShmupScene extends Phaser.Scene {
     super({ key: 'Shmup', physics: { arcade: { gravity: { x: 0, y: 0 } } } });
   }
 
+  // data.run = { seed, theme, genre, twist } from the slot machine
   init(data) {
-    this.seed = data.seed;
+    this.run = data.run;
+    this.seed = data.run.seed;
+    this.theme = content.themes[data.run.theme];
+    this.mods = twistSettings(content, data.run.twist, 'shmup'); // the twist's settings
     this.lives = START_LIVES;
     this.coinsCollected = 0;
     this.elapsed = 0;
@@ -41,11 +49,15 @@ export default class ShmupScene extends Phaser.Scene {
   }
 
   create() {
-    if (!this.textures.exists('ship')) makeShmupTextures(this, theme);
+    const theme = this.theme;
+    const mods = this.mods;
+    makePlaceholderTextures(this, theme); // bats and shards come from the platformer set
+    makeShmupTextures(this, theme);
+    this.t = (name) => tex(theme, name);
 
     const level = buildShmup({ seed: this.seed, stage: 1 });
     this.level = level;
-    console.log(`[8-Bit Roulette] shmup seed ${this.seed} · cost ${level.cost}/${level.budget} · ${level.duration}s\n  ${level.waves.join(' → ')}`);
+    console.log(`[8-Bit Roulette] ${describeRun(content, this.run)} · seed ${this.seed} · cost ${level.cost}/${level.budget} · ${level.duration}s\n  ${level.waves.join(' → ')}`);
 
     const W = this.scale.width;
     const H = this.scale.height;
@@ -60,7 +72,7 @@ export default class ShmupScene extends Phaser.Scene {
     });
 
     // Player ship with a small, forgiving hitbox
-    this.player = this.physics.add.sprite(W / 2, H - 24, 'ship');
+    this.player = this.physics.add.sprite(W / 2, H - 24, this.t('ship'));
     this.player.setCollideWorldBounds(true);
     this.player.body.setSize(6, 6);
 
@@ -80,6 +92,14 @@ export default class ShmupScene extends Phaser.Scene {
       this.coinsCollected++;
       this.updateHud();
     });
+
+    // Twist: Darkness. Anything listed under "glow" stays visible in the dark.
+    this.darkness = null; // the scene object is reused between runs, so reset these
+    this.glow = null;
+    if (mods.lightRadius) {
+      this.darkness = addDarkness(this, mods);
+      this.glow = new Set(mods.glow || []);
+    }
 
     // Input: arrows to fly, hold Space or Z to fire
     this.cursors = this.input.keyboard.createCursorKeys();
@@ -112,12 +132,22 @@ export default class ShmupScene extends Phaser.Scene {
     const dx = (c.right.isDown ? 1 : 0) - (c.left.isDown ? 1 : 0);
     const dy = (c.down.isDown ? 1 : 0) - (c.up.isDown ? 1 : 0);
     const len = Math.hypot(dx, dy) || 1;
-    this.player.setVelocity((dx / len) * SHIP_SPEED, (dy / len) * SHIP_SPEED);
+    const vx = (dx / len) * SHIP_SPEED;
+    const vy = (dy / len) * SHIP_SPEED;
+    if (this.mods.shipResponse !== undefined) {
+      // Twist: Low Gravity. The ship eases toward the speed you're pushing
+      // for instead of snapping to it, so it drifts.
+      const k = Math.min(1, this.mods.shipResponse * dt);
+      const b = this.player.body.velocity;
+      this.player.setVelocity(b.x + (vx - b.x) * k, b.y + (vy - b.y) * k);
+    } else {
+      this.player.setVelocity(vx, vy);
+    }
 
     // Fire
     this.fireCooldown -= dt;
     if (this.fireKeys.some((k) => k.isDown) && this.fireCooldown <= 0) {
-      const shot = this.shots.create(this.player.x, this.player.y - 8, 'shot');
+      const shot = this.shots.create(this.player.x, this.player.y - 8, this.t('shot'));
       shot.setVelocityY(-SHOT_SPEED);
       this.fireCooldown = FIRE_RATE;
     }
@@ -135,6 +165,7 @@ export default class ShmupScene extends Phaser.Scene {
     }
 
     this.updateEnemies(dt);
+    this.darkness?.update(this.player);
 
     // Clean up anything that left the screen
     [this.shots, this.enemyShots, this.coins, this.enemies].forEach((group) => {
@@ -152,11 +183,13 @@ export default class ShmupScene extends Phaser.Scene {
   spawn(ev) {
     const x = ev.lane * LANE + LANE / 2;
     if (ev.kind === 'coin') {
-      this.coins.create(x, -8, 'coin').setVelocityY(40);
+      const coin = this.coins.create(x, -8, this.t('coin')).setVelocityY(40);
+      this.glowIf('coins', coin);
       return;
     }
     const def = ENEMY[ev.kind];
-    const enemy = this.enemies.create(x, -8, def.texture);
+    const enemy = this.enemies.create(x, -8, this.t(def.texture));
+    this.glowIf('enemies', enemy);
     enemy.kind = ev.kind;
     enemy.hp = def.hp;
     enemy.age = 0;
@@ -183,7 +216,8 @@ export default class ShmupScene extends Phaser.Scene {
           e.holdTime += dt;
           e.fireTimer -= dt;
           if (e.fireTimer <= 0) {
-            const shot = this.enemyShots.create(e.x, e.y + 6, 'eshot');
+            const shot = this.enemyShots.create(e.x, e.y + 6, this.t('eshot'));
+            this.glowIf('enemyShots', shot);
             this.physics.moveToObject(shot, this.player, ENEMY_SHOT_SPEED);
             e.fireTimer = TURRET_FIRE_RATE;
           }
@@ -194,6 +228,11 @@ export default class ShmupScene extends Phaser.Scene {
         }
       }
     });
+  }
+
+  // Darkness twist: lift this object above the dark if the twist says it glows.
+  glowIf(kind, obj) {
+    if (this.glow?.has(kind)) obj.setDepth(GLOW_DEPTH);
   }
 
   hitEnemy(shot, enemy) {
@@ -228,16 +267,15 @@ export default class ShmupScene extends Phaser.Scene {
     this.time.delayedCall(cleared ? 600 : 500, () =>
       this.scene.start('Result', {
         cleared,
-        seed: this.seed,
+        run: this.run,
         coins: this.coinsCollected,
         totalCoins: this.level.coins,
         seconds: Math.round(this.elapsed),
-        sceneKey: 'Shmup',
       }),
     );
   }
 
   updateHud() {
-    this.hud.setText(`LIVES ${this.lives}   SHARDS ${this.coinsCollected}/${this.level.coins}   SEED ${this.seed}`);
+    this.hud.setText(`LIVES ${this.lives}   ${this.theme.names.hudCoin} ${this.coinsCollected}/${this.level.coins}   SEED ${this.seed}`);
   }
 }

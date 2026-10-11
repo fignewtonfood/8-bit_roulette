@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import BootScene from './scenes/BootScene.js';
+import SpinScene from './scenes/SpinScene.js';
 import StageScene from './scenes/StageScene.js';
 import ShmupScene from './scenes/ShmupScene.js';
 import ResultScene from './scenes/ResultScene.js';
@@ -18,5 +19,5 @@ new Phaser.Game({
     default: 'arcade',
     arcade: { gravity: { y: 800 }, debug: params.has('debug') }, // ?debug shows hitboxes
   },
-  scene: [BootScene, StageScene, ShmupScene, ResultScene],
+  scene: [BootScene, SpinScene, StageScene, ShmupScene, ResultScene],
 });
