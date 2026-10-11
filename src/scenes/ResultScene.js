@@ -10,6 +10,8 @@ export default class ResultScene extends Phaser.Scene {
   create(d) {
     const cx = this.scale.width / 2;
     const p = theme.palette;
+    const sceneKey = d.sceneKey || 'Stage';                   // which genre we just played
+    const otherKey = sceneKey === 'Stage' ? 'Shmup' : 'Stage';
     this.cameras.main.setBackgroundColor(p.sky);
 
     this.add
@@ -27,6 +29,7 @@ export default class ResultScene extends Phaser.Scene {
       '',
       'R  replay this seed',
       'N  new seed',
+      `G  switch to ${otherKey === 'Shmup' ? "shoot-'em-up" : 'platformer'}`,
     ];
     this.add
       .text(cx, 84, lines.join('\n'), {
@@ -38,7 +41,8 @@ export default class ResultScene extends Phaser.Scene {
       })
       .setOrigin(0.5, 0);
 
-    this.input.keyboard.once('keydown-R', () => this.scene.start('Stage', { seed: d.seed }));
-    this.input.keyboard.once('keydown-N', () => this.scene.start('Stage', { seed: randomSeed() }));
+    this.input.keyboard.once('keydown-R', () => this.scene.start(sceneKey, { seed: d.seed }));
+    this.input.keyboard.once('keydown-N', () => this.scene.start(sceneKey, { seed: randomSeed() }));
+    this.input.keyboard.once('keydown-G', () => this.scene.start(otherKey, { seed: randomSeed() }));
   }
 }

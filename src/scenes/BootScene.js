@@ -3,8 +3,9 @@ import theme from '../data/themes/haunted-castle.json';
 import { makePlaceholderTextures } from '../art/placeholder.js';
 import { randomSeed } from '../gen/rng.js';
 
-// Builds the textures, picks a seed, starts the stage.
-// Add ?seed=12345 to the URL to replay a specific stage.
+// Builds the textures, picks a seed and a genre, starts the stage.
+//   ?seed=12345     replay a specific stage
+//   ?genre=shmup    start in the shoot-'em-up instead of the platformer
 export default class BootScene extends Phaser.Scene {
   constructor() {
     super('Boot');
@@ -12,8 +13,10 @@ export default class BootScene extends Phaser.Scene {
 
   create() {
     makePlaceholderTextures(this, theme);
-    const param = new URLSearchParams(window.location.search).get('seed');
+    const params = new URLSearchParams(window.location.search);
+    const param = params.get('seed');
     const seed = param && !Number.isNaN(Number(param)) ? Number(param) : randomSeed();
-    this.scene.start('Stage', { seed });
+    const sceneKey = params.get('genre') === 'shmup' ? 'Shmup' : 'Stage';
+    this.scene.start(sceneKey, { seed });
   }
 }
