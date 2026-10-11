@@ -1,0 +1,36 @@
+{
+  "_help": "Shop upgrades. 'costs' has one price per level, so its length is the max level. 'perLevel' is what each level adds: lives (extra lives per game), respins (re-spins per hub visit), consolation (extra tokens on any failed run). An upgrade with no perLevel can still be checked by name, like bigger-bets in economy.json.",
+  "upgrades": [
+    {
+      "id": "bigger-bets",
+      "name": "Bigger Bets",
+      "short": "BIGGER BETS",
+      "description": ["Level 1 unlocks Medium runs (3 stages, 2.5x).", "Level 2 unlocks Long runs (5 stages, 5x)."],
+      "costs": [60, 200]
+    },
+    {
+      "id": "extra-life",
+      "name": "Extra Life",
+      "short": "EXTRA LIFE",
+      "description": ["+1 life in every game."],
+      "costs": [40, 100],
+      "perLevel": { "lives": 1 }
+    },
+    {
+      "id": "respin",
+      "name": "Re-spin",
+      "short": "RE-SPIN",
+      "description": ["Don't like what landed? Spin again,", "once per trip to the hub."],
+      "costs": [50],
+      "perLevel": { "respins": 1 }
+    },
+    {
+      "id": "lucky-charm",
+      "name": "Lucky Charm",
+      "short": "LUCKY CHARM",
+      "description": ["+3 tokens on every run you lose."],
+      "costs": [30, 70],
+      "perLevel": { "consolation": 3 }
+    }
+  ]
+}

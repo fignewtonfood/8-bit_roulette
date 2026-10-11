@@ -3,10 +3,17 @@ import { content } from '../data/index.js';
 import { spin, describeRun } from '../engine/spin.js';
 import { startRun } from '../engine/startRun.js';
 import { randomSeed } from '../gen/rng.js';
+import { getSave, session } from '../engine/profile.js';
+import { lengthOptions, makeRun } from '../engine/run.js';
+import { C, hex, onPress } from '../ui/machine.js';
 
-// The slot machine: three reels that land on a theme, a genre and a twist.
-// The result is decided by spin() the moment you pull; the spinning reels are
-// just the show. The hub, the length bet and the payouts come in milestone 4.
+// The slot machine: pick a bet (game length), pull, and three reels land on a
+// theme, a genre and a twist. The result is decided by spin() the moment you
+// pull; the spinning reels are just the show.
+//
+// Whatever lands, you play: once the lever is pulled there's no backing out,
+// and spinning again needs a Re-spin from the shop (once per hub visit).
+// Practice mode (opened from the URL with ?spin) spins freely and pays nothing.
 
 const REELS = ['theme', 'genre', 'twist'];
 const LABELS = { theme: 'THEME', genre: 'GENRE', twist: 'TWIST' };
@@ -18,19 +25,6 @@ const SPIN_RATE = 14;        // entries per second while spinning
 const REROLL_PAUSE = 0.6;    // how long a blocked roll is shown before it re-rolls
 const REROLL_SPIN = 0.35;
 
-// The machine has its own colours; the theme only applies once you're in a game.
-const C = {
-  bg: '#0e0b16',
-  cabinet: '#6e1f2e',
-  cabinetDark: '#3c0f19',
-  gold: '#f2c14e',
-  window: '#f4ead2',
-  ink: '#1b1424',
-  faint: '#9a8f86',
-  warn: '#d8402e',
-  text: '#e8e2f0',
-};
-const hex = (c) => Phaser.Display.Color.HexStringToColor(c).color;
 
 export default class SpinScene extends Phaser.Scene {
   constructor() {
@@ -39,6 +33,7 @@ export default class SpinScene extends Phaser.Scene {
 
   init(data) {
     this.locks = data.locks || {};
+    this.practice = !!data.practice;
     this.mode = 'ready'; // ready → spinning → landed
   }
 
@@ -49,6 +44,9 @@ export default class SpinScene extends Phaser.Scene {
       this.add.text(x, y, s, { fontFamily: 'monospace', fontSize: `${size}px`, color }).setOrigin(0.5);
 
     text(W / 2, 18, '8-BIT ROULETTE', 16, C.gold);
+    this.add
+      .text(4, 4, this.practice ? 'PRACTICE' : `TOKENS ${getSave().tokens}`, { fontFamily: 'monospace', fontSize: '8px', color: this.practice ? C.warn : C.gold })
+      .setOrigin(0, 0);
 
     // Cabinet
     const g = this.add.graphics();
@@ -76,21 +74,64 @@ export default class SpinScene extends Phaser.Scene {
     this.info = this.add
       .text(W / 2, 150, '', { fontFamily: 'monospace', fontSize: '8px', color: C.text, align: 'center', lineSpacing: 3 })
       .setOrigin(0.5, 0);
+    this.betText = text(W / 2, 188, '', 8, C.text);
     this.prompt = text(W / 2, 206, '', 8, C.gold);
     this.seedText = this.add
       .text(W - 4, 220, '', { fontFamily: 'monospace', fontSize: '8px', color: C.faint })
       .setOrigin(1, 1);
     this.tweens.add({ targets: this.prompt, alpha: 0.25, duration: 500, yoyo: true, repeat: -1 });
 
-    const locked = Object.keys(this.locks);
-    this.info.setText(locked.length ? `Locked by the URL: ${locked.join(', ')}` : 'Three reels. One game.\nWhatever lands, you play.');
-    this.prompt.setText('SPACE / Z  PULL');
+    // The bet: every length, locked ones included so you can see what's coming.
+    this.lengths = lengthOptions(content, getSave(), session.unlockAll || this.practice);
+    this.bet = Math.max(0, this.lengths.findIndex((l) => l.id === session.lastLength && !l.locked));
 
-    const go = () => (this.mode === 'ready' ? this.pull() : this.mode === 'landed' ? startRun(this, this.result) : null);
-    const kb = this.input.keyboard;
-    const on = (key, fn) => kb.on(`keydown-${key}`, (e) => !e.repeat && fn()); // ignore held keys
-    ['SPACE', 'Z', 'ENTER'].forEach((k) => on(k, go));
-    on('S', () => this.mode === 'landed' && this.pull());
+    const locked = Object.keys(this.locks);
+    this.readyInfo = locked.length ? `Locked by the URL: ${locked.join(', ')}` : 'Three reels. One game.\nWhatever lands, you play.';
+    this.info.setText(this.readyInfo);
+    this.showBet();
+
+    onPress(this, ['SPACE', 'Z', 'ENTER'], () => {
+      if (this.mode === 'ready') this.pull();
+      else if (this.mode === 'landed') this.play();
+    });
+    onPress(this, ['LEFT'], () => this.changeBet(-1), 0);
+    onPress(this, ['RIGHT'], () => this.changeBet(1), 0);
+    onPress(this, ['S'], () => this.mode === 'landed' && this.canRespin() && this.respin());
+    onPress(this, ['X', 'ESC'], () => this.mode === 'ready' && this.scene.start('Hub'));
+  }
+
+  // ---------- The bet ----------
+
+  changeBet(step) {
+    if (this.mode !== 'ready') return;
+    this.bet = (this.bet + step + this.lengths.length) % this.lengths.length;
+    this.info.setText(this.readyInfo).setColor(C.text);
+    this.showBet();
+  }
+
+  showBet() {
+    const len = this.lengths[this.bet];
+    const many = this.lengths.length > 1;
+    const stages = `${len.stages} STAGE${len.stages === 1 ? '' : 'S'}`;
+    const body = len.locked ? `${len.name.toUpperCase()}  LOCKED` : `${len.name.toUpperCase()}  ${stages}  x${len.multiplier}`;
+    this.betText.setText(many && this.mode === 'ready' ? `< ${body} >` : body).setColor(len.locked ? C.faint : C.text);
+    if (this.mode !== 'ready') return;
+    this.prompt.setText(len.locked ? `NEEDS ${len.unlockedBy} FROM THE SHOP` : 'SPACE PULL      X BACK').setColor(len.locked ? C.faint : C.gold);
+  }
+
+  canRespin() {
+    return this.practice || session.respinsLeft > 0;
+  }
+
+  respin() {
+    if (!this.practice) session.respinsLeft--;
+    this.pull();
+  }
+
+  play() {
+    const len = this.lengths[this.bet];
+    session.lastLength = len.id;
+    startRun(this, makeRun(content, getSave(), this.result, len.id, { practice: this.practice }));
   }
 
   label(reel, id) {
@@ -99,7 +140,15 @@ export default class SpinScene extends Phaser.Scene {
   }
 
   pull() {
+    const len = this.lengths[this.bet];
+    if (len.locked) {
+      this.info.setText(`${len.name} runs unlock with ${len.unlockedBy}.`).setColor(C.warn);
+      this.cameras.main.shake(80, 0.003);
+      return;
+    }
     this.mode = 'spinning';
+    this.info.setColor(C.text);
+    this.showBet();
     this.result = spin(content, randomSeed(), this.locks);
     this.info.setText('');
     this.prompt.setText('');
@@ -157,8 +206,9 @@ export default class SpinScene extends Phaser.Scene {
     const run = this.result;
     const twist = content.twists[run.twist];
     console.log(`[8-Bit Roulette] spin ${run.seed}: ${describeRun(content, run)}${run.rerolled.length ? ` (re-rolled: ${run.rerolled.join(', ')})` : ''}`);
-    this.info.setText(`${describeRun(content, run)}\n\n${twist.description}`);
-    this.prompt.setText('SPACE PLAY      S SPIN AGAIN');
+    this.info.setText(`${describeRun(content, run)}\n${twist.description}`);
+    const respin = this.practice ? '      S SPIN AGAIN' : session.respinsLeft > 0 ? `      S RE-SPIN (${session.respinsLeft})` : '';
+    this.prompt.setText(`SPACE PLAY${respin}`).setColor(C.gold);
     this.mode = 'landed';
   }
 

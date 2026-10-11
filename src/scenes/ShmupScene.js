@@ -4,6 +4,7 @@ import { content } from '../data/index.js';
 import { twistSettings } from '../engine/content.js';
 import { describeRun } from '../engine/spin.js';
 import { addDarkness, GLOW_DEPTH } from '../engine/darkness.js';
+import { endStage } from '../engine/startRun.js';
 import { makePlaceholderTextures, tex } from '../art/placeholder.js';
 import { makeShmupTextures } from '../art/shmupPlaceholder.js';
 
@@ -14,7 +15,8 @@ const SHIP_SPEED = 120;        // px/s
 const SHOT_SPEED = 260;
 const FIRE_RATE = 0.15;        // seconds between shots while holding fire
 const INVULNERABLE_TIME = 1.5; // seconds of flicker after getting hit
-const START_LIVES = 3;
+// Starting lives come from economy.json (plus Extra Life upgrades) and carry
+// over from stage to stage.
 const DIVE_SPEED = 120;
 const ENEMY_SHOT_SPEED = 75;
 const TURRET_FIRE_RATE = 1.4;
@@ -33,13 +35,13 @@ export default class ShmupScene extends Phaser.Scene {
     super({ key: 'Shmup', physics: { arcade: { gravity: { x: 0, y: 0 } } } });
   }
 
-  // data.run = { seed, theme, genre, twist } from the slot machine
+  // data.run: see src/engine/run.js (reels, bet, stage number, lives left)
   init(data) {
     this.run = data.run;
     this.seed = data.run.seed;
     this.theme = content.themes[data.run.theme];
     this.mods = twistSettings(content, data.run.twist, 'shmup'); // the twist's settings
-    this.lives = START_LIVES;
+    this.lives = data.run.lives;
     this.coinsCollected = 0;
     this.elapsed = 0;
     this.nextEvent = 0;
@@ -55,9 +57,9 @@ export default class ShmupScene extends Phaser.Scene {
     makeShmupTextures(this, theme);
     this.t = (name) => tex(theme, name);
 
-    const level = buildShmup({ seed: this.seed, stage: 1 });
+    const level = buildShmup({ seed: this.seed, stage: this.run.stage });
     this.level = level;
-    console.log(`[8-Bit Roulette] ${describeRun(content, this.run)} · seed ${this.seed} · cost ${level.cost}/${level.budget} · ${level.duration}s\n  ${level.waves.join(' → ')}`);
+    console.log(`[8-Bit Roulette] ${describeRun(content, this.run)} · stage ${this.run.stage}/${this.run.stages} · seed ${this.seed} · cost ${level.cost}/${level.budget} · ${level.duration}s\n  ${level.waves.join(' → ')}`);
 
     const W = this.scale.width;
     const H = this.scale.height;
@@ -265,17 +267,17 @@ export default class ShmupScene extends Phaser.Scene {
     this.finished = true;
     this.physics.pause();
     this.time.delayedCall(cleared ? 600 : 500, () =>
-      this.scene.start('Result', {
+      endStage(this, this.run, {
         cleared,
-        run: this.run,
         coins: this.coinsCollected,
         totalCoins: this.level.coins,
         seconds: Math.round(this.elapsed),
+        livesLeft: this.lives,
       }),
     );
   }
 
   updateHud() {
-    this.hud.setText(`LIVES ${this.lives}   ${this.theme.names.hudCoin} ${this.coinsCollected}/${this.level.coins}   SEED ${this.seed}`);
+    this.hud.setText(`LIVES ${this.lives}   ${this.theme.names.hudCoin} ${this.coinsCollected}/${this.level.coins}   STAGE ${this.run.stage}/${this.run.stages}`);
   }
 }

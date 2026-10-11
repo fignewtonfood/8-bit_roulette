@@ -24,6 +24,8 @@ export function loadContent() {
     reels: read('reels.json'),
     genres: read('genres.json'),
     compatibility: read('compatibility.json'),
+    economy: read('economy.json'),
+    shop: read('shop.json'),
     themes: folder('themes'),
     twists: folder('twists'),
   });

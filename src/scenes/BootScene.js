@@ -2,17 +2,24 @@ import Phaser from 'phaser';
 import { content } from '../data/index.js';
 import { spin, describeRun } from '../engine/spin.js';
 import { startRun } from '../engine/startRun.js';
+import { makeRun } from '../engine/run.js';
+import { getSave, setSave, resetSave, session } from '../engine/profile.js';
 import { randomSeed } from '../gen/rng.js';
 
-// Reads the URL, then either opens the slot machine or (for testing) jumps
-// straight into a game.
+// Reads the URL, then opens the hub or (for testing) jumps somewhere else.
 //
-//   (nothing)                 the slot machine
-//   ?seed=12345               replay a run exactly (same reels, same stage)
-//   ?genre=shmup              force a reel; also ?theme=neon-space, ?twist=darkness
-//   ?spin                     open the machine even with the options above;
-//                             forced reels stay locked when it spins
-// Mix them freely: ?genre=platformer&twist=low-gravity&seed=7
+//   (nothing)                 the hub: walk up to the machine to play
+//   ?seed=12345               practice: replay a run exactly (same reels, same stages)
+//   ?genre=shmup              practice: force a reel; also ?theme=neon-space, ?twist=darkness
+//   ?length=medium            practice: how many stages (short, medium, long)
+//   ?spin                     practice slot machine; forced reels stay locked,
+//                             every length is open, spin again freely
+// Practice runs pay no tokens. Mix them freely: ?genre=platformer&twist=low-gravity&seed=7
+//
+// Save tools (for playtesting):
+//   ?unlock                   every length open in the real game (this visit only)
+//   ?tokens=500               add 500 tokens to your save
+//   ?reset                    wipe your save and start over
 export default class BootScene extends Phaser.Scene {
   constructor() {
     super('Boot');
@@ -20,6 +27,18 @@ export default class BootScene extends Phaser.Scene {
 
   create() {
     const params = new URLSearchParams(window.location.search);
+
+    if (params.has('reset')) {
+      resetSave();
+      console.log('[8-Bit Roulette] Save wiped.');
+    }
+    const bonus = Number(params.get('tokens'));
+    if (bonus > 0) {
+      const save = getSave();
+      setSave({ ...save, tokens: save.tokens + Math.floor(bonus) });
+      console.log(`[8-Bit Roulette] +${Math.floor(bonus)} tokens (now ${getSave().tokens}). Remove ?tokens from the URL or a refresh adds them again.`);
+    }
+    session.unlockAll = params.has('unlock');
 
     const locks = {};
     for (const [reel, known] of [['theme', content.themes], ['genre', content.genres], ['twist', content.twists]]) {
@@ -31,14 +50,23 @@ export default class BootScene extends Phaser.Scene {
 
     const seedParam = params.get('seed');
     const hasSeed = seedParam !== null && seedParam !== '' && !Number.isNaN(Number(seedParam));
+    const lengthId = params.get('length');
+    if (lengthId && !content.economy.lengths.some((l) => l.id === lengthId)) {
+      console.warn(`[8-Bit Roulette] unknown length "${lengthId}". Options: ${content.economy.lengths.map((l) => l.id).join(', ')}`);
+    }
 
-    if (params.has('spin') || (!hasSeed && !Object.keys(locks).length)) {
-      this.scene.start('Spin', { locks });
+    if (params.has('spin')) {
+      if (lengthId) session.lastLength = lengthId;
+      this.scene.start('Spin', { locks, practice: true });
+      return;
+    }
+    if (!hasSeed && !Object.keys(locks).length && !lengthId) {
+      this.scene.start('Hub');
       return;
     }
 
     const result = spin(content, hasSeed ? Number(seedParam) : randomSeed(), locks);
     if (result.problem) console.warn(`[8-Bit Roulette] ${describeRun(content, result)} is blocked (${result.problem}), playing it anyway for testing.`);
-    startRun(this, result);
+    startRun(this, makeRun(content, getSave(), result, lengthId, { practice: true }));
   }
 }

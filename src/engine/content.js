@@ -13,7 +13,10 @@ export const PALETTE_KEYS = [
 export const NAME_KEYS = ['enemy', 'coin', 'hudCoin'];
 const RULE_KEYS = ['theme', 'genre', 'twist'];
 
-export function assembleContent({ reels, genres, themes, twists, compatibility }) {
+const EFFECTS = ['lives', 'respins', 'consolation'];
+const ON_FAIL = ['consolation', 'partial'];
+
+export function assembleContent({ reels, genres, themes, twists, compatibility, economy, shop }) {
   const errors = [];
   const fail = (msg) => errors.push(msg);
 
@@ -71,6 +74,44 @@ export function assembleContent({ reels, genres, themes, twists, compatibility }
     return rule;
   });
 
+  // Shop upgrades
+  const upgrades = {};
+  for (const [i, u] of (shop?.upgrades || []).entries()) {
+    const where = `shop.json: upgrade ${i + 1}${u.id ? ` ("${u.id}")` : ''}`;
+    if (!u.id) fail(`${where} needs an "id".`);
+    if (upgrades[u.id]) fail(`${where}: the id is used twice.`);
+    if (!u.name) fail(`${where} needs a "name".`);
+    if (!Array.isArray(u.costs) || !u.costs.length || u.costs.some((c) => !Number.isInteger(c) || c < 0)) {
+      fail(`${where}: "costs" should be a list of whole numbers, one per level.`);
+    }
+    for (const k of Object.keys(u.perLevel || {})) {
+      if (!EFFECTS.includes(k)) fail(`${where}: unknown perLevel "${k}" (options: ${EFFECTS.join(', ')}).`);
+    }
+    upgrades[u.id] = { short: u.name.toUpperCase(), description: [], perLevel: {}, ...u };
+  }
+
+  // Economy: lengths and payouts
+  const eco = economy || {};
+  for (const k of ['startLives', 'stageTokens', 'coinTokens', 'consolation']) {
+    if (typeof eco[k] !== 'number' || eco[k] < 0) fail(`economy.json: "${k}" should be a number.`);
+  }
+  const lengths = (eco.lengths || []).map((len, i) => {
+    const where = `economy.json: length ${i + 1}${len.id ? ` ("${len.id}")` : ''}`;
+    if (!len.id || !len.name) fail(`${where} needs an "id" and a "name".`);
+    if (!Number.isInteger(len.stages) || len.stages < 1) fail(`${where}: "stages" should be 1 or more.`);
+    if (typeof len.multiplier !== 'number' || len.multiplier <= 0) fail(`${where}: "multiplier" should be a number above 0.`);
+    if (!ON_FAIL.includes(len.onFail)) fail(`${where}: "onFail" should be one of ${ON_FAIL.join(', ')}.`);
+    const req = len.requires;
+    if (req) {
+      const u = upgrades[req.upgrade];
+      if (!u) fail(`${where} requires unknown upgrade "${req.upgrade}" (not in shop.json).`);
+      else if (!(req.level >= 1 && req.level <= u.costs.length)) fail(`${where} requires ${req.upgrade} level ${req.level}, but it only has ${u.costs.length} level(s).`);
+    }
+    return len;
+  });
+  if (economy && !lengths.length) fail('economy.json: list at least one length under "lengths".');
+  if (economy && lengths.length && lengths[0].requires) fail('economy.json: the first length must be unlocked from the start (no "requires").');
+
   if (errors.length) {
     throw new Error(`Content problems:\n  - ${errors.join('\n  - ')}`);
   }
@@ -81,6 +122,8 @@ export function assembleContent({ reels, genres, themes, twists, compatibility }
     genres: genreMap,
     twists,
     blocked,
+    economy: { ...eco, lengths },
+    shop: { upgrades },
   };
 }
 

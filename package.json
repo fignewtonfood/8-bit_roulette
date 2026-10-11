@@ -1,16 +1,17 @@
 {
   "name": "8bit-roulette",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.4.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "check": "node tools/check-chunks.js && node tools/check-waves.js && node tools/check-engine.js",
+    "check": "node tools/check-chunks.js && node tools/check-waves.js && node tools/check-engine.js && node tools/check-loop.js",
     "check:chunks": "node tools/check-chunks.js",
     "check:shmup": "node tools/check-waves.js",
-    "check:engine": "node tools/check-engine.js"
+    "check:engine": "node tools/check-engine.js",
+    "check:loop": "node tools/check-loop.js"
   },
   "dependencies": {
     "phaser": "^3.90.0"

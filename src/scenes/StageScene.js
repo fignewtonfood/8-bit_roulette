@@ -4,6 +4,7 @@ import { content } from '../data/index.js';
 import { twistSettings } from '../engine/content.js';
 import { describeRun } from '../engine/spin.js';
 import { addDarkness, GLOW_DEPTH } from '../engine/darkness.js';
+import { endStage } from '../engine/startRun.js';
 import { makePlaceholderTextures, tex } from '../art/placeholder.js';
 
 const TILE = 16;
@@ -17,20 +18,21 @@ const STOMP_BOUNCE = 0.7;
 const COYOTE_TIME = 0.1;      // s you can still jump after walking off a ledge
 const JUMP_BUFFER = 0.1;      // s a jump press is remembered before landing
 const ENEMY_SPEED = 35;
-const START_LIVES = 3;
+// Starting lives come from economy.json (plus Extra Life upgrades) and carry
+// over from stage to stage.
 
 export default class StageScene extends Phaser.Scene {
   constructor() {
     super('Stage');
   }
 
-  // data.run = { seed, theme, genre, twist } from the slot machine
+  // data.run: see src/engine/run.js (reels, bet, stage number, lives left)
   init(data) {
     this.run = data.run;
     this.seed = data.run.seed;
     this.theme = content.themes[data.run.theme];
     this.mods = twistSettings(content, data.run.twist, 'platformer'); // the twist's settings
-    this.lives = START_LIVES;
+    this.lives = data.run.lives;
     this.coinsCollected = 0;
     this.dying = false;
     this.finished = false;
@@ -44,11 +46,11 @@ export default class StageScene extends Phaser.Scene {
     const t = (name) => tex(theme, name);
     makePlaceholderTextures(this, theme);
 
-    const level = buildStage({ seed: this.seed, stage: 1 });
+    const level = buildStage({ seed: this.seed, stage: this.run.stage });
     this.level = level;
     const worldW = level.widthTiles * TILE;
     const worldH = level.heightTiles * TILE;
-    console.log(`[8-Bit Roulette] ${describeRun(content, this.run)} · seed ${this.seed} · cost ${level.cost}/${level.budget}\n  ${level.chunks.join(' → ')}`);
+    console.log(`[8-Bit Roulette] ${describeRun(content, this.run)} · stage ${this.run.stage}/${this.run.stages} · seed ${this.seed} · cost ${level.cost}/${level.budget}\n  ${level.chunks.join(' → ')}`);
 
     this.cameras.main.setBackgroundColor(theme.palette.sky);
 
@@ -224,19 +226,19 @@ export default class StageScene extends Phaser.Scene {
     this.physics.pause();
     const seconds = Math.round((this.time.now - this.startTime) / 1000);
     this.time.delayedCall(cleared ? 600 : 300, () =>
-      this.scene.start('Result', {
+      endStage(this, this.run, {
         cleared,
-        run: this.run,
         coins: this.coinsCollected,
         totalCoins: this.level.coins.length,
         seconds,
+        livesLeft: this.lives,
       }),
     );
   }
 
   updateHud() {
     this.hud.setText(
-      `LIVES ${this.lives}   ${this.theme.names.hudCoin} ${this.coinsCollected}/${this.level.coins.length}   SEED ${this.seed}`,
+      `LIVES ${this.lives}   ${this.theme.names.hudCoin} ${this.coinsCollected}/${this.level.coins.length}   STAGE ${this.run.stage}/${this.run.stages}`,
     );
   }
 }
