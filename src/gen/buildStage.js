@@ -1,0 +1,104 @@
+// Turns a seed into a playable stage by stitching chunks together.
+// No Phaser in here on purpose: it can be tested with plain Node (npm run check).
+
+import { CHUNKS, CHUNK_W, CHUNK_H } from './chunks.js';
+import { makeRng } from './rng.js';
+
+// Pacing template: the order of chunk "slots" between start and exit.
+export const PACING = ['easy', 'build', 'rest', 'build', 'hard', 'rest', 'hard'];
+
+// Difficulty budget per stage number (from the design doc).
+export const STAGE_BUDGETS = [10, 14, 19, 24, 30];
+
+const OPTIONAL_ENEMY_COST = 1;
+const RARE_WEIGHT = { secret: 0.2 }; // secret chunks show up ~5x less often
+
+const isCore = (c) => c.type !== 'rest' && c.type !== 'secret';
+const SLOT_RULES = {
+  easy: (c) => isCore(c) && c.difficulty <= 1,
+  build: (c) => isCore(c) && c.difficulty >= 1 && c.difficulty <= 2,
+  hard: (c) => isCore(c) && c.difficulty >= 2,
+  rest: (c) => c.type === 'rest' || c.type === 'secret',
+};
+
+export function buildStage({ seed, stage = 1 }) {
+  const rng = makeRng(seed * 31 + stage);
+  const budget = STAGE_BUDGETS[Math.min(stage, STAGE_BUDGETS.length) - 1];
+  const pool = CHUNKS.filter((c) => c.type !== 'start' && c.type !== 'exit');
+  const slotMin = (slot) => Math.min(...pool.filter(SLOT_RULES[slot]).map((c) => c.difficulty));
+
+  // 1. Pick a chunk for each slot without blowing the budget.
+  let remaining = budget;
+  const picks = [];
+  const timesUsed = {};
+
+  PACING.forEach((slot, i) => {
+    // Hold back enough budget for the cheapest option in every later slot.
+    const reserve = PACING.slice(i + 1).reduce((sum, s) => sum + slotMin(s), 0);
+    const affordable = pool.filter((c) => SLOT_RULES[slot](c) && c.difficulty <= remaining - reserve);
+    const prev = picks[picks.length - 1];
+
+    let chunk = rng.weighted(affordable, (c) => {
+      if (prev && c.id === prev.chunk.id) return 0;            // never twice in a row
+      const rarity = RARE_WEIGHT[c.type] ?? 1;
+      return rarity / (1 + 3 * (timesUsed[c.id] || 0));         // fade out repeats
+    });
+    if (!chunk) chunk = pool.filter((c) => c.type === 'rest')[0]; // safe fallback, costs 0
+
+    timesUsed[chunk.id] = (timesUsed[chunk.id] || 0) + 1;
+    remaining -= chunk.difficulty;
+    picks.push({ chunk, mirrored: rng.chance(0.5) });
+  });
+
+  // 2. Lay the chunks out side by side.
+  const pickOne = (type) => rng.weighted(CHUNKS.filter((c) => c.type === type), () => 1);
+  const sequence = [
+    { chunk: pickOne('start'), mirrored: false },
+    ...picks,
+    { chunk: pickOne('exit'), mirrored: false },
+  ];
+
+  const level = {
+    seed,
+    stage,
+    budget,
+    cost: 0,
+    widthTiles: sequence.length * CHUNK_W,
+    heightTiles: CHUNK_H,
+    solid: Array.from({ length: CHUNK_H }, () => []), // solid[y][x] = true/false
+    spikes: [],
+    coins: [],
+    enemies: [],
+    playerStart: null,
+    flag: null,
+    chunks: [],
+  };
+  const optionalEnemies = [];
+
+  sequence.forEach(({ chunk, mirrored }, ci) => {
+    level.chunks.push(chunk.id + (mirrored ? ' (mirrored)' : ''));
+    chunk.rows.forEach((row, y) => {
+      const chars = mirrored ? [...row].reverse() : [...row];
+      chars.forEach((ch, x) => {
+        const pos = { x: ci * CHUNK_W + x, y };
+        level.solid[y][pos.x] = ch === '#';
+        if (ch === '^') level.spikes.push(pos);
+        else if (ch === 'C') level.coins.push(pos);
+        else if (ch === 'E') level.enemies.push(pos);
+        else if (ch === 'e') optionalEnemies.push(pos);
+        else if (ch === 'P') level.playerStart = pos;
+        else if (ch === 'F') level.flag = pos;
+      });
+    });
+  });
+
+  // 3. Spend leftover budget on optional enemies.
+  for (const pos of rng.shuffle(optionalEnemies)) {
+    if (remaining < OPTIONAL_ENEMY_COST) break;
+    level.enemies.push(pos);
+    remaining -= OPTIONAL_ENEMY_COST;
+  }
+
+  level.cost = budget - remaining;
+  return level;
+}

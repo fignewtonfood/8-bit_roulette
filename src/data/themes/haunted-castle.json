@@ -1,0 +1,20 @@
+{
+  "id": "haunted-castle",
+  "name": "Haunted Castle",
+  "palette": {
+    "sky": "#140c1c",
+    "ground": "#4e4a6e",
+    "groundDark": "#2e2a44",
+    "groundTop": "#8e8aae",
+    "player": "#e8d8a0",
+    "enemy": "#c04060",
+    "spike": "#d0d0e0",
+    "coin": "#80e0f0",
+    "flag": "#70d080",
+    "text": "#e8e8f0"
+  },
+  "names": {
+    "enemy": "Bat",
+    "coin": "Soul shard"
+  }
+}
