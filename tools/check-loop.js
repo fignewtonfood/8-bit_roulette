@@ -14,7 +14,7 @@ import { newSave, parseSave, loadSave, storeSave, SAVE_KEY } from '../src/engine
 import { makeRng } from '../src/gen/rng.js';
 import { playsOf, levelFor, levelsGained, progressLines, maxLevel } from '../src/engine/progress.js';
 import { twistAt, stageRules, twistSettings } from '../src/engine/content.js';
-import { runSpeed } from '../src/engine/speed.js';
+import { runSpeed, windScale } from '../src/engine/speed.js';
 import { buildStage } from '../src/gen/buildStage.js';
 import { buildShmup } from '../src/gen/buildShmup.js';
 import { buildBrawl } from '../src/gen/buildBrawl.js';
@@ -171,6 +171,21 @@ expect(loadSave(blocked).note && !storeSave(blocked, fresh), 'blocked storage sh
     expect([2, 3].every((lv) => (twistSettings(content, 'speedy', g, lv).enemyScale > twistSettings(content, 'speedy', g, lv - 1).enemyScale)), `speedy (${g}): enemies should get faster each level`);
     expect(!twistSettings(content, 'mud', g, 3).enemyScale, `mud (${g}) slows only the player`);
   }
+  // Windy: faster with the wind, slower against, both on the ground and in
+  // the air; never a gravity/jump setting, and it swaps often enough to wait out.
+  for (let lv = 1; lv <= 3; lv++) for (const g of ['platformer', 'brawler']) {
+    const mods = twistSettings(content, 'windy', g, lv);
+    expect(windScale(mods, -1, -1) > 1 && windScale(mods, -1, 1) < 1 && windScale(mods, -1, 0) === 1, `windy level ${lv} (${g}): with the wind faster, against slower, still = no drift`);
+    expect(mods.gravityScale === undefined && mods.jumpScale === undefined, `windy level ${lv} (${g}) shouldn't touch jump height`);
+    expect(mods.wind < 0.5 && mods.windEvery > 0 && mods.windEvery <= 8, `windy level ${lv} (${g}): wind under 50% and swaps within 8 s, so a jump can always wait for a better gust`);
+  }
+  expect([2, 3].every((lv) => twistSettings(content, 'windy', 'platformer', lv).wind > twistSettings(content, 'windy', 'platformer', lv - 1).wind
+    && twistSettings(content, 'windy', 'platformer', lv).windEvery < twistSettings(content, 'windy', 'platformer', lv - 1).windEvery), 'windy: each level is stronger and swaps sooner');
+  expect(!content.twists.windy.genres.shmup && Object.keys(content.twists.gravity.genres).join() === 'shmup', 'windy is never in the shmup; gravity is only in the shmup');
+  const pulls = [1, 2, 3].map((lv) => twistSettings(content, 'gravity', 'shmup', lv));
+  expect(pulls.every((m) => m.pull === pulls[0].pull), 'gravity: the pull is the same strength at every level');
+  expect(!pulls[0].shiftEvery && pulls[1].shiftEvery > 0 && pulls[2].shiftEvery > 0, 'gravity: no shifting at level 1, shifting at levels 2 and 3');
+
   // Sudden Death's difficulty budget: level 1 a bit under normal, 2 a bit over, 3 well over.
   for (const [name, build] of [['platformer', buildStage], ['shmup', buildShmup], ['brawler', buildBrawl]]) {
     for (let stage = 1; stage <= 5; stage++) {

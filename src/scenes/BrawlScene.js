@@ -6,7 +6,8 @@ import { twistSettings, objectiveOf, stageRules } from '../engine/content.js';
 import { describeRun } from '../engine/spin.js';
 import { addDarkness, GLOW_DEPTH } from '../engine/darkness.js';
 import { endStage } from '../engine/startRun.js';
-import { runSpeed, enemyScale } from '../engine/speed.js';
+import { runSpeed, enemyScale, windScale } from '../engine/speed.js';
+import { addWind } from '../ui/wind.js';
 import { pixelText } from '../ui/font.js';
 import { addGlitchFx } from '../ui/glitch.js';
 import { addObjectiveHint, leftMessage, LOCKED_ALPHA } from '../ui/objective.js';
@@ -186,6 +187,7 @@ export default class BrawlScene extends Phaser.Scene {
 
     // HUD
     this.hud = pixelText(this, 4, 4, '', { color: theme.palette.text }).setScrollFactor(0).setDepth(10);
+    this.wind = addWind(this, mods, theme.palette.text); // twist Windy, or null
     this.goSign = pixelText(this, this.scale.width - 26, 100, 'GO>', { color: theme.palette.text })
       .setScrollFactor(0)
       .setDepth(10)
@@ -217,6 +219,7 @@ export default class BrawlScene extends Phaser.Scene {
 
     this.rocks.getChildren().slice().forEach((r) => r.y > this.worldH + 32 && r.destroy());
     this.darkness?.update(this.player);
+    this.wind?.update(dt);
   }
 
   // ---------------------------------------------------------------- player
@@ -243,6 +246,8 @@ export default class BrawlScene extends Phaser.Scene {
     let runTarget = left === right ? 0 : left ? -speed : speed;
     const punching = this.atk && !this.atk.def.air && grounded;
     if (punching) runTarget = 0;
+    // Twist Windy: faster with the wind, slower against it, in the air too.
+    if (this.wind) runTarget *= windScale(this.mods, this.wind.dir, Math.sign(runTarget));
     else if (left !== right) this.facing = left ? -1 : 1;
     p.setFlipX(this.facing < 0);
     this.steer(p, runTarget, grounded ? this.mods.groundGrip : this.mods.airGrip ?? this.mods.groundGrip, dt);

@@ -81,7 +81,7 @@ for (const twist of twists) {
   }
 }
 
-// ---------- Slow ships (Mud): every stage must stay dodgeable ----------
+// ---------- Slow ships (Mud) and pulled ships (Gravity): every stage must stay dodgeable ----------
 // Mirrors ShmupScene.js: keep these in step with its feel knobs.
 const SHIP_SPEED = 120;   // px/s at normal speed
 const LANE = 16;          // px
@@ -117,12 +117,17 @@ function speedNeeded(lvl) {
   return { need, blocked };
 }
 
+// A pulled ship's worst case is flying straight against the pull.
 const slowShips = twists.flatMap((t) =>
-  Array.from({ length: twistMaxLevel(content, t) }, (_, i) => ({ twist: t, level: i + 1, scale: twistSettings(content, t, GENRE, i + 1).shipScale ?? 1 })),
-).filter((x) => x.scale < 1);
+  Array.from({ length: twistMaxLevel(content, t) }, (_, i) => {
+    const mods = twistSettings(content, t, GENRE, i + 1);
+    return { twist: t, level: i + 1, scale: mods.shipScale ?? 1, pull: mods.pull ?? 0 };
+  }),
+).filter((x) => x.scale < 1 || x.pull > 0);
 const slowReport = [];
-for (const { twist, level, scale } of slowShips) {
-  const ship = SHIP_SPEED * scale;
+for (const { twist, level, scale, pull } of slowShips) {
+  const ship = SHIP_SPEED * scale - pull;
+  if (ship <= 0) problems.push(`${twist} level ${level}: a pull of ${pull} px/s is stronger than the ship; it could never fly against it`);
   let worst = 0;
   for (let seed = 1; seed <= 200; seed++) for (let stage = 1; stage <= 5; stage++) {
     const lvl = buildShmup({ seed, stage, twist, ...stageRules(content, twist, level) });
@@ -131,7 +136,7 @@ for (const { twist, level, scale } of slowShips) {
     if (blocked) problems.push(`${twist} level ${level} seed ${seed} stage ${stage}: a bat wall with no gap at all`);
     if (need > ship * SAFETY) problems.push(`${twist} level ${level} seed ${seed} stage ${stage}: needs ${need.toFixed(0)} px/s, the ship only has ${ship.toFixed(0)}`);
   }
-  slowReport.push(`  ${twist} level ${level}: ship ${ship.toFixed(0)} px/s, hardest stage needs ${worst.toFixed(0)} px/s`);
+  slowReport.push(`  ${twist} level ${level}: ship ${ship.toFixed(0)} px/s${pull ? ' against the pull' : ''}, hardest stage needs ${worst.toFixed(0)} px/s`);
 }
 if (slowReport.length) console.log(`\nSlow ships (must stay under ${Math.round(SAFETY * 100)}% of the ship's speed):\n${slowReport.join('\n')}`);
 

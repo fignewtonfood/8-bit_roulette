@@ -5,7 +5,8 @@ import { twistSettings, objectiveOf, stageRules } from '../engine/content.js';
 import { describeRun } from '../engine/spin.js';
 import { addDarkness, GLOW_DEPTH } from '../engine/darkness.js';
 import { endStage } from '../engine/startRun.js';
-import { runSpeed, enemyScale } from '../engine/speed.js';
+import { runSpeed, enemyScale, windScale } from '../engine/speed.js';
+import { addWind } from '../ui/wind.js';
 import { pixelText } from '../ui/font.js';
 import { addGlitchFx } from '../ui/glitch.js';
 import { addObjectiveHint, leftMessage, LOCKED_ALPHA } from '../ui/objective.js';
@@ -129,6 +130,7 @@ export default class StageScene extends Phaser.Scene {
     this.jumpKeys = [this.cursors.up, this.cursors.space];
 
     // HUD
+    this.wind = addWind(this, mods, theme.palette.text); // twist Windy, or null
     this.hud = pixelText(this, 4, 4, '', { color: theme.palette.text })
       .setScrollFactor(0)
       .setDepth(10);
@@ -150,7 +152,9 @@ export default class StageScene extends Phaser.Scene {
     const right = this.cursors.right.isDown;
     // Twists Speedy and Mud change your ground speed only, never your jumps.
     const speed = runSpeed(RUN_SPEED, this.mods, body.blocked.down);
-    const runTarget = left === right ? 0 : left ? -speed : speed;
+    let runTarget = left === right ? 0 : left ? -speed : speed;
+    // Twist Windy: faster with the wind, slower against it, in the air too.
+    if (this.wind) runTarget *= windScale(this.mods, this.wind.dir, Math.sign(runTarget));
     if (this.mods.groundGrip !== undefined) {
       // Twist: Slippery. Speed eases toward what you're pushing for, slowly
       // on the ground (ice) and a bit faster in the air.
@@ -182,6 +186,7 @@ export default class StageScene extends Phaser.Scene {
 
     this.updateEnemies();
     this.darkness?.update(p);
+    this.wind?.update(dt);
   }
 
   updateEnemies() {

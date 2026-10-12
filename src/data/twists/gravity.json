@@ -1,0 +1,26 @@
+{
+  "id": "gravity",
+  "name": "Gravity",
+  "short": "GRAVITY",
+  "description": "A steady pull. The arrow shows which way.",
+  "_help": "Shmup only. pull: px/s the ship is dragged toward the arrow; the same at every level, and well under the ship's speed so you can always fly against it (npm run check:shmup checks this). shiftEvery: seconds between direction swaps; 0 = never (level 1). The arrow blinks for the last second before a swap. levels: settings for level 2 and 3, picked at the machine.",
+  "genres": {
+    "shmup": { "pull": 45, "shiftEvery": 0 }
+  },
+  "levels": [
+    {
+      "description": "The pull swaps direction. x1.25.",
+      "payout": 1.25,
+      "genres": {
+        "shmup": { "pull": 45, "shiftEvery": 8 }
+      }
+    },
+    {
+      "description": "The pull swaps often. x1.5.",
+      "payout": 1.5,
+      "genres": {
+        "shmup": { "pull": 45, "shiftEvery": 5 }
+      }
+    }
+  ]
+}

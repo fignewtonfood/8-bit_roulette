@@ -6,6 +6,7 @@ import { describeRun } from '../engine/spin.js';
 import { addDarkness, GLOW_DEPTH } from '../engine/darkness.js';
 import { endStage } from '../engine/startRun.js';
 import { enemyScale } from '../engine/speed.js';
+import { addGravity } from '../ui/gravityArrow.js';
 import { pixelText } from '../ui/font.js';
 import { addGlitchFx } from '../ui/glitch.js';
 import { addObjectiveHint } from '../ui/objective.js';
@@ -114,6 +115,7 @@ export default class ShmupScene extends Phaser.Scene {
     this.cursors = this.input.keyboard.createCursorKeys();
     this.fireKeys = [this.input.keyboard.addKey('Z'), this.input.keyboard.addKey('X'), this.cursors.space];
 
+    this.gravity = addGravity(this, mods, theme.palette.text, this.seed); // twist Gravity, or null
     this.hud = pixelText(this, 4, 4, '', { color: theme.palette.text })
       .setScrollFactor(0)
       .setDepth(10);
@@ -142,8 +144,11 @@ export default class ShmupScene extends Phaser.Scene {
     const dy = (c.down.isDown ? 1 : 0) - (c.up.isDown ? 1 : 0);
     const len = Math.hypot(dx, dy) || 1;
     const shipSpeed = SHIP_SPEED * (this.mods.shipScale ?? 1); // twists Speedy and Mud
-    const vx = (dx / len) * shipSpeed;
-    const vy = (dy / len) * shipSpeed;
+    // Twist Gravity: the pull is added to where you steer. It's weaker than
+    // the ship, so you can always fly against it.
+    const [gx, gy] = this.gravity ? this.gravity.vector() : [0, 0];
+    const vx = (dx / len) * shipSpeed + gx;
+    const vy = (dy / len) * shipSpeed + gy;
     if (this.mods.shipGrip !== undefined) {
       // Twist: Slippery. Steering bites quickly, but let go and the ship
       // keeps sliding.
@@ -183,6 +188,7 @@ export default class ShmupScene extends Phaser.Scene {
 
     this.updateEnemies(dt);
     this.darkness?.update(this.player);
+    this.gravity?.update(dt);
 
     // Clean up anything that left the screen. Twists Collector and Killer:
     // a coin or an enemy that gets away costs a life.

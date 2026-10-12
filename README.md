@@ -117,6 +117,13 @@ npm run check:story    # story unlocks, glitches, hub changes + which run each l
   `npm run check:shmup` measures what every slowed shmup stage asks of the
   ship (dodging aimed shots, crossing between gaps in bat walls) and fails
   if it's more than 60% of the ship's speed.
+- **Windy** (platformer, brawler): `wind` makes you that much faster with the
+  wind and slower against it, on the ground and in the air (so jumps go
+  further or shorter; never higher or lower). It swaps every `windEvery`
+  seconds; the HUD shows the direction and blinks before a swap.
+- **Gravity** (shmup): `pull` drags the ship toward the on-screen arrow at
+  the same strength every level, always weaker than the ship.
+  `shiftEvery` is how often it changes direction (0 = never, level 1).
 - **Stage difficulty:** each stage has a difficulty budget (in the
   generators: `STAGE_BUDGETS`, `SHMUP_BUDGETS`, `BRAWL_BUDGETS`). Later
   stages get more pieces (`src/gen/pacing.js`: stage 5 has four more than
