@@ -3,6 +3,7 @@
 
 import { CHUNKS, CHUNK_W, CHUNK_H, fitsTwist } from './chunks.js';
 import { makeRng } from './rng.js';
+import { pacingFor, EXTRA_ENEMY_COST } from './pacing.js';
 import { findSpots } from './topUp.js';
 
 // Pacing template: the order of chunk "slots" between start and exit.
@@ -34,16 +35,17 @@ export function buildStage({ seed, stage = 1, twist = null, minCoins = 0, minEne
   const slotMin = (slot) => Math.min(...pool.filter(SLOT_RULES[slot]).map((c) => c.difficulty));
   // budgetScale (Sudden Death levels): a bigger or smaller difficulty budget,
   // never below what the pacing slots need at their cheapest.
-  const budget = Math.max(PACING.reduce((sum, s) => sum + slotMin(s), 0), Math.round(STAGE_BUDGETS[Math.min(stage, STAGE_BUDGETS.length) - 1] * budgetScale));
+  const pacing = pacingFor(PACING, stage);
+  const budget = Math.max(pacing.reduce((sum, s) => sum + slotMin(s), 0), Math.round(STAGE_BUDGETS[Math.min(stage, STAGE_BUDGETS.length) - 1] * budgetScale));
 
   // 1. Pick a chunk for each slot without blowing the budget.
   let remaining = budget;
   const picks = [];
   const timesUsed = {};
 
-  PACING.forEach((slot, i) => {
+  pacing.forEach((slot, i) => {
     // Hold back enough budget for the cheapest option in every later slot.
-    const reserve = PACING.slice(i + 1).reduce((sum, s) => sum + slotMin(s), 0);
+    const reserve = pacing.slice(i + 1).reduce((sum, s) => sum + slotMin(s), 0);
     const affordable = pool.filter((c) => SLOT_RULES[slot](c) && c.difficulty <= remaining - reserve);
     const prev = picks[picks.length - 1];
 
@@ -109,9 +111,25 @@ export function buildStage({ seed, stage = 1, twist = null, minCoins = 0, minEne
     remaining -= OPTIONAL_ENEMY_COST;
   }
 
+  // 4. Still budget left (later stages, Sudden Death level 3): extra walkers
+  //    on open floor, at most one per piece.
+  const spare = makeRng(seed * 31 + stage + 777);
+  const extraCount = Math.min(Math.floor(remaining / EXTRA_ENEMY_COST), picks.length);
+  const extras = findSpots({
+    solid: level.solid,
+    spikes: level.spikes,
+    taken: [...level.coins, ...level.enemies, level.playerStart, level.flag],
+    columns: [CHUNK_W, level.widthTiles - CHUNK_W],
+    rng: spare,
+    wide: true,
+    count: extraCount,
+  });
+  level.enemies.push(...extras);
+  remaining -= extras.length * EXTRA_ENEMY_COST;
+
   level.cost = budget - remaining;
 
-  // 4. Collector / Killer minimums (doesn't touch the budget: these twists pay more).
+  // 5. Collector / Killer minimums (doesn't touch the budget: these twists pay more).
   const extra = makeRng(seed * 31 + stage + 555);
   const used = new Set(level.enemies);
   for (const pos of extra.shuffle(optionalEnemies.filter((p) => !used.has(p)))) {

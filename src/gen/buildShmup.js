@@ -7,6 +7,7 @@ import { WAVES, WAVE_W } from './waves.js';
 import { fitsTwist } from './chunks.js';
 import { TWIST_WEIGHT } from './buildStage.js';
 import { makeRng } from './rng.js';
+import { pacingFor, EXTRA_ENEMY_COST } from './pacing.js';
 
 export const SHMUP_PACING = ['easy', 'build', 'rest', 'build', 'hard', 'rest', 'hard'];
 export const SHMUP_BUDGETS = [10, 14, 19, 24, 30];
@@ -66,15 +67,16 @@ function buildOnce({ seed, stage, twist, budgetScale }) {
   const slotMin = (slot) => Math.min(...pool.filter(SLOT_RULES[slot]).map((w) => w.difficulty));
   // budgetScale (Sudden Death levels): a bigger or smaller difficulty budget,
   // never below what the pacing slots need at their cheapest.
-  const budget = Math.max(SHMUP_PACING.reduce((sum, s) => sum + slotMin(s), 0), Math.round(SHMUP_BUDGETS[Math.min(stage, SHMUP_BUDGETS.length) - 1] * budgetScale));
+  const pacing = pacingFor(SHMUP_PACING, stage);
+  const budget = Math.max(pacing.reduce((sum, s) => sum + slotMin(s), 0), Math.round(SHMUP_BUDGETS[Math.min(stage, SHMUP_BUDGETS.length) - 1] * budgetScale));
 
   // 1. Pick a wave for each slot without blowing the budget.
   let remaining = budget;
   const picks = [];
   const timesUsed = {};
 
-  SHMUP_PACING.forEach((slot, i) => {
-    const reserve = SHMUP_PACING.slice(i + 1).reduce((sum, s) => sum + slotMin(s), 0);
+  pacing.forEach((slot, i) => {
+    const reserve = pacing.slice(i + 1).reduce((sum, s) => sum + slotMin(s), 0);
     const affordable = pool.filter((w) => SLOT_RULES[slot](w) && w.difficulty <= remaining - reserve);
     const prev = picks[picks.length - 1];
 
@@ -121,9 +123,19 @@ function buildOnce({ seed, stage, twist, budgetScale }) {
     remaining -= OPTIONAL_ENEMY_COST;
   }
 
+  level.duration = +t.toFixed(3);
+
+  // 4. Still budget left (later stages, Sudden Death level 3): extra enemies
+  //    spread through the stage, at most one per wave. Divers join from stage 3.
+  const spare = makeRng(seed * 31 + stage + 777);
+  const extraCount = Math.min(Math.floor(remaining / EXTRA_ENEMY_COST), picks.length);
+  const kinds = stage >= 3 ? ['straight', 'weave', 'dive'] : ['straight', 'weave'];
+  const extras = spread(level, spare, 'straight', extraCount).map((ev, i) => ({ ...ev, kind: kinds[i % kinds.length] }));
+  level.events.push(...extras);
+  remaining -= extras.length * EXTRA_ENEMY_COST;
+
   level.events.sort((a, b) => a.time - b.time || a.lane - b.lane);
   level.cost = budget - remaining;
-  level.duration = +t.toFixed(3);
   level.lanes = WAVE_W;
   return level;
 }

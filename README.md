@@ -110,6 +110,11 @@ npm run check:story    # story unlocks, glitches, hub changes + which run each l
   Classic has none. `budgetScale` multiplies each stage's difficulty budget:
   Sudden Death is 0.85 at level 1, 1.15 at level 2 and 1.4 at level 3.
   Theme and genre levels are tracked but don't change play yet.
+- **Stage difficulty:** each stage has a difficulty budget (in the
+  generators: `STAGE_BUDGETS`, `SHMUP_BUDGETS`, `BRAWL_BUDGETS`). Later
+  stages get more pieces (`src/gen/pacing.js`: stage 5 has four more than
+  stage 1), and any budget the pieces can't use becomes extra enemies at 2
+  points each, so every stage spends close to its whole budget.
 - **Payouts, lives, lengths:** `src/data/economy.json`. A length with
   `requires` stays locked until the player owns that upgrade level.
 - **Shop prices and upgrades:** `src/data/shop.json`. One price per level;

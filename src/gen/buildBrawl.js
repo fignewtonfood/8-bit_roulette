@@ -7,6 +7,7 @@ import { ARENAS, ARENA_W, ARENA_H, ENEMY_KINDS } from './arenas.js';
 import { fitsTwist } from './chunks.js';
 import { TWIST_WEIGHT } from './buildStage.js';
 import { makeRng } from './rng.js';
+import { pacingFor, EXTRA_ENEMY_COST } from './pacing.js';
 import { findSpots } from './topUp.js';
 
 // Shorter than the platformer's: each arena is a full screen and a fight.
@@ -33,15 +34,16 @@ export function buildBrawl({ seed, stage = 1, twist = null, minCoins = 0, budget
   const slotMin = (slot) => Math.min(...pool.filter(SLOT_RULES[slot]).map((a) => a.difficulty));
   // budgetScale (Sudden Death levels): a bigger or smaller difficulty budget,
   // never below what the pacing slots need at their cheapest.
-  const budget = Math.max(BRAWL_PACING.reduce((sum, s) => sum + slotMin(s), 0), Math.round(BRAWL_BUDGETS[Math.min(stage, BRAWL_BUDGETS.length) - 1] * budgetScale));
+  const pacing = pacingFor(BRAWL_PACING, stage);
+  const budget = Math.max(pacing.reduce((sum, s) => sum + slotMin(s), 0), Math.round(BRAWL_BUDGETS[Math.min(stage, BRAWL_BUDGETS.length) - 1] * budgetScale));
 
   // 1. Pick an arena for each slot without blowing the budget.
   let remaining = budget;
   const picks = [];
   const timesUsed = {};
 
-  BRAWL_PACING.forEach((slot, i) => {
-    const reserve = BRAWL_PACING.slice(i + 1).reduce((sum, s) => sum + slotMin(s), 0);
+  pacing.forEach((slot, i) => {
+    const reserve = pacing.slice(i + 1).reduce((sum, s) => sum + slotMin(s), 0);
     const affordable = pool.filter((a) => SLOT_RULES[slot](a) && a.difficulty <= remaining - reserve);
     const prev = picks[picks.length - 1];
 
@@ -114,6 +116,31 @@ export function buildBrawl({ seed, stage = 1, twist = null, minCoins = 0, budget
     if (remaining < OPTIONAL_ENEMY_COST) break;
     room.waves[wave].push(enemy);
     remaining -= OPTIONAL_ENEMY_COST;
+  }
+
+  // 4. Still budget left (later stages, Sudden Death level 3): extra enemies
+  //    join fight arenas, at most two per arena, in the first wave.
+  const spare = makeRng(seed * 31 + stage + 777);
+  const fights = level.arenas.filter((r) => r.waves[0].length || r.waves[1].length);
+  let budgetLeft = Math.floor(remaining / EXTRA_ENEMY_COST);
+  for (let round = 0; round < 2 && budgetLeft > 0; round++) {
+    for (const room of spare.shuffle(fights)) {
+      if (budgetLeft <= 0) break;
+      const [spot] = findSpots({
+        solid: level.solid,
+        spikes: level.spikes,
+        taken: [...level.coins, ...room.waves.flat(), level.playerStart, level.flag].filter(Boolean),
+        columns: [room.x0 + 1, room.x0 + ARENA_W - 1],
+        rng: spare,
+        wide: true,
+        count: 1,
+      });
+      if (!spot) continue;
+      const kind = spare.weighted(['grunt', 'thrower', 'rusher'], (k) => (k === 'grunt' ? 2 : 1));
+      room.waves[0].push({ ...spot, kind });
+      remaining -= EXTRA_ENEMY_COST;
+      budgetLeft--;
+    }
   }
 
   // An empty second wave is no wave; an optional-only reinforcement that
