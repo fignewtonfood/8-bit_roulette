@@ -6,6 +6,7 @@ import { twistSettings, objectiveOf, stageRules } from '../engine/content.js';
 import { describeRun } from '../engine/spin.js';
 import { addDarkness, GLOW_DEPTH } from '../engine/darkness.js';
 import { endStage } from '../engine/startRun.js';
+import { runSpeed, enemyScale } from '../engine/speed.js';
 import { pixelText } from '../ui/font.js';
 import { addGlitchFx } from '../ui/glitch.js';
 import { addObjectiveHint, leftMessage, LOCKED_ALPHA } from '../ui/objective.js';
@@ -237,7 +238,9 @@ export default class BrawlScene extends Phaser.Scene {
     // Run (you can't turn or walk mid-punch on the ground)
     const left = this.cursors.left.isDown;
     const right = this.cursors.right.isDown;
-    let runTarget = left === right ? 0 : left ? -RUN_SPEED : RUN_SPEED;
+    // Twists Speedy and Mud change your ground speed only, never your jumps.
+    const speed = runSpeed(RUN_SPEED, this.mods, grounded);
+    let runTarget = left === right ? 0 : left ? -speed : speed;
     const punching = this.atk && !this.atk.def.air && grounded;
     if (punching) runTarget = 0;
     else if (left !== right) this.facing = left ? -1 : 1;
@@ -468,7 +471,11 @@ export default class BrawlScene extends Phaser.Scene {
   // ---------------------------------------------------------------- enemies
 
   spawnEnemy({ x, y, kind }) {
-    const def = ENEMY[kind];
+    // Twist Speedy: enemies walk, charge and recover faster. Wind-ups stay
+    // the same length, so every attack can still be seen coming.
+    const fast = enemyScale(this.mods);
+    const base = ENEMY[kind];
+    const def = { ...base, speed: base.speed * fast, chargeSpeed: base.chargeSpeed && base.chargeSpeed * fast, cooldown: base.cooldown / fast };
     const key = this.t(def.texture);
     const h = this.textures.getFrame(key).height;
     const e = this.enemies.create(x * TILE + 8, (y + 1) * TILE - h / 2, key); // feet on the tile below

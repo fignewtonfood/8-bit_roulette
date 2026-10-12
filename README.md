@@ -110,6 +110,13 @@ npm run check:story    # story unlocks, glitches, hub changes + which run each l
   Classic has none. `budgetScale` multiplies each stage's difficulty budget:
   Sudden Death is 0.85 at level 1, 1.15 at level 2 and 1.4 at level 3.
   Theme and genre levels are tracked but don't change play yet.
+- **Speed twists:** Speedy (`runScale`/`shipScale` and `enemyScale` above 1)
+  and Mud (`runScale`/`shipScale` below 1, enemies unchanged). They change
+  ground speed only: in the air you move at normal speed and jumps are
+  untouched, so jumps keep their height and length (`src/engine/speed.js`).
+  `npm run check:shmup` measures what every slowed shmup stage asks of the
+  ship (dodging aimed shots, crossing between gaps in bat walls) and fails
+  if it's more than 60% of the ship's speed.
 - **Stage difficulty:** each stage has a difficulty budget (in the
   generators: `STAGE_BUDGETS`, `SHMUP_BUDGETS`, `BRAWL_BUDGETS`). Later
   stages get more pieces (`src/gen/pacing.js`: stage 5 has four more than

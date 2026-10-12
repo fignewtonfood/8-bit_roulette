@@ -1,0 +1,32 @@
+{
+  "id": "speedy",
+  "name": "Speedy",
+  "short": "SPEEDY",
+  "description": "You and every enemy move faster.",
+  "_help": "runScale: your speed on the ground (platformer, brawler). shipScale: your ship (shmup). enemyScale: every enemy, and enemy shots in the shmup (brawler enemies also recover faster, but wind-ups stay readable). Jumps are never changed: in the air you move at normal speed. levels: settings for level 2 and 3, picked at the machine.",
+  "genres": {
+    "platformer": { "runScale": 1.3, "enemyScale": 1.3 },
+    "shmup": { "shipScale": 1.3, "enemyScale": 1.3 },
+    "brawler": { "runScale": 1.3, "enemyScale": 1.3 }
+  },
+  "levels": [
+    {
+      "description": "Faster still. Pays x1.25.",
+      "payout": 1.25,
+      "genres": {
+        "platformer": { "runScale": 1.45, "enemyScale": 1.5 },
+        "shmup": { "shipScale": 1.45, "enemyScale": 1.5 },
+        "brawler": { "runScale": 1.45, "enemyScale": 1.5 }
+      }
+    },
+    {
+      "description": "Breakneck. Pays x1.5.",
+      "payout": 1.5,
+      "genres": {
+        "platformer": { "runScale": 1.6, "enemyScale": 1.75 },
+        "shmup": { "shipScale": 1.6, "enemyScale": 1.75 },
+        "brawler": { "runScale": 1.6, "enemyScale": 1.75 }
+      }
+    }
+  ]
+}

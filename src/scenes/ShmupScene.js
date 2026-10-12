@@ -5,6 +5,7 @@ import { twistSettings, objectiveOf, stageRules } from '../engine/content.js';
 import { describeRun } from '../engine/spin.js';
 import { addDarkness, GLOW_DEPTH } from '../engine/darkness.js';
 import { endStage } from '../engine/startRun.js';
+import { enemyScale } from '../engine/speed.js';
 import { pixelText } from '../ui/font.js';
 import { addGlitchFx } from '../ui/glitch.js';
 import { addObjectiveHint } from '../ui/objective.js';
@@ -140,8 +141,9 @@ export default class ShmupScene extends Phaser.Scene {
     const dx = (c.right.isDown ? 1 : 0) - (c.left.isDown ? 1 : 0);
     const dy = (c.down.isDown ? 1 : 0) - (c.up.isDown ? 1 : 0);
     const len = Math.hypot(dx, dy) || 1;
-    const vx = (dx / len) * SHIP_SPEED;
-    const vy = (dy / len) * SHIP_SPEED;
+    const shipSpeed = SHIP_SPEED * (this.mods.shipScale ?? 1); // twists Speedy and Mud
+    const vx = (dx / len) * shipSpeed;
+    const vy = (dy / len) * shipSpeed;
     if (this.mods.shipGrip !== undefined) {
       // Twist: Slippery. Steering bites quickly, but let go and the ship
       // keeps sliding.
@@ -215,7 +217,7 @@ export default class ShmupScene extends Phaser.Scene {
     enemy.hp = def.hp;
     enemy.age = 0;
     enemy.state = 'enter';
-    enemy.setVelocityY(def.speed);
+    enemy.setVelocityY(def.speed * enemyScale(this.mods)); // Speedy speeds enemies up
   }
 
   updateEnemies(dt) {
@@ -223,10 +225,11 @@ export default class ShmupScene extends Phaser.Scene {
       e.age += dt;
 
       if (e.kind === 'weave') {
-        e.setVelocityX(Math.cos(e.age * 3) * 60); // ~20px side to side
+        const f = enemyScale(this.mods);
+        e.setVelocityX(Math.cos(e.age * 3 * f) * 60 * f); // ~20px side to side (Speedy: same width, quicker)
       } else if (e.kind === 'dive' && e.state === 'enter' && e.y > 40) {
         e.state = 'dive';
-        this.physics.moveToObject(e, this.player, DIVE_SPEED);
+        this.physics.moveToObject(e, this.player, DIVE_SPEED * enemyScale(this.mods));
       } else if (e.kind === 'turret') {
         if (e.state === 'enter' && e.y > 44) {
           e.state = 'hold';
@@ -239,12 +242,12 @@ export default class ShmupScene extends Phaser.Scene {
           if (e.fireTimer <= 0) {
             const shot = this.enemyShots.create(e.x, e.y + 6, this.t('eshot'));
             this.glowIf('enemyShots', shot);
-            this.physics.moveToObject(shot, this.player, ENEMY_SHOT_SPEED);
+            this.physics.moveToObject(shot, this.player, ENEMY_SHOT_SPEED * enemyScale(this.mods));
             e.fireTimer = TURRET_FIRE_RATE;
           }
           if (e.holdTime > TURRET_HOLD_TIME) {
             e.state = 'leave';
-            e.setVelocityY(ENEMY.turret.speed);
+            e.setVelocityY(ENEMY.turret.speed * enemyScale(this.mods));
           }
         }
       }

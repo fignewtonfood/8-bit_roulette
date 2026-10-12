@@ -5,7 +5,7 @@ import { buildShmup } from '../src/gen/buildShmup.js';
 import { WAVES } from '../src/gen/waves.js'; // importing also validates every wave
 import { fitsTwist } from '../src/gen/chunks.js';
 import { loadContent } from './load-content.js';
-import { stageRules, twistMaxLevel } from '../src/engine/content.js';
+import { stageRules, twistMaxLevel, twistSettings } from '../src/engine/content.js';
 
 const GENRE = 'shmup';
 const SEEDS = 400; // per twist
@@ -80,6 +80,60 @@ for (const twist of twists) {
     }
   }
 }
+
+// ---------- Slow ships (Mud): every stage must stay dodgeable ----------
+// Mirrors ShmupScene.js: keep these in step with its feel knobs.
+const SHIP_SPEED = 120;   // px/s at normal speed
+const LANE = 16;          // px
+const BAT_SPEED = 55;     // straight-flying bats, the ones that form walls
+const DIVE_SPEED = 120;
+const SHOT_SPEED = 75;
+const THREAT_RUN = 156;   // px an aimed diver/shot travels to reach the ship's row
+const SIDESTEP = 11;      // px the ship moves to slip an aimed diver or shot
+const SAFETY = 0.6;       // the ship must manage this with 40% speed to spare
+const WALL = 4;           // bats spawning together that count as a wall
+
+// What a stage asks of the ship, in px/s: the hardest of
+//  - slipping an aimed diver or turret shot (sidestep before it arrives), and
+//  - getting from a gap in one bat wall to a gap in the next before it arrives.
+function speedNeeded(lvl) {
+  let need = Math.max(SIDESTEP / (THREAT_RUN / DIVE_SPEED), SIDESTEP / (THREAT_RUN / SHOT_SPEED));
+  const rows = new Map();
+  for (const e of lvl.events) if (e.kind === 'straight') rows.set(e.time, [...(rows.get(e.time) || []), e.lane]);
+  const walls = [...rows].filter(([, lanes]) => lanes.length >= WALL).sort((a, b) => a[0] - b[0]);
+  let prevGaps = null;
+  let prevTime = 0;
+  let blocked = false;
+  for (const [time, lanes] of walls) {
+    const gaps = Array.from({ length: 16 }, (_, l) => l).filter((l) => !lanes.includes(l));
+    if (!gaps.length) blocked = true;
+    if (prevGaps && gaps.length && time - prevTime < 4) {
+      const dist = Math.min(...prevGaps.flatMap((a) => gaps.map((b) => Math.abs(a - b) * LANE)));
+      need = Math.max(need, dist / (time - prevTime));
+    }
+    prevGaps = gaps;
+    prevTime = time;
+  }
+  return { need, blocked };
+}
+
+const slowShips = twists.flatMap((t) =>
+  Array.from({ length: twistMaxLevel(content, t) }, (_, i) => ({ twist: t, level: i + 1, scale: twistSettings(content, t, GENRE, i + 1).shipScale ?? 1 })),
+).filter((x) => x.scale < 1);
+const slowReport = [];
+for (const { twist, level, scale } of slowShips) {
+  const ship = SHIP_SPEED * scale;
+  let worst = 0;
+  for (let seed = 1; seed <= 200; seed++) for (let stage = 1; stage <= 5; stage++) {
+    const lvl = buildShmup({ seed, stage, twist, ...stageRules(content, twist, level) });
+    const { need, blocked } = speedNeeded(lvl);
+    worst = Math.max(worst, need);
+    if (blocked) problems.push(`${twist} level ${level} seed ${seed} stage ${stage}: a bat wall with no gap at all`);
+    if (need > ship * SAFETY) problems.push(`${twist} level ${level} seed ${seed} stage ${stage}: needs ${need.toFixed(0)} px/s, the ship only has ${ship.toFixed(0)}`);
+  }
+  slowReport.push(`  ${twist} level ${level}: ship ${ship.toFixed(0)} px/s, hardest stage needs ${worst.toFixed(0)} px/s`);
+}
+if (slowReport.length) console.log(`\nSlow ships (must stay under ${Math.round(SAFETY * 100)}% of the ship's speed):\n${slowReport.join('\n')}`);
 
 console.log(`Built ${stagesBuilt} shmup stages: ${SEEDS} seeds x 5 stages for each twist (${twists.join(', ')}).`);
 console.log(problems.length ? `\n${problems.length} problem(s):\n  ${problems.slice(0, 20).join('\n  ')}` : 'No problems found.');

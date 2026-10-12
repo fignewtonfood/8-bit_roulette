@@ -5,6 +5,7 @@ import { twistSettings, objectiveOf, stageRules } from '../engine/content.js';
 import { describeRun } from '../engine/spin.js';
 import { addDarkness, GLOW_DEPTH } from '../engine/darkness.js';
 import { endStage } from '../engine/startRun.js';
+import { runSpeed, enemyScale } from '../engine/speed.js';
 import { pixelText } from '../ui/font.js';
 import { addGlitchFx } from '../ui/glitch.js';
 import { addObjectiveHint, leftMessage, LOCKED_ALPHA } from '../ui/objective.js';
@@ -147,7 +148,9 @@ export default class StageScene extends Phaser.Scene {
     // Run
     const left = this.cursors.left.isDown;
     const right = this.cursors.right.isDown;
-    const runTarget = left === right ? 0 : left ? -RUN_SPEED : RUN_SPEED;
+    // Twists Speedy and Mud change your ground speed only, never your jumps.
+    const speed = runSpeed(RUN_SPEED, this.mods, body.blocked.down);
+    const runTarget = left === right ? 0 : left ? -speed : speed;
     if (this.mods.groundGrip !== undefined) {
       // Twist: Slippery. Speed eases toward what you're pushing for, slowly
       // on the ground (ice) and a bit faster in the air.
@@ -191,7 +194,7 @@ export default class StageScene extends Phaser.Scene {
         const aheadX = e.dir > 0 ? b.right + 1 : b.left - 1;
         if (!this.layer.getTileAtWorldXY(aheadX, b.bottom + 1)) e.dir *= -1; // ledge ahead
       }
-      e.setVelocityX(e.dir * ENEMY_SPEED);
+      e.setVelocityX(e.dir * ENEMY_SPEED * enemyScale(this.mods)); // Speedy speeds them up
       e.setFlipX(e.dir > 0);
     });
   }

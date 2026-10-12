@@ -1,0 +1,32 @@
+{
+  "id": "mud",
+  "name": "Mud",
+  "short": "MUD",
+  "description": "Slow going on foot. Jumps are normal.",
+  "_help": "runScale: your speed on the ground (platformer, brawler); in the air you move at normal speed, so jumps are as high and as long as usual. shipScale: your ship (shmup), kept higher than runScale so every shmup stays dodgeable (npm run check:shmup checks this). Enemies are not slowed. levels: settings for level 2 and 3, picked at the machine.",
+  "genres": {
+    "platformer": { "runScale": 0.7 },
+    "shmup": { "shipScale": 0.8 },
+    "brawler": { "runScale": 0.7 }
+  },
+  "levels": [
+    {
+      "description": "Thick mud. Pays x1.25.",
+      "payout": 1.25,
+      "genres": {
+        "platformer": { "runScale": 0.55 },
+        "shmup": { "shipScale": 0.7 },
+        "brawler": { "runScale": 0.55 }
+      }
+    },
+    {
+      "description": "Waist-deep mud. Pays x1.5.",
+      "payout": 1.5,
+      "genres": {
+        "platformer": { "runScale": 0.45 },
+        "shmup": { "shipScale": 0.6 },
+        "brawler": { "runScale": 0.45 }
+      }
+    }
+  ]
+}

@@ -13,7 +13,8 @@ import {
 import { newSave, parseSave, loadSave, storeSave, SAVE_KEY } from '../src/engine/save.js';
 import { makeRng } from '../src/gen/rng.js';
 import { playsOf, levelFor, levelsGained, progressLines, maxLevel } from '../src/engine/progress.js';
-import { twistAt, stageRules } from '../src/engine/content.js';
+import { twistAt, stageRules, twistSettings } from '../src/engine/content.js';
+import { runSpeed } from '../src/engine/speed.js';
 import { buildStage } from '../src/gen/buildStage.js';
 import { buildShmup } from '../src/gen/buildShmup.js';
 import { buildBrawl } from '../src/gen/buildBrawl.js';
@@ -159,6 +160,17 @@ expect(loadSave(blocked).note && !storeSave(blocked, fresh), 'blocked storage sh
   expect(payout(content, fresh, darkRun(3)).total > payout(content, fresh, darkRun(1)).total, 'a higher twist level should pay more');
   expect(stageRules(content, 'collector', 3).minCoins > stageRules(content, 'collector', 1).minCoins, 'higher Collector levels should need more coins');
   expect(makeRun(content, fresh, { ...reels, twist: 'sudden-death', levels: { twist: 3 } }, 'short').lives === 1, 'Sudden Death stays one life at every level');
+  // Speedy and Mud: ground speed changes, jumps (air speed) never do.
+  for (const tw of ['speedy', 'mud']) for (let lv = 1; lv <= 3; lv++) for (const g of ['platformer', 'brawler']) {
+    const mods = twistSettings(content, tw, g, lv);
+    expect(runSpeed(100, mods, false) === 100, `${tw} level ${lv} (${g}): air speed should stay normal so jumps are unchanged`);
+    expect(tw === 'speedy' ? runSpeed(100, mods, true) > 100 : runSpeed(100, mods, true) < 100, `${tw} level ${lv} (${g}): ground speed should be ${tw === 'speedy' ? 'faster' : 'slower'}`);
+    expect(mods.gravityScale === undefined && mods.jumpScale === undefined, `${tw} level ${lv} (${g}) shouldn't touch gravity or jump strength`);
+  }
+  for (const g of ['platformer', 'brawler', 'shmup']) {
+    expect([2, 3].every((lv) => (twistSettings(content, 'speedy', g, lv).enemyScale > twistSettings(content, 'speedy', g, lv - 1).enemyScale)), `speedy (${g}): enemies should get faster each level`);
+    expect(!twistSettings(content, 'mud', g, 3).enemyScale, `mud (${g}) slows only the player`);
+  }
   // Sudden Death's difficulty budget: level 1 a bit under normal, 2 a bit over, 3 well over.
   for (const [name, build] of [['platformer', buildStage], ['shmup', buildShmup], ['brawler', buildBrawl]]) {
     for (let stage = 1; stage <= 5; stage++) {
