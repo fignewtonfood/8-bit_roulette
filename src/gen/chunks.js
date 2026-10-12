@@ -64,6 +64,12 @@ export const CHUNKS = [
     ##########`),
 
   chunk('start', 'start', 0, `
+    ##########   
+    #.P.......
+    ##########
+    ##########`,{twists:['slippery']}),
+
+  chunk('start', 'start', 0, `
     ..P.......
     ######....
     ########..
@@ -82,6 +88,14 @@ export const CHUNKS = [
     ##########
     ##########`),
 
+  chunk('exit', 'exit', 0, `
+    .......F..
+    ......####
+    ......####
+    ......####
+    ##########
+    ##########`,{twists:['low-gravity']}),
+
   // --- rest ---
   chunk('rest_coins', 'rest', 0, `
     ...C..C...
@@ -90,10 +104,26 @@ export const CHUNKS = [
     ##########
     ##########`),
 
+  chunk('rest_coins_high', 'rest', 0, `
+    ...C..C...
+    ..........
+    ..........
+    ..........
+    ##########
+    ##########`,{twists:['low-gravity']}),
+
   chunk('rest_quiet', 'rest', 0, `
     .....C....
     ##########
     ##########`),
+
+  chunk('rest_quiet', 'rest', 0, `
+    #########.
+    ########..
+    #######...
+    .....C....
+    ##########
+    ##########`, {twists: ['slippery']}),
 
   // --- easy (difficulty 1) ---
   chunk('hill', 'jump', 1, `
@@ -109,6 +139,15 @@ export const CHUNKS = [
     ...####...
     ##..CC..##
     ##########`),
+
+  chunk('mountain_cave', 'combat', 1, `
+    ..........
+    ....##....
+    ...####...
+    ##..CC..##
+    ##########
+    ##########
+    ##########`, {twists:['low-gravity']}),
 
   chunk('gap_small', 'jump', 1, `
     ....C.....
@@ -160,6 +199,14 @@ export const CHUNKS = [
     ##########
     ##########`),
 
+  chunk('spike_ramp', 'jump', 2, `
+    .......CC.
+    ......^##.
+    .....^###.
+    ....^####.
+    ##########
+    ##########`,{twists:['low-gravity']}),
+
 
 
   // --- hard (difficulty 3) ---
@@ -186,6 +233,13 @@ chunk('double_pillar_hop', 'jump', 3, `
     ##..#..#.#
     ##..#..#.#`),
 
+chunk('moon_pillar_hop', 'jump', 3, `
+    ....C..C..
+    ..........
+    .......#..
+    ##.....#.#
+    ##.....#.#`,{twists:['low-gravity']}),
+
   chunk('gauntlet', 'combat', 3, `
     ..C....C..
     ..........
@@ -211,10 +265,58 @@ chunk('trap', 'combat', 3, `
     ##########
     ##########`),
 
+  chunk('secret_very_high', 'secret', 1, `
+    ...CCC....
+    ...###....
+    ..........
+    ..........
+    ..........
+    ......##..
+    ..........
+    ##########
+    ##########`,{twists:['low-gravity']}),
+
   chunk('secret_trap', 'secret', 3, `
     ..........
     ...#####..
     ...CEC#e..
     ##########
-    ##########`)
+    ##########`),
+
+  // --- twist: slippery ---
+  // Ice makes these about stopping and starting, not jumping far.
+  chunk('ice_hurdles', 'jump', 1, `
+    ..C..C..C.
+    ...^...^..
+    ##########
+    ##########`, { twists: ['slippery'] }),
+
+  chunk('ice_islands', 'jump', 2, `
+    ....CC....
+    ..........
+    ##..###..#
+    ##..###..#`, { twists: ['slippery'] }),
+
+  chunk('ice_summit', 'jump', 2, `
+    ......CC..
+    ......##..
+    ....####..
+    ..######^.
+    ##########
+    ##########`, { twists: ['slippery'] }),
+
+  // --- twist: darkness ---
+  // Spikes and enemies don't glow, but coins do: the coins show the way.
+  chunk('blind_leap', 'jump', 2, `
+    .....CC...
+    ..........
+    ##...##..#
+    ##...##..#`, { twists: ['darkness'] }),
+
+  chunk('lurker', 'combat', 3, `
+    ..C...C...
+    ..........
+    ...^.E..^.
+    ##########
+    ##########`, { twists: ['darkness'] }),
 ];
