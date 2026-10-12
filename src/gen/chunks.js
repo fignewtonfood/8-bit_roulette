@@ -38,6 +38,14 @@ export const CHUNK_W = 10;
 export const CHUNK_H = 14;
 const GROUND_ROW = 12;
 
+// The highest difficulty a piece can have (its cost from the stage budget).
+export const MAX_DIFFICULTY = 4;
+export function checkDifficulty(what, difficulty) {
+  if (!Number.isInteger(difficulty) || difficulty < 0 || difficulty > MAX_DIFFICULTY) {
+    throw new Error(`${what}: difficulty should be a whole number from 0 to ${MAX_DIFFICULTY} (it's ${difficulty}).`);
+  }
+}
+
 // Checks a piece's twist tags and returns the ones it has, ready to attach.
 // Shared by chunks, waves (waves.js) and arenas (arenas.js).
 export function twistTags(what, { twists, notTwists }) {
@@ -71,6 +79,7 @@ function chunk(id, type, difficulty, art, tagOptions = {}) {
   if (ground[0] !== '#' || ground[CHUNK_W - 1] !== '#') {
     throw new Error(`Chunk "${id}" must have solid ground at both edges of row ${GROUND_ROW} so it joins cleanly.`);
   }
+  checkDifficulty(`Chunk "${id}"`, difficulty);
   return { id, type, difficulty, rows, ...twistTags(`Chunk "${id}"`, tagOptions) };
 }
 
@@ -79,7 +88,8 @@ export const fitsTwist = (piece, twist) =>
   (!piece.twists || piece.twists.includes(twist)) && !piece.notTwists?.includes(twist);
 
 // type: start | exit | rest | secret | jump | combat
-// difficulty: 0-3 for now (costs this many points from the stage's budget)
+// difficulty: 0-4 (costs this many points from the stage's budget). 4 is the
+// top tier: it only fits the 'hard' slots, and mostly on later stages.
 export const CHUNKS = [
   chunk('start', 'start', 0, `
     ..P.......
@@ -274,6 +284,17 @@ chunk('trap', 'combat', 3, `
     ..C...C...
     ..#####...
     #.E.C.E.#.
+    ##########
+    ##########`),
+
+  // --- brutal (difficulty 4) ---
+  // Over a spike bed: the only safe line is up onto the slab and off the far
+  // side, with a walker waiting on each end.
+  chunk('spike_bed', 'combat', 4, `
+    ....CC....
+    ...####...
+    ..........
+    .E.^^^^.E.
     ##########
     ##########`),
 

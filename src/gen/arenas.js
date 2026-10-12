@@ -36,7 +36,7 @@
 // Twist-only arenas: add { twists: [...] } exactly like twist-only chunks.
 // { notTwists: [...] } does the opposite: every twist except those.
 
-import { twistTags } from './chunks.js';
+import { twistTags, checkDifficulty } from './chunks.js';
 
 export const ARENA_W = 16;
 export const ARENA_H = 14;
@@ -64,6 +64,7 @@ function arena(id, type, difficulty, art, { twists, notTwists, reinforce } = {})
   if (ground[0] !== '#' || ground[ARENA_W - 1] !== '#') {
     throw new Error(`Arena "${id}" must have solid ground at both edges of row ${GROUND_ROW} so it joins cleanly.`);
   }
+  checkDifficulty(`Arena "${id}"`, difficulty);
   const out = { id, type, difficulty, rows, ...twistTags(`Arena "${id}"`, { twists, notTwists }) };
   if (reinforce !== undefined) {
     out.reinforce = padRows(id, ' reinforcements', reinforce, { aboveFloor: true });
@@ -76,7 +77,7 @@ function arena(id, type, difficulty, art, { twists, notTwists, reinforce } = {})
 }
 
 // type: start | exit | rest | secret | fight
-// difficulty: 0-3 (costs this many points from the stage's budget, like chunks)
+// difficulty: 0-4 (costs this many points from the stage's budget, like chunks)
 export const ARENAS = [
   // --- start ---
   arena('start', 'start', 0, `
@@ -244,6 +245,21 @@ export const ARENAS = [
     ################`, {
     reinforce: `
     ......b.........`,
+  }),
+
+  // --- fights, difficulty 4 ---
+  // Throwers on both ledges, a brute in the middle with grunts at its sides,
+  // then rushers charging in. The ledges are 3 up, so you can take the
+  // throwers first, or knock the brute toward the walls.
+  arena('last_stand', 'fight', 4, `
+    ..T..........T..
+    #####......#####
+    ................
+    ....G..B...G....
+    ################
+    ################`, {
+    reinforce: `
+    ..R..........R..`,
   }),
 
   // --- twist-only (examples; redesign or add your own) ---

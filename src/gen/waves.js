@@ -22,7 +22,7 @@
 // { notTwists: [...] } does the opposite: the wave shows up with every twist
 // except those.
 
-import { twistTags } from './chunks.js';
+import { twistTags, checkDifficulty } from './chunks.js';
 
 export const WAVE_W = 16;
 
@@ -33,11 +33,12 @@ function wave(id, type, difficulty, art, tagOptions = {}) {
       throw new Error(`Wave "${id}" row ${i} ("${row}") is ${row.length} wide; expected ${WAVE_W}.`);
     }
   });
+  checkDifficulty(`Wave "${id}"`, difficulty);
   return { id, type, difficulty, rows, ...twistTags(`Wave "${id}"`, tagOptions) };
 }
 
 // type: rest | secret | wave
-// difficulty: 0-3, same budget system as the platformer
+// difficulty: 0-4, same budget system as the platformer
 export const WAVES = [
   // --- rest ---
   wave('shard_rain', 'rest', 0, `
@@ -148,6 +149,19 @@ export const WAVES = [
     .....D....D.....
     ................
     .S............S.`, { notTwists: ['darkness'] }), // five unseen divers
+
+  // --- brutal (difficulty 4) ---
+  // Two gargoyles pin the corners while weavers, a bat wall and divers come
+  // through; a third gargoyle closes it out. Divers can't be seen in the
+  // dark, so it sits out Darkness like pincer and ghost_storm.
+  wave('fortress', 'wave', 4, `
+    ..T..........T..
+    ................
+    ....W......W....
+    ................
+    .D....SSSS....D.
+    ................
+    .......T........`, { notTwists: ['darkness'] }),
 
   // --- rare ---
   wave('treasure_run', 'secret', 1, `

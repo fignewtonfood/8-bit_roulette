@@ -115,6 +115,8 @@ npm run check:story    # story unlocks, glitches, hub changes + which run each l
   stages get more pieces (`src/gen/pacing.js`: stage 5 has four more than
   stage 1), and any budget the pieces can't use becomes extra enemies at 2
   points each, so every stage spends close to its whole budget.
+  Pieces are difficulty 0–4 (4 is the top tier; it only fits the "hard"
+  slots, so it's rare on stage 1 and common by stage 5).
 - **Payouts, lives, lengths:** `src/data/economy.json`. A length with
   `requires` stays locked until the player owns that upgrade level.
 - **Shop prices and upgrades:** `src/data/shop.json`. One price per level;
