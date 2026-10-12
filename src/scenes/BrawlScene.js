@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { buildBrawl } from '../gen/buildBrawl.js';
 import { ARENA_W } from '../gen/arenas.js';
 import { content } from '../data/index.js';
-import { twistSettings, objectiveOf } from '../engine/content.js';
+import { twistSettings, objectiveOf, stageMinimums } from '../engine/content.js';
 import { describeRun } from '../engine/spin.js';
 import { addDarkness, GLOW_DEPTH } from '../engine/darkness.js';
 import { endStage } from '../engine/startRun.js';
@@ -102,7 +102,7 @@ export default class BrawlScene extends Phaser.Scene {
     makePlaceholderTextures(this, theme);
     makeBrawlTextures(this, theme);
 
-    const level = buildBrawl({ seed: this.seed, stage: this.run.stage, twist: this.run.twist });
+    const level = buildBrawl({ seed: this.seed, stage: this.run.stage, twist: this.run.twist, ...stageMinimums(content, this.run.twist) });
     this.level = level;
     this.worldW = level.widthTiles * TILE;
     this.worldH = level.heightTiles * TILE;

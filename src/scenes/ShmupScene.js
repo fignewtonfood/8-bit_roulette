@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { buildShmup } from '../gen/buildShmup.js';
 import { content } from '../data/index.js';
-import { twistSettings, objectiveOf } from '../engine/content.js';
+import { twistSettings, objectiveOf, stageMinimums } from '../engine/content.js';
 import { describeRun } from '../engine/spin.js';
 import { addDarkness, GLOW_DEPTH } from '../engine/darkness.js';
 import { endStage } from '../engine/startRun.js';
@@ -61,7 +61,7 @@ export default class ShmupScene extends Phaser.Scene {
     makeShmupTextures(this, theme);
     this.t = (name) => tex(theme, name);
 
-    const level = buildShmup({ seed: this.seed, stage: this.run.stage, twist: this.run.twist });
+    const level = buildShmup({ seed: this.seed, stage: this.run.stage, twist: this.run.twist, ...stageMinimums(content, this.run.twist) });
     this.level = level;
     console.log(`[8-Bit Roulette] ${describeRun(content, this.run)} · stage ${this.run.stage}/${this.run.stages} · seed ${this.seed} · cost ${level.cost}/${level.budget} · ${level.duration}s\n  ${level.waves.join(' → ')}`);
 

@@ -6,6 +6,7 @@
 import { buildStage } from '../src/gen/buildStage.js';
 import { CHUNKS, fitsTwist } from '../src/gen/chunks.js'; // importing also validates every chunk
 import { loadContent } from './load-content.js';
+import { stageMinimums } from '../src/engine/content.js';
 
 const GENRE = 'platformer';
 const SEEDS = 400; // per twist
@@ -37,20 +38,20 @@ for (const twist of twists) {
 
 for (const twist of twists) for (let seed = 1; seed <= SEEDS; seed++) {
   for (let stage = 1; stage <= 5; stage++) {
-    const lvl = buildStage({ seed, stage, twist, needEnemies: content.twists[twist].objective === 'kill' });
+    const lvl = buildStage({ seed, stage, twist, ...stageMinimums(content, twist) });
     stagesBuilt++;
     if (lvl.cost > lvl.budget) problems.push(`${twist} seed ${seed} stage ${stage}: cost ${lvl.cost} > budget ${lvl.budget}`);
     if (!lvl.playerStart) problems.push(`${twist} seed ${seed} stage ${stage}: no player start`);
     if (!lvl.flag) problems.push(`${twist} seed ${seed} stage ${stage}: no exit flag`);
-    const objective = content.twists[twist].objective;
-    if (objective === 'collect' && !lvl.coins.length) problems.push(`${twist} seed ${seed} stage ${stage}: Collector stage with no coins`);
-    if (objective === 'kill' && !lvl.enemies.length) problems.push(`${twist} seed ${seed} stage ${stage}: Killer stage with no enemies`);
+    const min = stageMinimums(content, twist);
+    if (lvl.coins.length < min.minCoins) problems.push(`${twist} seed ${seed} stage ${stage}: ${lvl.coins.length} coins, needs ${min.minCoins}`);
+    if (lvl.enemies.length < min.minEnemies) problems.push(`${twist} seed ${seed} stage ${stage}: ${lvl.enemies.length} enemies, needs ${min.minEnemies}`);
     for (let i = 1; i < lvl.chunks.length; i++) {
       if (lvl.chunks[i].split(' ')[0] === lvl.chunks[i - 1].split(' ')[0] && !lvl.chunks[i].startsWith('rest')) {
         problems.push(`${twist} seed ${seed} stage ${stage}: ${lvl.chunks[i]} repeated back to back`);
       }
     }
-    if (JSON.stringify(lvl) !== JSON.stringify(buildStage({ seed, stage, twist, needEnemies: content.twists[twist].objective === 'kill' }))) {
+    if (JSON.stringify(lvl) !== JSON.stringify(buildStage({ seed, stage, twist, ...stageMinimums(content, twist) }))) {
       problems.push(`${twist} seed ${seed} stage ${stage}: same seed built a different stage`);
     }
     for (const id of lvl.chunks) {

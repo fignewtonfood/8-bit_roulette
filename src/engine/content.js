@@ -72,6 +72,8 @@ export function assembleContent({ reels, genres, themes, twists, compatibility, 
     if (tw.lives !== undefined && !(Number.isInteger(tw.lives) && tw.lives >= 1)) fail(`${file}: "lives" should be a whole number, 1 or more.`);
     if (tw.payout !== undefined && !(typeof tw.payout === 'number' && tw.payout > 0)) fail(`${file}: "payout" should be a number above 0.`);
     if (tw.objective !== undefined && !OBJECTIVES.includes(tw.objective)) fail(`${file}: unknown objective "${tw.objective}" (options: ${OBJECTIVES.join(', ')}).`);
+    if (tw.minimum !== undefined && !tw.objective) fail(`${file}: "minimum" only works with an "objective".`);
+    if (tw.minimum !== undefined && !(Number.isInteger(tw.minimum) && tw.minimum >= 1)) fail(`${file}: "minimum" should be a whole number, 1 or more.`);
     for (const g of Object.keys(tw.genres || {})) {
       if (!genreMap[g]) fail(`${file}: unknown genre "${g}".`);
     }
@@ -208,6 +210,14 @@ export function whyIncompatible(content, { theme, genre, twist }) {
 // The run's objective twist ('collect', 'kill'), or null for a normal stage.
 export function objectiveOf(content, twistId) {
   return content.twists[twistId]?.objective ?? null;
+}
+
+// What a stage generator needs for the run's twist: { minCoins, minEnemies }
+// (Collector and Killer's "minimum"; zero for every other twist).
+export function stageMinimums(content, twistId) {
+  const tw = content.twists[twistId];
+  const n = tw?.minimum ?? 0;
+  return { minCoins: tw?.objective === 'collect' ? n : 0, minEnemies: tw?.objective === 'kill' ? n : 0 };
 }
 
 // The settings a twist gives one genre, e.g. { gravityScale: 0.5, jumpScale: 0.75 }.

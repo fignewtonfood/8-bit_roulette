@@ -5,6 +5,7 @@ import { buildShmup } from '../src/gen/buildShmup.js';
 import { WAVES } from '../src/gen/waves.js'; // importing also validates every wave
 import { fitsTwist } from '../src/gen/chunks.js';
 import { loadContent } from './load-content.js';
+import { stageMinimums } from '../src/engine/content.js';
 
 const GENRE = 'shmup';
 const SEEDS = 400; // per twist
@@ -35,11 +36,14 @@ for (const twist of twists) {
 
 for (const twist of twists) for (let seed = 1; seed <= SEEDS; seed++) {
   for (let stage = 1; stage <= 5; stage++) {
-    const lvl = buildShmup({ seed, stage, twist });
+    const lvl = buildShmup({ seed, stage, twist, ...stageMinimums(content, twist) });
     stagesBuilt++;
     if (lvl.cost > lvl.budget) problems.push(`${twist} seed ${seed} stage ${stage}: cost ${lvl.cost} > budget ${lvl.budget}`);
     if (!lvl.events.some((e) => e.kind !== 'coin')) problems.push(`${twist} seed ${seed} stage ${stage}: no enemies at all`);
-    if (content.twists[twist].objective === 'collect' && !lvl.coins) problems.push(`${twist} seed ${seed} stage ${stage}: Collector stage with no coins`);
+    const min = stageMinimums(content, twist);
+    const foes = lvl.events.filter((e) => e.kind !== 'coin').length;
+    if (lvl.coins < min.minCoins) problems.push(`${twist} seed ${seed} stage ${stage}: ${lvl.coins} coins, needs ${min.minCoins}`);
+    if (foes < min.minEnemies) problems.push(`${twist} seed ${seed} stage ${stage}: ${foes} enemies, needs ${min.minEnemies}`);
     for (let i = 1; i < lvl.waves.length; i++) {
       const id = lvl.waves[i].split(' ')[0];
       const isRest = WAVES.find((w) => w.id === id)?.type === 'rest'; // rest is the safe fallback
@@ -47,7 +51,7 @@ for (const twist of twists) for (let seed = 1; seed <= SEEDS; seed++) {
         problems.push(`${twist} seed ${seed} stage ${stage}: ${lvl.waves[i]} repeated back to back`);
       }
     }
-    if (JSON.stringify(lvl) !== JSON.stringify(buildShmup({ seed, stage, twist }))) {
+    if (JSON.stringify(lvl) !== JSON.stringify(buildShmup({ seed, stage, twist, ...stageMinimums(content, twist) }))) {
       problems.push(`${twist} seed ${seed} stage ${stage}: same seed built a different stage`);
     }
     for (const id of lvl.waves) {

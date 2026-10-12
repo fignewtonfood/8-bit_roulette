@@ -7,6 +7,7 @@ import { ARENAS, ARENA_W, ARENA_H, ENEMY_KINDS } from './arenas.js';
 import { fitsTwist } from './chunks.js';
 import { TWIST_WEIGHT } from './buildStage.js';
 import { makeRng } from './rng.js';
+import { findSpots } from './topUp.js';
 
 // Shorter than the platformer's: each arena is a full screen and a fight.
 export const BRAWL_PACING = ['easy', 'build', 'rest', 'hard', 'build', 'hard'];
@@ -23,7 +24,9 @@ const SLOT_RULES = {
 };
 
 // twist: the run's twist id. Arenas tagged for other twists are left out.
-export function buildBrawl({ seed, stage = 1, twist = null }) {
+// minCoins (Collector): if the arenas bring fewer coins than that, extra ones
+// go on safe floor anywhere past the start arena (see topUp.js).
+export function buildBrawl({ seed, stage = 1, twist = null, minCoins = 0 }) {
   const rng = makeRng(seed * 31 + stage + 2000);
   const budget = BRAWL_BUDGETS[Math.min(stage, BRAWL_BUDGETS.length) - 1];
   const usable = ARENAS.filter((a) => fitsTwist(a, twist));
@@ -121,5 +124,16 @@ export function buildBrawl({ seed, stage = 1, twist = null }) {
   }
 
   level.cost = budget - remaining;
+
+  // 4. Collector minimum (doesn't touch the budget: the twist pays more).
+  const enemies = level.arenas.flatMap((r) => r.waves.flat());
+  level.coins.push(...findSpots({
+    solid: level.solid,
+    spikes: level.spikes,
+    taken: [...level.coins, ...enemies, level.playerStart, level.flag],
+    columns: [ARENA_W, level.widthTiles],
+    rng: makeRng(seed * 31 + stage + 2555),
+    count: minCoins - level.coins.length,
+  }));
   return level;
 }

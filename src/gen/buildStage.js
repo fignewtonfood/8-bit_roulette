@@ -3,6 +3,7 @@
 
 import { CHUNKS, CHUNK_W, CHUNK_H, fitsTwist } from './chunks.js';
 import { makeRng } from './rng.js';
+import { findSpots } from './topUp.js';
 
 // Pacing template: the order of chunk "slots" between start and exit.
 export const PACING = ['easy', 'build', 'rest', 'build', 'hard', 'rest', 'hard'];
@@ -23,18 +24,11 @@ const SLOT_RULES = {
 };
 
 // twist: the run's twist id. Chunks tagged for other twists are left out.
-// needEnemies (the Killer twist): a layout that ends up with no enemies at all
-// is built again from the next variation of the seed, so there's something to beat.
-export function buildStage({ seed, stage = 1, twist = null, needEnemies = false }) {
-  for (let attempt = 0; attempt < 20; attempt++) {
-    const level = buildOnce({ seed, stage, twist, attempt });
-    if (!needEnemies || level.enemies.length) return level;
-  }
-  throw new Error(`buildStage: no layout with enemies for seed ${seed} stage ${stage}.`);
-}
-
-function buildOnce({ seed, stage, twist, attempt }) {
-  const rng = makeRng(seed * 31 + stage + attempt * 7919);
+// minCoins / minEnemies (Collector / Killer): if the chunks bring fewer than
+// that, unused optional enemy spots fill in first, then extra coins/enemies go
+// on safe floor (see topUp.js). Normal stages pass 0 and are unaffected.
+export function buildStage({ seed, stage = 1, twist = null, minCoins = 0, minEnemies = 0 }) {
+  const rng = makeRng(seed * 31 + stage);
   const budget = STAGE_BUDGETS[Math.min(stage, STAGE_BUDGETS.length) - 1];
   const usable = CHUNKS.filter((c) => fitsTwist(c, twist));
   const pool = usable.filter((c) => c.type !== 'start' && c.type !== 'exit');
@@ -114,5 +108,17 @@ function buildOnce({ seed, stage, twist, attempt }) {
   }
 
   level.cost = budget - remaining;
+
+  // 4. Collector / Killer minimums (doesn't touch the budget: these twists pay more).
+  const extra = makeRng(seed * 31 + stage + 555);
+  const used = new Set(level.enemies);
+  for (const pos of extra.shuffle(optionalEnemies.filter((p) => !used.has(p)))) {
+    if (level.enemies.length >= minEnemies) break;
+    level.enemies.push(pos);
+  }
+  const columns = [CHUNK_W, level.widthTiles - CHUNK_W]; // not in the start or exit chunk
+  const taken = () => [...level.coins, ...level.enemies, level.playerStart, level.flag];
+  level.enemies.push(...findSpots({ solid: level.solid, spikes: level.spikes, taken: taken(), columns, rng: extra, wide: true, count: minEnemies - level.enemies.length }));
+  level.coins.push(...findSpots({ solid: level.solid, spikes: level.spikes, taken: taken(), columns, rng: extra, count: minCoins - level.coins.length }));
   return level;
 }

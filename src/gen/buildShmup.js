@@ -28,8 +28,21 @@ const SLOT_RULES = {
 };
 
 // twist: the run's twist id. Waves tagged for other twists are left out.
-export function buildShmup({ seed, stage = 1, twist = null }) {
-  const rng = makeRng(seed * 31 + stage + 1000);
+// minCoins / minEnemies (Collector / Killer): a stage that comes up short is
+// rebuilt from the next variation of the seed. Waves rarely fall short, so
+// this almost never takes more than one try; normal stages pass 0.
+export function buildShmup({ seed, stage = 1, twist = null, minCoins = 0, minEnemies = 0 }) {
+  let level;
+  for (let attempt = 0; attempt < 30; attempt++) {
+    level = buildOnce({ seed, stage, twist, attempt });
+    const enemies = level.events.filter((e) => e.kind !== 'coin').length;
+    if (level.coins >= minCoins && enemies >= minEnemies) break;
+  }
+  return level;
+}
+
+function buildOnce({ seed, stage, twist, attempt }) {
+  const rng = makeRng(seed * 31 + stage + 1000 + attempt * 7919);
   const budget = SHMUP_BUDGETS[Math.min(stage, SHMUP_BUDGETS.length) - 1];
   const pool = WAVES.filter((w) => fitsTwist(w, twist));
   const slotMin = (slot) => Math.min(...pool.filter(SLOT_RULES[slot]).map((w) => w.difficulty));

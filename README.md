@@ -74,6 +74,9 @@ npm run check:story    # story unlocks, glitches, hub changes + which run each l
   stays faded and locked until every coin / enemy is done; in the shmup a coin
   or enemy that leaves the screen costs a life. Killer isn't on the brawler,
   where beating every enemy is already the rule.
+  `"minimum"` (5 for both) guarantees every stage has at least that many
+  coins / enemies: unused optional enemies fill in first, then extras go on
+  safe floor. Normal stages are never changed by this.
 - **On-screen text:** one line fits 42 characters. `npm run check:engine` flags
   twist descriptions, shop descriptions and names that won't fit.
 - **Brawler arenas:** draw them in `src/gen/arenas.js` like chunks, but one

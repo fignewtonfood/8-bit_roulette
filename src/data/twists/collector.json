@@ -3,9 +3,10 @@
   "name": "Collector",
   "short": "COLLECT",
   "description": "Grab every coin to clear. Pays x1.25.",
-  "_help": "An objective twist: it changes how you win, not how you move. objective \"collect\": in the platformer and brawler the exit stays locked until every coin is picked up; in the shmup a coin that leaves the screen costs a life. payout multiplies the stage tokens of a run you win, like Sudden Death.",
+  "_help": "minimum: every stage gets at least this many coins (extras are added on safe ground when the level pieces bring too few). An objective twist: it changes how you win, not how you move. objective \"collect\": in the platformer and brawler the exit stays locked until every coin is picked up; in the shmup a coin that leaves the screen costs a life. payout multiplies the stage tokens of a run you win, like Sudden Death.",
   "objective": "collect",
   "payout": 1.25,
+  "minimum": 5,
   "genres": {
     "platformer": {},
     "shmup": {},

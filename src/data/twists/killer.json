@@ -3,9 +3,10 @@
   "name": "Killer",
   "short": "KILLER",
   "description": "Defeat every enemy to clear. Pays x1.25.",
-  "_help": "An objective twist: it changes how you win, not how you move. objective \"kill\": in the platformer the exit stays locked until every enemy is stomped; in the shmup an enemy that escapes off the screen costs a life. Not on the brawler, where beating every enemy is already the rule.",
+  "_help": "minimum: every stage gets at least this many enemies (extras are added on safe ground when the level pieces bring too few). An objective twist: it changes how you win, not how you move. objective \"kill\": in the platformer the exit stays locked until every enemy is stomped; in the shmup an enemy that escapes off the screen costs a life. Not on the brawler, where beating every enemy is already the rule.",
   "objective": "kill",
   "payout": 1.25,
+  "minimum": 5,
   "genres": {
     "platformer": {},
     "shmup": {}
