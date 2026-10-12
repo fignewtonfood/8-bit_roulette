@@ -73,12 +73,14 @@ export function runTitle(content, run) {
   const t = content.themes[run.theme];
   const g = content.genres[run.genre];
   const tw = content.twists[run.twist];
-  return `${t.name} · ${g.short || g.name} · ${tw.short || tw.name}`;
+  const lv = run.levels?.twist > 1 ? ` LV${run.levels.twist}` : '';
+  return `${t.name} · ${g.short || g.name} · ${tw.short || tw.name}${lv}`;
 }
 
 export function describeRun(content, run) {
   const t = content.themes[run.theme];
   const g = content.genres[run.genre];
   const tw = content.twists[run.twist];
-  return `${t.name} · ${g.name} · ${tw.name}`;
+  const lv = run.levels?.twist > 1 ? ` (level ${run.levels.twist})` : '';
+  return `${t.name} · ${g.name} · ${tw.name}${lv}`;
 }

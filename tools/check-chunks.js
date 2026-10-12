@@ -6,7 +6,7 @@
 import { buildStage } from '../src/gen/buildStage.js';
 import { CHUNKS, fitsTwist } from '../src/gen/chunks.js'; // importing also validates every chunk
 import { loadContent } from './load-content.js';
-import { stageMinimums } from '../src/engine/content.js';
+import { stageMinimums, twistMaxLevel } from '../src/engine/content.js';
 
 const GENRE = 'platformer';
 const SEEDS = 400; // per twist
@@ -59,6 +59,21 @@ for (const twist of twists) for (let seed = 1; seed <= SEEDS; seed++) {
       if (c && !fitsTwist(c, twist)) problems.push(`${twist} seed ${seed} stage ${stage}: used ${c.id}, which its twist tags rule out for ${twist}`);
     }
     if (stage === 1) lvl.chunks.forEach((id) => usage[id.split(' ')[0]]++);
+  }
+}
+
+// Collector / Killer at every level: each level's minimum must always be met.
+let minimumStages = 0;
+for (const twist of twists) {
+  for (let level = 2; level <= twistMaxLevel(content, twist); level++) {
+    const min = stageMinimums(content, twist, level);
+    if (!min.minCoins && !min.minEnemies) continue;
+    for (let seed = 1; seed <= 200; seed++) for (let stage = 1; stage <= 5; stage++) {
+      const lvl = buildStage({ seed, stage, twist, ...min });
+      minimumStages++;
+      if (lvl.coins.length < min.minCoins) problems.push(`${twist} level ${level} seed ${seed} stage ${stage}: ${lvl.coins.length} coins, needs ${min.minCoins}`);
+      if (lvl.enemies.length < min.minEnemies) problems.push(`${twist} level ${level} seed ${seed} stage ${stage}: ${lvl.enemies.length} enemies, needs ${min.minEnemies}`);
+    }
   }
 }
 

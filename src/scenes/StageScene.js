@@ -34,7 +34,7 @@ export default class StageScene extends Phaser.Scene {
     this.run = data.run;
     this.seed = data.run.seed;
     this.theme = content.themes[data.run.theme];
-    this.mods = twistSettings(content, data.run.twist, 'platformer'); // the twist's settings
+    this.mods = twistSettings(content, data.run.twist, 'platformer', data.run.levels?.twist); // the twist's settings
     this.objective = objectiveOf(content, data.run.twist); // Collector / Killer, or null
     this.lives = data.run.lives;
     this.coinsCollected = 0;
@@ -50,7 +50,7 @@ export default class StageScene extends Phaser.Scene {
     const t = (name) => tex(theme, name);
     makePlaceholderTextures(this, theme);
 
-    const level = buildStage({ seed: this.seed, stage: this.run.stage, twist: this.run.twist, ...stageMinimums(content, this.run.twist) });
+    const level = buildStage({ seed: this.seed, stage: this.run.stage, twist: this.run.twist, ...stageMinimums(content, this.run.twist, this.run.levels?.twist) });
     this.level = level;
     const worldW = level.widthTiles * TILE;
     const worldH = level.heightTiles * TILE;

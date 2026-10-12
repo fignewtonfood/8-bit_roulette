@@ -3,7 +3,7 @@
 // generators when the hand-drawn pieces didn't bring enough on their own.
 // No Phaser here, so it's tested with plain Node like the generators.
 
-const SPACING = 3; // tiles kept between anything this places
+const SPACING = 2; // tiles kept between anything this places and anything already there
 
 // Finds spots to stand on and returns up to `count` of them.
 //   solid       solid[y][x] grid of the stage

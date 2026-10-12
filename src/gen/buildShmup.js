@@ -28,21 +28,40 @@ const SLOT_RULES = {
 };
 
 // twist: the run's twist id. Waves tagged for other twists are left out.
-// minCoins / minEnemies (Collector / Killer): a stage that comes up short is
-// rebuilt from the next variation of the seed. Waves rarely fall short, so
-// this almost never takes more than one try; normal stages pass 0.
+// minCoins / minEnemies (Collector / Killer): if the waves bring fewer, extra
+// coins (or straight-flying bats) are spread evenly through the stage.
+// Normal stages pass 0 and are unaffected.
 export function buildShmup({ seed, stage = 1, twist = null, minCoins = 0, minEnemies = 0 }) {
-  let level;
-  for (let attempt = 0; attempt < 30; attempt++) {
-    level = buildOnce({ seed, stage, twist, attempt });
-    const enemies = level.events.filter((e) => e.kind !== 'coin').length;
-    if (level.coins >= minCoins && enemies >= minEnemies) break;
-  }
+  const level = buildOnce({ seed, stage, twist });
+  const extra = makeRng(seed * 31 + stage + 1555);
+  const enemies = level.events.filter((e) => e.kind !== 'coin').length;
+  const added = [
+    ...spread(level, extra, 'coin', minCoins - level.coins),
+    ...spread(level, extra, 'straight', minEnemies - enemies),
+  ];
+  level.coins += added.filter((e) => e.kind === 'coin').length;
+  level.events.push(...added);
+  level.events.sort((a, b) => a.time - b.time || a.lane - b.lane);
   return level;
 }
 
-function buildOnce({ seed, stage, twist, attempt }) {
-  const rng = makeRng(seed * 31 + stage + 1000 + attempt * 7919);
+// count events of one kind, evenly spaced in time, in lanes clear of anything
+// spawning at about the same moment.
+function spread(level, rng, kind, count) {
+  const out = [];
+  if (count <= 0) return out;
+  const span = level.duration - START_DELAY;
+  for (let i = 0; i < count; i++) {
+    const time = +(START_DELAY + ((i + 0.5) * span) / count).toFixed(3);
+    const busy = (lane) => [...level.events, ...out].some((e) => Math.abs(e.time - time) < 0.6 && Math.abs(e.lane - lane) < 2);
+    const lanes = rng.shuffle(Array.from({ length: WAVE_W - 4 }, (_, k) => k + 2));
+    out.push({ time, lane: lanes.find((l) => !busy(l)) ?? lanes[0], kind });
+  }
+  return out;
+}
+
+function buildOnce({ seed, stage, twist }) {
+  const rng = makeRng(seed * 31 + stage + 1000);
   const budget = SHMUP_BUDGETS[Math.min(stage, SHMUP_BUDGETS.length) - 1];
   const pool = WAVES.filter((w) => fitsTwist(w, twist));
   const slotMin = (slot) => Math.min(...pool.filter(SLOT_RULES[slot]).map((w) => w.difficulty));

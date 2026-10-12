@@ -39,6 +39,7 @@ export function resetSave() {
 export const session = {
   unlockAll: false,   // ?unlock: every length open, for playtesting
   respinsLeft: 0,     // refilled each time you walk into the hub
+  levelPicks: {},     // twist id -> level last picked at the machine (this visit)
   lastLength: 'short',
   hubSpot: null,      // where to stand when you come back to the hub
   forceGlitch: false, // ?glitch: the next spin glitches

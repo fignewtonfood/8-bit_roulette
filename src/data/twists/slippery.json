@@ -8,5 +8,25 @@
     "platformer": { "groundGrip": 2.5, "airGrip": 6 },
     "shmup": { "shipGrip": 8, "shipStop": 1.2 },
     "brawler": { "groundGrip": 2.5, "airGrip": 6, "enemyGrip": 2, "knockbackGrip": 1.2 }
-  }
+  },
+  "levels": [
+    {
+      "description": "Slicker ice. Pays x1.25.",
+      "payout": 1.25,
+      "genres": {
+        "platformer": { "groundGrip": 1.8, "airGrip": 4.5 },
+        "shmup": { "shipGrip": 6, "shipStop": 0.8 },
+        "brawler": { "groundGrip": 1.8, "airGrip": 4.5, "enemyGrip": 1.5, "knockbackGrip": 0.8 }
+      }
+    },
+    {
+      "description": "Pure glass. Pays x1.5.",
+      "payout": 1.5,
+      "genres": {
+        "platformer": { "groundGrip": 1.2, "airGrip": 3.5 },
+        "shmup": { "shipGrip": 4.5, "shipStop": 0.5 },
+        "brawler": { "groundGrip": 1.2, "airGrip": 3.5, "enemyGrip": 1.0, "knockbackGrip": 0.5 }
+      }
+    }
+  ]
 }

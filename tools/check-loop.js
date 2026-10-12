@@ -13,6 +13,7 @@ import {
 import { newSave, parseSave, loadSave, storeSave, SAVE_KEY } from '../src/engine/save.js';
 import { makeRng } from '../src/gen/rng.js';
 import { playsOf, levelFor, levelsGained, progressLines, maxLevel } from '../src/engine/progress.js';
+import { twistAt, stageMinimums } from '../src/engine/content.js';
 
 const content = loadContent();
 const problems = [];
@@ -147,6 +148,14 @@ expect(loadSave(blocked).note && !storeSave(blocked, fresh), 'blocked storage sh
   const others = Object.keys(content.themes).filter((id) => id !== reels.theme).map((id) => content.themes[id].short);
   expect(!others.some((name) => page.includes(name.toUpperCase())), 'the progress page should only list what has been reached');
   expect(progressLines(content, next).every((line) => line.length <= 31), 'progress lines should fit the terminal (31 characters)');
+  // Twist levels: settings, payout, lives and minimums follow the level picked.
+  const dark3 = twistAt(content, 'darkness', 3);
+  expect(dark3.genres.platformer.lightRadius < twistAt(content, 'darkness', 1).genres.platformer.lightRadius && dark3.genres.platformer.glow, 'a level should override settings and keep the rest');
+  expect(twistAt(content, 'classic', 3) === content.twists.classic, 'a twist without levels plays the same at any level');
+  const darkRun = (lv) => ({ ...makeRun(content, fresh, { ...reels, twist: 'darkness', levels: { twist: lv } }, 'short'), cleared: 1 });
+  expect(payout(content, fresh, darkRun(3)).total > payout(content, fresh, darkRun(1)).total, 'a higher twist level should pay more');
+  expect(stageMinimums(content, 'collector', 3).minCoins > stageMinimums(content, 'collector', 1).minCoins, 'higher Collector levels should need more coins');
+  expect(makeRun(content, fresh, { ...reels, twist: 'sudden-death', levels: { twist: 3 } }, 'short').lives === 1, 'Sudden Death stays one life at every level');
   const fixed = parseSave(JSON.stringify({ plays: { theme: { western: 12, x: -3 }, genre: 'junk' } })).save;
   expect(fixed.plays.theme.western === 12 && !('x' in fixed.plays.theme) && Object.keys(fixed.plays.genre).length === 0, 'bad play counts in a save should be repaired');
 }

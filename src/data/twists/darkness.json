@@ -8,5 +8,25 @@
     "platformer": { "lightRadius": 56, "darkness": 0.94, "glow": ["coins", "flag"] },
     "shmup": { "lightRadius": 68, "darkness": 0.9, "glow": ["coins", "enemyShots"] },
     "brawler": { "lightRadius": 64, "darkness": 0.92, "glow": ["coins", "flag", "rocks", "windups"] }
-  }
+  },
+  "levels": [
+    {
+      "description": "A smaller light. Pays x1.25.",
+      "payout": 1.25,
+      "genres": {
+        "platformer": { "lightRadius": 46, "darkness": 0.96 },
+        "shmup": { "lightRadius": 54, "darkness": 0.94 },
+        "brawler": { "lightRadius": 52, "darkness": 0.95 }
+      }
+    },
+    {
+      "description": "Almost blind. Pays x1.5.",
+      "payout": 1.5,
+      "genres": {
+        "platformer": { "lightRadius": 38, "darkness": 0.98 },
+        "shmup": { "lightRadius": 44, "darkness": 0.97 },
+        "brawler": { "lightRadius": 42, "darkness": 0.97 }
+      }
+    }
+  ]
 }

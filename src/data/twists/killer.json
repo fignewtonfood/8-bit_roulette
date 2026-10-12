@@ -10,5 +10,17 @@
   "genres": {
     "platformer": {},
     "shmup": {}
-  }
+  },
+  "levels": [
+    {
+      "description": "Every enemy, 8 or more. Pays x1.5.",
+      "payout": 1.5,
+      "minimum": 8
+    },
+    {
+      "description": "Every enemy, 12 or more. Pays x1.75.",
+      "payout": 1.75,
+      "minimum": 12
+    }
+  ]
 }

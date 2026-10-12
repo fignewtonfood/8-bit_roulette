@@ -10,5 +10,21 @@
     "platformer": {},
     "shmup": {},
     "brawler": {}
-  }
+  },
+  "levels": [
+    {
+      "description": "One life, fewer hearts. Pays x1.75.",
+      "payout": 1.75,
+      "genres": {
+        "brawler": { "hearts": 2 }
+      }
+    },
+    {
+      "description": "One life, one hit. Pays x2.",
+      "payout": 2,
+      "genres": {
+        "brawler": { "hearts": 1 }
+      }
+    }
+  ]
 }

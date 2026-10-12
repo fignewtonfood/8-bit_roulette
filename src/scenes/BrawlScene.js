@@ -72,7 +72,7 @@ export default class BrawlScene extends Phaser.Scene {
     this.run = data.run;
     this.seed = data.run.seed;
     this.theme = content.themes[data.run.theme];
-    this.mods = twistSettings(content, data.run.twist, 'brawler'); // the twist's settings
+    this.mods = twistSettings(content, data.run.twist, 'brawler', data.run.levels?.twist); // the twist's settings
     // Collector (Killer isn't offered here: beating every enemy is already the rule)
     this.objective = objectiveOf(content, data.run.twist);
     this.lives = data.run.lives;
@@ -102,7 +102,7 @@ export default class BrawlScene extends Phaser.Scene {
     makePlaceholderTextures(this, theme);
     makeBrawlTextures(this, theme);
 
-    const level = buildBrawl({ seed: this.seed, stage: this.run.stage, twist: this.run.twist, ...stageMinimums(content, this.run.twist) });
+    const level = buildBrawl({ seed: this.seed, stage: this.run.stage, twist: this.run.twist, ...stageMinimums(content, this.run.twist, this.run.levels?.twist) });
     this.level = level;
     this.worldW = level.widthTiles * TILE;
     this.worldH = level.heightTiles * TILE;

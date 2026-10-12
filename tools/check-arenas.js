@@ -7,7 +7,7 @@ import { buildBrawl } from '../src/gen/buildBrawl.js';
 import { ARENAS, ARENA_W, ENEMY_KINDS } from '../src/gen/arenas.js'; // importing also validates every arena
 import { fitsTwist } from '../src/gen/chunks.js';
 import { loadContent } from './load-content.js';
-import { stageMinimums } from '../src/engine/content.js';
+import { stageMinimums, twistMaxLevel } from '../src/engine/content.js';
 
 const GENRE = 'brawler';
 const GROUND_ROW = 12;
@@ -120,6 +120,20 @@ for (const twist of twists) for (let seed = 1; seed <= SEEDS; seed++) {
 }
 
 const avg = (xs) => (xs.reduce((s, x) => s + x, 0) / xs.length).toFixed(1);
+// Collector / Killer at every level: each level's minimum must always be met.
+let minimumStages = 0;
+for (const twist of twists) {
+  for (let level = 2; level <= twistMaxLevel(content, twist); level++) {
+    const min = stageMinimums(content, twist, level);
+    if (!min.minCoins && !min.minEnemies) continue;
+    for (let seed = 1; seed <= 200; seed++) for (let stage = 1; stage <= 5; stage++) {
+      const lvl = buildBrawl({ seed, stage, twist, ...min });
+      minimumStages++;
+      if (lvl.coins.length < min.minCoins) problems.push(`${twist} level ${level} seed ${seed} stage ${stage}: ${lvl.coins.length} coins, needs ${min.minCoins}`);
+    }
+  }
+}
+
 console.log(`Built ${stagesBuilt} brawler stages: ${SEEDS} seeds x 5 stages for each twist (${twists.join(', ')}).`);
 console.log(problems.length ? `\n${problems.length} problem(s):\n  ${problems.slice(0, 20).join('\n  ')}` : 'No problems found.');
 console.log(`Enemies per stage: about ${avg(enemyTotals[1])} on stage 1, ${avg(enemyTotals[5])} on stage 5.`);

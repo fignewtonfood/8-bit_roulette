@@ -118,7 +118,9 @@ export function buildStage({ seed, stage = 1, twist = null, minCoins = 0, minEne
   }
   const columns = [CHUNK_W, level.widthTiles - CHUNK_W]; // not in the start or exit chunk
   const taken = () => [...level.coins, ...level.enemies, level.playerStart, level.flag];
+  // Walkers want room to patrol; only if that runs out do narrower spots get used.
   level.enemies.push(...findSpots({ solid: level.solid, spikes: level.spikes, taken: taken(), columns, rng: extra, wide: true, count: minEnemies - level.enemies.length }));
+  level.enemies.push(...findSpots({ solid: level.solid, spikes: level.spikes, taken: taken(), columns, rng: extra, count: minEnemies - level.enemies.length }));
   level.coins.push(...findSpots({ solid: level.solid, spikes: level.spikes, taken: taken(), columns, rng: extra, count: minCoins - level.coins.length }));
   return level;
 }

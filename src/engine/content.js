@@ -65,6 +65,7 @@ export function assembleContent({ reels, genres, themes, twists, compatibility, 
   }
 
   // Twists
+  const tooLongLater = [];
   for (const [id, tw] of Object.entries(twists)) {
     const file = `twists/${id}.json`;
     if (tw.id !== id) fail(`${file}: "id" should be "${id}" (it's "${tw.id}").`);
@@ -76,6 +77,21 @@ export function assembleContent({ reels, genres, themes, twists, compatibility, 
     if (tw.minimum !== undefined && !(Number.isInteger(tw.minimum) && tw.minimum >= 1)) fail(`${file}: "minimum" should be a whole number, 1 or more.`);
     for (const g of Object.keys(tw.genres || {})) {
       if (!genreMap[g]) fail(`${file}: unknown genre "${g}".`);
+    }
+    // Levels 2 and up: each entry overrides settings for that level.
+    const maxLevels = (economy?.levels || []).length;
+    if (tw.levels !== undefined) {
+      if (!Array.isArray(tw.levels) || !tw.levels.length) fail(`${file}: "levels" should be a list, one entry per level from level 2.`);
+      else if (tw.levels.length > maxLevels) fail(`${file}: "levels" has ${tw.levels.length} entries but economy.json only has ${maxLevels} level(s) above 1.`);
+      (tw.levels || []).forEach((lv, i) => {
+        const where = `${file}: level ${i + 2}`;
+        for (const g of Object.keys(lv.genres || {})) if (!tw.genres?.[g]) fail(`${where} sets genre "${g}", which this twist doesn't support.`);
+        if (lv.payout !== undefined && !(typeof lv.payout === 'number' && lv.payout > 0)) fail(`${where}: "payout" should be a number above 0.`);
+        if (lv.minimum !== undefined && !(Number.isInteger(lv.minimum) && lv.minimum >= 1 && tw.objective)) fail(`${where}: "minimum" should be a whole number, on a twist with an "objective".`);
+        if (lv.lives !== undefined && !(Number.isInteger(lv.lives) && lv.lives >= 1)) fail(`${where}: "lives" should be a whole number, 1 or more.`);
+        if (!lv.description) fail(`${where} needs a "description" (shown at the machine).`);
+        tooLongLater.push([`${where}: description`, lv.description || '']);
+      });
     }
   }
 
@@ -91,8 +107,10 @@ export function assembleContent({ reels, genres, themes, twists, compatibility, 
   // Text that has to fit on one line of the screen
   const tooLong = (where, s) => String(s).length > SCREEN_CHARS && fail(`${where} is ${String(s).length} characters; one screen line fits ${SCREEN_CHARS}: "${s}"`);
   for (const [id, tw] of Object.entries(twists)) tooLong(`twists/${id}.json: description`, tw.description || '');
+  for (const [where, s] of tooLongLater) tooLong(where, s);
   const longest = (map) => Math.max(...Object.values(map).map((x) => (x.short || x.name || '').length));
-  const titleLen = Math.max(...Object.values(themes).map((t) => t.name.length)) + longest(genreMap) + longest(twists) + 6;
+  // + 6 for the separators, + 4 for a twist level (" LV3")
+  const titleLen = Math.max(...Object.values(themes).map((t) => t.name.length)) + longest(genreMap) + longest(twists) + 10;
   if (titleLen > SCREEN_CHARS) fail(`The longest theme name + genre short + twist short is ${titleLen} characters; it must fit in ${SCREEN_CHARS}. Shorten a "name" or "short".`);
 
   // Shop upgrades
@@ -213,6 +231,19 @@ export function whyIncompatible(content, { theme, genre, twist }) {
   return null;
 }
 
+// A twist as played at a level (1 = as written; 2+ apply that entry in "levels").
+export function twistAt(content, twistId, level = 1) {
+  const tw = content.twists[twistId];
+  const lv = level > 1 ? tw?.levels?.[level - 2] : null;
+  if (!tw || !lv) return tw;
+  const genres = {};
+  for (const g of Object.keys(tw.genres)) genres[g] = { ...tw.genres[g], ...(lv.genres?.[g] || {}) };
+  return { ...tw, ...lv, genres, level };
+}
+
+// The highest level a twist has settings for (1 if it has no "levels").
+export const twistMaxLevel = (content, twistId) => 1 + (content.twists[twistId]?.levels?.length || 0);
+
 // The run's objective twist ('collect', 'kill'), or null for a normal stage.
 export function objectiveOf(content, twistId) {
   return content.twists[twistId]?.objective ?? null;
@@ -220,13 +251,13 @@ export function objectiveOf(content, twistId) {
 
 // What a stage generator needs for the run's twist: { minCoins, minEnemies }
 // (Collector and Killer's "minimum"; zero for every other twist).
-export function stageMinimums(content, twistId) {
-  const tw = content.twists[twistId];
+export function stageMinimums(content, twistId, level = 1) {
+  const tw = twistAt(content, twistId, level);
   const n = tw?.minimum ?? 0;
   return { minCoins: tw?.objective === 'collect' ? n : 0, minEnemies: tw?.objective === 'kill' ? n : 0 };
 }
 
 // The settings a twist gives one genre, e.g. { gravityScale: 0.5, jumpScale: 0.75 }.
-export function twistSettings(content, twistId, genreId) {
-  return { ...(content.twists[twistId]?.genres?.[genreId] || {}) };
+export function twistSettings(content, twistId, genreId, level = 1) {
+  return { ...(twistAt(content, twistId, level)?.genres?.[genreId] || {}) };
 }

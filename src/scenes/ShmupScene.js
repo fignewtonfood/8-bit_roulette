@@ -43,7 +43,7 @@ export default class ShmupScene extends Phaser.Scene {
     this.run = data.run;
     this.seed = data.run.seed;
     this.theme = content.themes[data.run.theme];
-    this.mods = twistSettings(content, data.run.twist, 'shmup'); // the twist's settings
+    this.mods = twistSettings(content, data.run.twist, 'shmup', data.run.levels?.twist); // the twist's settings
     this.objective = objectiveOf(content, data.run.twist); // Collector / Killer, or null
     this.lives = data.run.lives;
     this.coinsCollected = 0;
@@ -61,7 +61,7 @@ export default class ShmupScene extends Phaser.Scene {
     makeShmupTextures(this, theme);
     this.t = (name) => tex(theme, name);
 
-    const level = buildShmup({ seed: this.seed, stage: this.run.stage, twist: this.run.twist, ...stageMinimums(content, this.run.twist) });
+    const level = buildShmup({ seed: this.seed, stage: this.run.stage, twist: this.run.twist, ...stageMinimums(content, this.run.twist, this.run.levels?.twist) });
     this.level = level;
     console.log(`[8-Bit Roulette] ${describeRun(content, this.run)} · stage ${this.run.stage}/${this.run.stages} · seed ${this.seed} · cost ${level.cost}/${level.budget} · ${level.duration}s\n  ${level.waves.join(' → ')}`);
 

@@ -11,5 +11,17 @@
     "platformer": {},
     "shmup": {},
     "brawler": {}
-  }
+  },
+  "levels": [
+    {
+      "description": "Every coin, 8 or more. Pays x1.5.",
+      "payout": 1.5,
+      "minimum": 8
+    },
+    {
+      "description": "Every coin, 12 or more. Pays x1.75.",
+      "payout": 1.75,
+      "minimum": 12
+    }
+  ]
 }

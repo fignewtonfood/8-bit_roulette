@@ -20,7 +20,8 @@ Open the address Vite prints (usually http://localhost:5173).
 - **Terminal:** Left/Right flips through the logs you've found, your
   records, and your progress (levels reached and upgrades owned, never
   what's left); Up finishes a log that's still typing, then closes
-- **Machine:** Left/Right picks the bet, Space pulls. Whatever lands, you play;
+- **Machine:** Left/Right picks the bet, Space pulls. After it lands,
+  Left/Right picks the twist's level if you've reached one. Whatever lands, you play;
   S re-spins only if you own Re-spin (once per trip to the hub). X goes back
 - **Every genre:** Up or Space jumps, Z or X attacks
 - **Platformer:** arrows move, Up or Space jumps. **Shmup:** arrows fly, hold Z or X to fire (Space fires too, since there's no jump)
@@ -99,8 +100,14 @@ npm run check:story    # story unlocks, glitches, hub changes + which run each l
 - **Bad combos:** add a rule to `src/data/compatibility.json`.
 - **Levels:** every finished run (win or lose, not practice) counts as one
   play of its theme, its genre and its twist. `levels` in `economy.json`
-  (`[10, 50]`) is how many plays reach level 2 and 3. Levels are tracked and
-  announced on the result screen; what each level does is still to come.
+  (`[10, 50]`) is how many plays reach level 2 and 3. Level-ups are
+  announced on the result screen.
+- **Twist levels:** what lands isn't a choice, but the level you play it at
+  is. Once the landed twist has reached level 2 or 3, Left/Right at the
+  machine picks the level (practice offers every level). A twist file's
+  `levels` list holds level 2 and 3: each can change any genre setting plus
+  `description`, `payout` and (Collector/Killer) `minimum`. Classic has none.
+  Theme and genre levels are tracked but don't change play yet.
 - **Payouts, lives, lengths:** `src/data/economy.json`. A length with
   `requires` stays locked until the player owns that upgrade level.
 - **Shop prices and upgrades:** `src/data/shop.json`. One price per level;

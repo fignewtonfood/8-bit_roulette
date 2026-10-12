@@ -14,6 +14,7 @@
 // ---------- Upgrades ----------
 
 import { addPlays } from './progress.js';
+import { twistAt } from './content.js';
 
 export const levelOf = (save, upgradeId) => save.upgrades[upgradeId] || 0;
 
@@ -75,12 +76,13 @@ export function makeRun(content, save, spinResult, lengthId, { practice = false 
     theme: spinResult.theme,
     genre: spinResult.genre,
     twist: spinResult.twist,
+    levels: { twist: 1, ...(spinResult.levels || {}) }, // the level picked at the machine for each reel
     glitch: !!spinResult.glitch,
     length: len.id,
     stages: len.stages,
     multiplier: len.multiplier,
     stage: 1,
-    lives: content.twists[spinResult.twist]?.lives ?? startLives(content, save), // a twist can fix the lives (Sudden Death)
+    lives: twistAt(content, spinResult.twist, spinResult.levels?.twist)?.lives ?? startLives(content, save), // a twist can fix the lives (Sudden Death)
     coins: 0,
     cleared: 0,
     practice,
@@ -112,9 +114,9 @@ export function payout(content, save, run) {
     const stagePay = Math.floor(base * run.multiplier);
     lines.push([`${run.cleared} STAGE${run.cleared === 1 ? '' : 'S'} x${run.multiplier}`, stagePay]);
     // A twist can pay extra on a win (Sudden Death): shown as its own line.
-    const twist = content.twists[run.twist];
+    const twist = twistAt(content, run.twist, run.levels?.twist);
     if (twist?.payout && twist.payout !== 1) {
-      lines.push([`${twist.short || twist.name.toUpperCase()} x${twist.payout}`, Math.floor(stagePay * twist.payout) - stagePay]);
+      lines.push([`${twist.short || twist.name.toUpperCase()}${twist.level > 1 ? ` LV${twist.level}` : ''} x${twist.payout}`, Math.floor(stagePay * twist.payout) - stagePay]);
     }
   } else if (len.onFail === 'partial') {
     lines.push([`${run.cleared} STAGE${run.cleared === 1 ? '' : 'S'} x1`, run.cleared * eco.stageTokens]);
