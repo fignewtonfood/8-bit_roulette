@@ -3,9 +3,10 @@
   "name": "Darkness",
   "short": "DARKNESS",
   "description": "You can only see what's close.",
-  "_help": "lightRadius in pixels. darkness: 1 = pitch black, 0 = no effect. glow: things drawn on top of the dark so they stay visible (platformer: coins, flag, spikes, enemies; shmup: coins, enemyShots, enemies).",
+  "_help": "lightRadius in pixels. darkness: 1 = pitch black, 0 = no effect. glow: things drawn on top of the dark so they stay visible (platformer: coins, flag, spikes, enemies; shmup: coins, enemyShots, enemies; brawler: coins, flag, rocks, windups, enemies). Brawler \"windups\": an enemy about to attack lights up, so every hit can be seen coming.",
   "genres": {
     "platformer": { "lightRadius": 56, "darkness": 0.94, "glow": ["coins", "flag"] },
-    "shmup": { "lightRadius": 68, "darkness": 0.9, "glow": ["coins", "enemyShots"] }
+    "shmup": { "lightRadius": 68, "darkness": 0.9, "glow": ["coins", "enemyShots"] },
+    "brawler": { "lightRadius": 64, "darkness": 0.92, "glow": ["coins", "flag", "rocks", "windups"] }
   }
 }

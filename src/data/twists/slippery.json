@@ -3,9 +3,10 @@
   "name": "Slippery",
   "short": "SLIPPERY",
   "description": "Ice everywhere. Slow to start and stop.",
-  "_help": "Grip is how fast you reach the speed you're pushing for, per second (higher = less slippery). Platformer: groundGrip on the ground, airGrip in the air. Shmup: shipGrip while you're steering, shipStop when you let go (low = you keep sliding).",
+  "_help": "Grip is how fast you reach the speed you're pushing for, per second (higher = less slippery). Platformer: groundGrip on the ground, airGrip in the air. Shmup: shipGrip while you're steering, shipStop when you let go (low = you keep sliding). Brawler: groundGrip/airGrip like the platformer, enemyGrip for enemies walking, knockbackGrip for how fast a punched enemy stops sliding (normal is 8; low = they slide off ledges).",
   "genres": {
     "platformer": { "groundGrip": 2.5, "airGrip": 6 },
-    "shmup": { "shipGrip": 8, "shipStop": 1.2 }
+    "shmup": { "shipGrip": 8, "shipStop": 1.2 },
+    "brawler": { "groundGrip": 2.5, "airGrip": 6, "enemyGrip": 2, "knockbackGrip": 1.2 }
   }
 }

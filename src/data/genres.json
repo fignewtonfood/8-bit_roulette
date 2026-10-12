@@ -1,5 +1,6 @@
 {
   "_help": "Base genres. A genre is the one part that needs real code: 'scene' is the Phaser scene that plays it.",
   "platformer": { "name": "Platformer", "short": "PLATFORM", "scene": "Stage" },
-  "shmup": { "name": "Shoot-'em-up", "short": "SHMUP", "scene": "Shmup" }
+  "shmup": { "name": "Shoot-'em-up", "short": "SHMUP", "scene": "Shmup" },
+  "brawler": { "name": "Brawler", "short": "BRAWLER", "scene": "Brawl" }
 }

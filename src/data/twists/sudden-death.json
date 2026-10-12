@@ -8,6 +8,7 @@
   "payout": 1.5,
   "genres": {
     "platformer": {},
-    "shmup": {}
+    "shmup": {},
+    "brawler": {}
   }
 }

@@ -3,9 +3,10 @@
   "name": "Low Gravity",
   "short": "LOW-G",
   "description": "Floaty jumps. Ships drift.",
-  "_help": "gravityScale: 1 = normal, 0.5 = half gravity. jumpScale shrinks the jump so it stays floaty instead of sky-high. shipResponse: how fast the ship reaches full speed (higher = snappier, 0 = never).",
+  "_help": "gravityScale: 1 = normal, 0.5 = half gravity. jumpScale shrinks the jump so it stays floaty instead of sky-high. shipResponse: how fast the ship reaches full speed (higher = snappier, 0 = never). Brawler uses the platformer settings; launched enemies hang in the air longer, so juggles get easy.",
   "genres": {
     "platformer": { "gravityScale": 0.5, "jumpScale": 0.75 },
-    "shmup": { "shipResponse": 3 }
+    "shmup": { "shipResponse": 3 },
+    "brawler": { "gravityScale": 0.5, "jumpScale": 0.75 }
   }
 }

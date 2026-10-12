@@ -1,10 +1,9 @@
 # 8-Bit Roulette
 
-Milestone 5 (content and story): walk around the hub, bet on a game length,
-pull the slot machine, clear the stages, get paid in tokens, and spend them in
+Walk around the hub, bet on a game length, pull the slot machine, clear the stages, get paid in tokens, and spend them in
 the shop. As you keep playing, story logs turn up at the terminal, the hub
 changes, and every so often the machine glitches. Progress is saved in the
-browser.
+browser. Three genres so far: platformer, shoot-'em-up and brawler.
 
 ## Run it
 
@@ -23,6 +22,10 @@ Open the address Vite prints (usually http://localhost:5173).
 - **Machine:** Left/Right picks the bet, Space pulls. Whatever lands, you play;
   S re-spins only if you own Re-spin (once per trip to the hub). X goes back
 - **Platformer:** arrows move; Up, Space or Z jump. **Shmup:** arrows fly, hold Space or Z to fire
+- **Brawler:** arrows move, Up or X jumps, Z or Space attacks. Three ground
+  hits make a combo (the third launches); attacking in the air is a kick, and
+  hitting an enemy that's in the air pops it back up. Each life has 3 hearts.
+  Walking into an arena with enemies locks the screen until they're all down
 - The browser console lists the reels and the chunks/waves used for every stage
 
 ### Testing shortcuts (add to the URL)
@@ -30,7 +33,7 @@ Open the address Vite prints (usually http://localhost:5173).
 Practice runs pay no tokens and don't touch your save:
 
 - `?seed=12345` replays a run exactly (same reels, same stages)
-- `?genre=shmup`, `?theme=neon-space`, `?twist=darkness` force a reel; mix them freely
+- `?genre=shmup` (or `brawler`), `?theme=neon-space`, `?twist=darkness` force a reel; mix them freely
 - `?length=medium` plays more stages (`short`, `medium`, `long`)
 - `?spin` opens a practice machine: every length open, free re-spins, forced reels stay locked
 - `?debug` shows hitboxes
@@ -49,9 +52,10 @@ Save tools:
 ## Check everything
 
 ```
-npm run check          # all five below
+npm run check          # all six below
 npm run check:chunks   # 10,000 platformer stages (every twist)
 npm run check:shmup    # 10,000 shmup stages (every twist)
+npm run check:brawl    # 10,000 brawler stages (every twist) + arena layout rules
 npm run check:engine   # data files + 10,000 spins
 npm run check:loop     # bets, payouts, shop, save file + a progression estimate
 npm run check:story    # story unlocks, glitches, hub changes + which run each log arrives on
@@ -66,8 +70,13 @@ npm run check:story    # story unlocks, glitches, hub changes + which run each l
   (multiplies the stage tokens of a won run), like Sudden Death.
 - **On-screen text:** one line fits 42 characters. `npm run check:engine` flags
   twist descriptions, shop descriptions and names that won't fit.
-- **Twist-only chunks and waves:** add `{ twists: ['slippery'] }` after a
-  chunk's or wave's art (in `src/gen/chunks.js` / `waves.js`) and it only
+- **Brawler arenas:** draw them in `src/gen/arenas.js` like chunks, but one
+  screen wide (16 tiles). Enemy letters: G grunt, R rusher, T thrower,
+  B brute (lowercase = optional). `{ reinforce: `...` }` adds a second wave
+  that arrives when one enemy from the first is left. `npm run check:brawl`
+  flags enemies with nothing to stand on and arenas with no safe respawn spot.
+- **Twist-only chunks, waves and arenas:** add `{ twists: ['slippery'] }` after a
+  chunk's, wave's or arena's art (in `src/gen/chunks.js` / `waves.js` / `arenas.js`) and it only
   shows up when that twist lands, twice as often as a normal one.
   `npm run check:chunks` and `check:shmup` build stages for every twist and
   flag a typo'd twist id.
@@ -117,7 +126,7 @@ log arrives on.
 | `src/ui/glitch.js` | The jolt-and-flicker look of a glitch run |
 | `src/engine/spin.js` | Seed → theme, genre, twist (with re-rolls) |
 | `src/engine/content.js` | Loads and checks the data files |
-| `src/engine/darkness.js` | The Darkness effect, shared by both genres |
+| `src/engine/darkness.js` | The Darkness effect, shared by every genre |
 | `src/engine/run.js` | The loop's rules: runs, stage chaining, payouts, buying |
 | `src/engine/save.js` | Reading and repairing the save file |
 | `src/engine/profile.js` | The live save in the browser, plus this-visit settings |
@@ -129,9 +138,12 @@ log arrives on.
 | `src/scenes/SpinScene.js` | The slot machine screen and the bet |
 | `src/gen/chunks.js` | Hand-drawn level chunks (add new ones here) |
 | `src/gen/waves.js` | Hand-drawn shmup waves |
+| `src/gen/arenas.js` | Hand-drawn brawler arenas (one screen each) |
+| `src/gen/buildBrawl.js` | Seed → brawler stage: arenas, budget, reinforcements |
 | `src/gen/buildStage.js` | Seed → stage: pacing, difficulty budget, mirroring |
 | `src/gen/rng.js` | Seeded random numbers |
 | `src/art/placeholder.js` | Draws placeholder sprites from the palette |
 | `src/scenes/StageScene.js` | Platformer: player, enemies, the feel knobs |
 | `src/scenes/ShmupScene.js` | Shoot-'em-up: ship, enemies, the feel knobs |
+| `src/scenes/BrawlScene.js` | Brawler: combo, enemy behaviour, arena locks, the feel knobs |
 | `src/scenes/ResultScene.js` | Between-stage and payout screens |
