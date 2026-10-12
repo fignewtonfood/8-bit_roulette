@@ -198,7 +198,7 @@ export const CHUNKS = [
     ...##.....
     ..........
     ##......##
-    ##......##`),
+    ##......##`, { notTwists: ['slippery'] }), // the only way across is a 2-wide float; ice slides further than that
 
   chunk('spike_platform', 'jump', 2, `
     ....CC....
@@ -212,7 +212,7 @@ export const CHUNKS = [
     ....##....
     ...^^^^...
     #.######.#
-    #.######.#`),
+    #.######.#`, { notTwists: ['slippery'] }), // 1-tile safe spots between pits and spikes
 
   chunk('enemy_ledge', 'combat', 2, `
     ....CC....
@@ -238,7 +238,7 @@ export const CHUNKS = [
     ..........
     .....#....
     ##...#...#
-    ##...#...#`),
+    ##...#...#`, { notTwists: ['slippery', 'darkness'] }), // ice slides you off a 1-wide pillar; in the dark it's out of sight from the take-off
 
   chunk('spike_trap', 'jump', 3, `
     .....C....
@@ -254,7 +254,7 @@ chunk('double_pillar_hop', 'jump', 3, `
     ..........
     ....#..#..
     ##..#..#.#
-    ##..#..#.#`),
+    ##..#..#.#`, { notTwists: ['slippery'] }), // 1-wide pillars: on ice you slide straight off
 
 chunk('moon_pillar_hop', 'jump', 3, `
     ....C..C..
