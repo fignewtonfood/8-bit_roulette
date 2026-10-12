@@ -31,17 +31,20 @@ for (const twist of twists) {
 
 for (const twist of twists) for (let seed = 1; seed <= SEEDS; seed++) {
   for (let stage = 1; stage <= 5; stage++) {
-    const lvl = buildStage({ seed, stage, twist });
+    const lvl = buildStage({ seed, stage, twist, needEnemies: content.twists[twist].objective === 'kill' });
     stagesBuilt++;
     if (lvl.cost > lvl.budget) problems.push(`${twist} seed ${seed} stage ${stage}: cost ${lvl.cost} > budget ${lvl.budget}`);
     if (!lvl.playerStart) problems.push(`${twist} seed ${seed} stage ${stage}: no player start`);
     if (!lvl.flag) problems.push(`${twist} seed ${seed} stage ${stage}: no exit flag`);
+    const objective = content.twists[twist].objective;
+    if (objective === 'collect' && !lvl.coins.length) problems.push(`${twist} seed ${seed} stage ${stage}: Collector stage with no coins`);
+    if (objective === 'kill' && !lvl.enemies.length) problems.push(`${twist} seed ${seed} stage ${stage}: Killer stage with no enemies`);
     for (let i = 1; i < lvl.chunks.length; i++) {
       if (lvl.chunks[i].split(' ')[0] === lvl.chunks[i - 1].split(' ')[0] && !lvl.chunks[i].startsWith('rest')) {
         problems.push(`${twist} seed ${seed} stage ${stage}: ${lvl.chunks[i]} repeated back to back`);
       }
     }
-    if (JSON.stringify(lvl) !== JSON.stringify(buildStage({ seed, stage, twist }))) {
+    if (JSON.stringify(lvl) !== JSON.stringify(buildStage({ seed, stage, twist, needEnemies: content.twists[twist].objective === 'kill' }))) {
       problems.push(`${twist} seed ${seed} stage ${stage}: same seed built a different stage`);
     }
     for (const id of lvl.chunks) {

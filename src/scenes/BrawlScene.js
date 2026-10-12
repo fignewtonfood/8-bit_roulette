@@ -2,12 +2,13 @@ import Phaser from 'phaser';
 import { buildBrawl } from '../gen/buildBrawl.js';
 import { ARENA_W } from '../gen/arenas.js';
 import { content } from '../data/index.js';
-import { twistSettings } from '../engine/content.js';
+import { twistSettings, objectiveOf } from '../engine/content.js';
 import { describeRun } from '../engine/spin.js';
 import { addDarkness, GLOW_DEPTH } from '../engine/darkness.js';
 import { endStage } from '../engine/startRun.js';
 import { pixelText } from '../ui/font.js';
 import { addGlitchFx } from '../ui/glitch.js';
+import { addObjectiveHint, leftMessage, LOCKED_ALPHA } from '../ui/objective.js';
 import { makePlaceholderTextures, tex } from '../art/placeholder.js';
 import { makeBrawlTextures } from '../art/brawlPlaceholder.js';
 
@@ -72,6 +73,8 @@ export default class BrawlScene extends Phaser.Scene {
     this.seed = data.run.seed;
     this.theme = content.themes[data.run.theme];
     this.mods = twistSettings(content, data.run.twist, 'brawler'); // the twist's settings
+    // Collector (Killer isn't offered here: beating every enemy is already the rule)
+    this.objective = objectiveOf(content, data.run.twist);
     this.lives = data.run.lives;
     this.maxHp = this.mods.hearts ?? HEARTS;
     this.hp = this.maxHp;
@@ -152,7 +155,7 @@ export default class BrawlScene extends Phaser.Scene {
     this.physics.add.collider(this.rocks, this.layer, (rock) => rock.destroy());
     this.physics.add.overlap(this.player, this.spikes, () => this.touchSpikes());
     this.physics.add.overlap(this.player, this.coins, (_p, coin) => this.collectCoin(coin));
-    this.physics.add.overlap(this.player, this.flag, () => !this.locked && this.finish(true));
+    this.physics.add.overlap(this.player, this.flag, () => !this.locked && this.reachFlag());
     this.physics.add.overlap(this.player, this.rocks, (_p, rock) => {
       if (this.invulnerable > 0 || this.dying) return;
       const dir = Math.sign(rock.body.velocity.x) || -this.facing;
@@ -186,6 +189,9 @@ export default class BrawlScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(10)
       .setVisible(false);
+    this.hint = addObjectiveHint(this, theme.palette.text);
+    this.hintCooldown = 0;
+    this.refreshObjective();
     this.updateHud();
     this.startTime = this.time.now;
   }
@@ -381,7 +387,29 @@ export default class BrawlScene extends Phaser.Scene {
   collectCoin(coin) {
     coin.disableBody(true, true);
     this.coinsCollected++;
+    this.refreshObjective();
     this.updateHud();
+  }
+
+  // Twist Collector: the flag stays faded and locked until every coin is picked up.
+  coinsLeft() {
+    return this.objective === 'collect' ? this.level.coins.length - this.coinsCollected : 0;
+  }
+
+  refreshObjective() {
+    this.flag.setAlpha(this.coinsLeft() > 0 ? LOCKED_ALPHA : 1);
+  }
+
+  reachFlag() {
+    const left = this.coinsLeft();
+    if (!left) {
+      this.finish(true);
+      return;
+    }
+    if (this.time.now > this.hintCooldown) {
+      this.hint.show(leftMessage(this.objective, this.theme, left));
+      this.hintCooldown = this.time.now + 1000;
+    }
   }
 
   // ---------------------------------------------------------------- arenas
@@ -423,8 +451,10 @@ export default class BrawlScene extends Phaser.Scene {
   unlockArena(a) {
     a.done = true;
     this.locked = null;
-    // No going back: the left wall stays where this arena started.
-    this.setLane(a.x0 * TILE, this.worldW - a.x0 * TILE);
+    // No going back: the left wall stays where this arena started. With
+    // Collector you may need to fetch a coin you skipped, so the way back opens.
+    const left = this.objective === 'collect' ? 0 : a.x0 * TILE;
+    this.setLane(left, this.worldW - left);
     if (this.level.arenas.some((x) => x.x0 > a.x0)) this.goTimer = 2;
   }
 

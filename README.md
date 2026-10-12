@@ -69,6 +69,11 @@ npm run check:story    # story unlocks, glitches, hub changes + which run each l
 - **Twist settings:** edit the numbers in `src/data/twists/*.json`. A twist can
   also set `lives` (every game starts with exactly that many) and `payout`
   (multiplies the stage tokens of a won run), like Sudden Death.
+- **Objective twists:** `"objective": "collect"` (Collector) or `"kill"`
+  (Killer) changes how a stage is won. In the platformer and brawler the flag
+  stays faded and locked until every coin / enemy is done; in the shmup a coin
+  or enemy that leaves the screen costs a life. Killer isn't on the brawler,
+  where beating every enemy is already the rule.
 - **On-screen text:** one line fits 42 characters. `npm run check:engine` flags
   twist descriptions, shop descriptions and names that won't fit.
 - **Brawler arenas:** draw them in `src/gen/arenas.js` like chunks, but one

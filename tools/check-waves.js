@@ -33,6 +33,7 @@ for (const twist of twists) for (let seed = 1; seed <= SEEDS; seed++) {
     stagesBuilt++;
     if (lvl.cost > lvl.budget) problems.push(`${twist} seed ${seed} stage ${stage}: cost ${lvl.cost} > budget ${lvl.budget}`);
     if (!lvl.events.some((e) => e.kind !== 'coin')) problems.push(`${twist} seed ${seed} stage ${stage}: no enemies at all`);
+    if (content.twists[twist].objective === 'collect' && !lvl.coins) problems.push(`${twist} seed ${seed} stage ${stage}: Collector stage with no coins`);
     for (let i = 1; i < lvl.waves.length; i++) {
       const id = lvl.waves[i].split(' ')[0];
       const isRest = WAVES.find((w) => w.id === id)?.type === 'rest'; // rest is the safe fallback

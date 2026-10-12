@@ -1,12 +1,13 @@
 import Phaser from 'phaser';
 import { buildShmup } from '../gen/buildShmup.js';
 import { content } from '../data/index.js';
-import { twistSettings } from '../engine/content.js';
+import { twistSettings, objectiveOf } from '../engine/content.js';
 import { describeRun } from '../engine/spin.js';
 import { addDarkness, GLOW_DEPTH } from '../engine/darkness.js';
 import { endStage } from '../engine/startRun.js';
 import { pixelText } from '../ui/font.js';
 import { addGlitchFx } from '../ui/glitch.js';
+import { addObjectiveHint } from '../ui/objective.js';
 import { makePlaceholderTextures, tex } from '../art/placeholder.js';
 import { makeShmupTextures } from '../art/shmupPlaceholder.js';
 
@@ -43,6 +44,7 @@ export default class ShmupScene extends Phaser.Scene {
     this.seed = data.run.seed;
     this.theme = content.themes[data.run.theme];
     this.mods = twistSettings(content, data.run.twist, 'shmup'); // the twist's settings
+    this.objective = objectiveOf(content, data.run.twist); // Collector / Killer, or null
     this.lives = data.run.lives;
     this.coinsCollected = 0;
     this.elapsed = 0;
@@ -114,6 +116,7 @@ export default class ShmupScene extends Phaser.Scene {
     this.hud = pixelText(this, 4, 4, '', { color: theme.palette.text })
       .setScrollFactor(0)
       .setDepth(10);
+    this.hint = addObjectiveHint(this, theme.palette.text);
     this.updateHud();
   }
 
@@ -179,12 +182,18 @@ export default class ShmupScene extends Phaser.Scene {
     this.updateEnemies(dt);
     this.darkness?.update(this.player);
 
-    // Clean up anything that left the screen
+    // Clean up anything that left the screen. Twists Collector and Killer:
+    // a coin or an enemy that gets away costs a life.
+    const missable = { collect: this.coins, kill: this.enemies }[this.objective];
     [this.shots, this.enemyShots, this.coins, this.enemies].forEach((group) => {
       group.getChildren().slice().forEach((o) => {
-        if (o.y < -24 || o.y > H + 24 || o.x < -24 || o.x > W + 24) o.destroy();
+        if (o.y < -24 || o.y > H + 24 || o.x < -24 || o.x > W + 24) {
+          o.destroy();
+          if (group === missable) this.missedObjective();
+        }
       });
     });
+    if (this.finished) return;
 
     // Cleared: every wave has spawned and nothing hostile is left
     if (this.nextEvent >= events.length && this.elapsed > this.level.duration && this.enemies.countActive() === 0) {
@@ -270,6 +279,18 @@ export default class ShmupScene extends Phaser.Scene {
       return;
     }
     this.invulnerable = INVULNERABLE_TIME;
+  }
+
+  missedObjective() {
+    if (this.finished) return;
+    this.lives--;
+    this.updateHud();
+    this.cameras.main.shake(150, 0.01);
+    this.hint.show(this.objective === 'collect' ? `MISSED ${this.theme.names.hudCoin}: -1 LIFE` : 'ONE GOT AWAY: -1 LIFE');
+    if (this.lives <= 0) {
+      this.player.setVisible(false);
+      this.finish(false);
+    }
   }
 
   finish(cleared) {

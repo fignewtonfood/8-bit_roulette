@@ -33,7 +33,7 @@ for (const len of eco.lengths.filter((l) => l.requires)) {
 }
 
 // ---------- Stage chaining ----------
-const combo = spin(content, 42);
+const combo = spin(content, 42, { twist: 'classic' }); // no twist, so payouts are the base amounts
 for (const len of eco.lengths) {
   let run = makeRun(content, fresh, combo, len.id);
   expect(run.stages === len.stages && run.stage === 1, `${len.id}: run should start at stage 1 of ${len.stages}`);

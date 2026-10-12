@@ -1,0 +1,22 @@
+{
+  "id": "kawaii",
+  "name": "Kawaii",
+  "short": "KAWAII",
+  "palette": {
+    "sky": "#ffd9ec",
+    "ground": "#b59ae8",
+    "groundDark": "#8c70c8",
+    "groundTop": "#8ef0c6",
+    "player": "#5a3a7a",
+    "enemy": "#e2457c",
+    "spike": "#2770c4",
+    "coin": "#c66a00",
+    "flag": "#2a7fd4",
+    "text": "#5a3a7a"
+  },
+  "names": {
+    "enemy": "Grumpy cloud",
+    "coin": "Star candy",
+    "hudCoin": "CANDY"
+  }
+}

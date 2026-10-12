@@ -1,12 +1,13 @@
 import Phaser from 'phaser';
 import { buildStage } from '../gen/buildStage.js';
 import { content } from '../data/index.js';
-import { twistSettings } from '../engine/content.js';
+import { twistSettings, objectiveOf } from '../engine/content.js';
 import { describeRun } from '../engine/spin.js';
 import { addDarkness, GLOW_DEPTH } from '../engine/darkness.js';
 import { endStage } from '../engine/startRun.js';
 import { pixelText } from '../ui/font.js';
 import { addGlitchFx } from '../ui/glitch.js';
+import { addObjectiveHint, leftMessage, LOCKED_ALPHA } from '../ui/objective.js';
 import { makePlaceholderTextures, tex } from '../art/placeholder.js';
 
 const TILE = 16;
@@ -34,6 +35,7 @@ export default class StageScene extends Phaser.Scene {
     this.seed = data.run.seed;
     this.theme = content.themes[data.run.theme];
     this.mods = twistSettings(content, data.run.twist, 'platformer'); // the twist's settings
+    this.objective = objectiveOf(content, data.run.twist); // Collector / Killer, or null
     this.lives = data.run.lives;
     this.coinsCollected = 0;
     this.dying = false;
@@ -48,7 +50,7 @@ export default class StageScene extends Phaser.Scene {
     const t = (name) => tex(theme, name);
     makePlaceholderTextures(this, theme);
 
-    const level = buildStage({ seed: this.seed, stage: this.run.stage, twist: this.run.twist });
+    const level = buildStage({ seed: this.seed, stage: this.run.stage, twist: this.run.twist, needEnemies: this.objective === 'kill' });
     this.level = level;
     const worldW = level.widthTiles * TILE;
     const worldH = level.heightTiles * TILE;
@@ -104,7 +106,7 @@ export default class StageScene extends Phaser.Scene {
     this.physics.add.overlap(this.player, this.spikes, () => this.die());
     this.physics.add.overlap(this.player, this.coins, (_p, coin) => this.collectCoin(coin));
     this.physics.add.overlap(this.player, this.enemies, (_p, enemy) => this.touchEnemy(enemy));
-    this.physics.add.overlap(this.player, this.flag, () => this.finish(true));
+    this.physics.add.overlap(this.player, this.flag, () => this.reachFlag());
 
     // Twist: Darkness. Anything listed under "glow" stays visible in the dark.
     this.darkness = null; // the scene object is reused between runs, so reset it
@@ -129,6 +131,9 @@ export default class StageScene extends Phaser.Scene {
     this.hud = pixelText(this, 4, 4, '', { color: theme.palette.text })
       .setScrollFactor(0)
       .setDepth(10);
+    this.hint = addObjectiveHint(this, theme.palette.text);
+    this.hintCooldown = 0;
+    this.refreshObjective();
     this.updateHud();
     this.startTime = this.time.now;
   }
@@ -194,7 +199,32 @@ export default class StageScene extends Phaser.Scene {
   collectCoin(coin) {
     coin.disableBody(true, true);
     this.coinsCollected++;
+    this.refreshObjective();
     this.updateHud();
+  }
+
+  // Twists Collector and Killer: how many coins / enemies are still left.
+  objectiveLeft() {
+    if (this.objective === 'collect') return this.level.coins.length - this.coinsCollected;
+    if (this.objective === 'kill') return this.enemies.countActive();
+    return 0;
+  }
+
+  // The flag fades while the objective isn't done.
+  refreshObjective() {
+    this.flag.setAlpha(this.objectiveLeft() > 0 ? LOCKED_ALPHA : 1);
+  }
+
+  reachFlag() {
+    const left = this.objectiveLeft();
+    if (!left) {
+      this.finish(true);
+      return;
+    }
+    if (this.time.now > this.hintCooldown) {
+      this.hint.show(leftMessage(this.objective, this.theme, left));
+      this.hintCooldown = this.time.now + 1000;
+    }
   }
 
   touchEnemy(enemy) {
@@ -204,6 +234,8 @@ export default class StageScene extends Phaser.Scene {
     if (stomp) {
       enemy.disableBody(true, true);
       this.player.setVelocityY(-this.jumpVelocity * STOMP_BOUNCE);
+      this.refreshObjective();
+      this.updateHud();
     } else {
       this.die();
     }
@@ -248,8 +280,10 @@ export default class StageScene extends Phaser.Scene {
   }
 
   updateHud() {
+    const gap = this.objective === 'kill' ? '  ' : '   ';
+    const foes = this.objective === 'kill' ? `${gap}FOES ${this.enemies.countActive()}` : '';
     this.hud.setText(
-      `LIVES ${this.lives}   ${this.theme.names.hudCoin} ${this.coinsCollected}/${this.level.coins.length}   STAGE ${this.run.stage}/${this.run.stages}`,
+      `LIVES ${this.lives}${gap}${this.theme.names.hudCoin} ${this.coinsCollected}/${this.level.coins.length}${foes}${gap}STAGE ${this.run.stage}/${this.run.stages}`,
     );
   }
 }

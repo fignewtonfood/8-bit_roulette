@@ -22,6 +22,8 @@ export const LOG_LINES = 9;
 const STORY_HUB = ['scratches', 'stranger', 'watching'];
 const UNLOCK_KEYS = ['runs', 'wins', 'tokensEarned', 'glitches', 'upgrade'];
 const ON_FAIL = ['consolation', 'partial'];
+// Objective twists change how a stage is won (see twists/collector.json).
+export const OBJECTIVES = ['collect', 'kill'];
 
 export function assembleContent({ reels, genres, themes, twists, compatibility, economy, shop, story }) {
   const errors = [];
@@ -69,6 +71,7 @@ export function assembleContent({ reels, genres, themes, twists, compatibility, 
     if (!tw.genres || !Object.keys(tw.genres).length) fail(`${file}: list at least one genre under "genres".`);
     if (tw.lives !== undefined && !(Number.isInteger(tw.lives) && tw.lives >= 1)) fail(`${file}: "lives" should be a whole number, 1 or more.`);
     if (tw.payout !== undefined && !(typeof tw.payout === 'number' && tw.payout > 0)) fail(`${file}: "payout" should be a number above 0.`);
+    if (tw.objective !== undefined && !OBJECTIVES.includes(tw.objective)) fail(`${file}: unknown objective "${tw.objective}" (options: ${OBJECTIVES.join(', ')}).`);
     for (const g of Object.keys(tw.genres || {})) {
       if (!genreMap[g]) fail(`${file}: unknown genre "${g}".`);
     }
@@ -200,6 +203,11 @@ export function whyIncompatible(content, { theme, genre, twist }) {
     if (matches) return rule.reason || 'blocked in compatibility.json';
   }
   return null;
+}
+
+// The run's objective twist ('collect', 'kill'), or null for a normal stage.
+export function objectiveOf(content, twistId) {
+  return content.twists[twistId]?.objective ?? null;
 }
 
 // The settings a twist gives one genre, e.g. { gravityScale: 0.5, jumpScale: 0.75 }.

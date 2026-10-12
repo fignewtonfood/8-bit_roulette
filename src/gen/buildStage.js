@@ -23,8 +23,18 @@ const SLOT_RULES = {
 };
 
 // twist: the run's twist id. Chunks tagged for other twists are left out.
-export function buildStage({ seed, stage = 1, twist = null }) {
-  const rng = makeRng(seed * 31 + stage);
+// needEnemies (the Killer twist): a layout that ends up with no enemies at all
+// is built again from the next variation of the seed, so there's something to beat.
+export function buildStage({ seed, stage = 1, twist = null, needEnemies = false }) {
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const level = buildOnce({ seed, stage, twist, attempt });
+    if (!needEnemies || level.enemies.length) return level;
+  }
+  throw new Error(`buildStage: no layout with enemies for seed ${seed} stage ${stage}.`);
+}
+
+function buildOnce({ seed, stage, twist, attempt }) {
+  const rng = makeRng(seed * 31 + stage + attempt * 7919);
   const budget = STAGE_BUDGETS[Math.min(stage, STAGE_BUDGETS.length) - 1];
   const usable = CHUNKS.filter((c) => fitsTwist(c, twist));
   const pool = usable.filter((c) => c.type !== 'start' && c.type !== 'exit');

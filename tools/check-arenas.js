@@ -92,6 +92,7 @@ for (const twist of twists) for (let seed = 1; seed <= SEEDS; seed++) {
     if (lvl.cost > lvl.budget) problems.push(`${tag}: cost ${lvl.cost} > budget ${lvl.budget}`);
     if (!lvl.playerStart) problems.push(`${tag}: no player start`);
     if (!lvl.flag) problems.push(`${tag}: no exit flag`);
+    if (content.twists[twist].objective === 'collect' && !lvl.coins.length) problems.push(`${tag}: Collector stage with no coins`);
     if (!lvl.arenas.some((r) => r.fight)) problems.push(`${tag}: no fights at all`);
     for (let i = 1; i < lvl.names.length; i++) {
       const id = lvl.names[i].split(' ')[0];

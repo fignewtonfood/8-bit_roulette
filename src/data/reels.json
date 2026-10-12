@@ -12,6 +12,9 @@
     },
     {
       "id": "prehistoric"
+    },
+    {
+      "id": "kawaii"
     }
   ],
   "genres": [
@@ -41,6 +44,12 @@
     },
     {
       "id": "sudden-death"
+    },
+    {
+      "id": "collector"
+    },
+    {
+      "id": "killer"
     }
   ]
 }
