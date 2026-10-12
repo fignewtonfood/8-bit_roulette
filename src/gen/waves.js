@@ -19,20 +19,21 @@
 // Twist-only waves: add { twists: [...] } after the art and the wave only
 // shows up when one of those twists is on the reel, like twist-only chunks
 // (see chunks.js). The twist ids are the file names in src/data/twists/.
+// { notTwists: [...] } does the opposite: the wave shows up with every twist
+// except those.
+
+import { twistTags } from './chunks.js';
 
 export const WAVE_W = 16;
 
-function wave(id, type, difficulty, art, { twists } = {}) {
+function wave(id, type, difficulty, art, tagOptions = {}) {
   const rows = art.trim().split('\n').map((line) => line.trim());
   rows.forEach((row, i) => {
     if (row.length !== WAVE_W) {
       throw new Error(`Wave "${id}" row ${i} ("${row}") is ${row.length} wide; expected ${WAVE_W}.`);
     }
   });
-  if (twists !== undefined && (!Array.isArray(twists) || !twists.length || twists.some((t) => typeof t !== 'string'))) {
-    throw new Error(`Wave "${id}": "twists" should be a list of twist ids, like ['slippery'].`);
-  }
-  return twists ? { id, type, difficulty, rows, twists } : { id, type, difficulty, rows };
+  return { id, type, difficulty, rows, ...twistTags(`Wave "${id}"`, tagOptions) };
 }
 
 // type: rest | secret | wave

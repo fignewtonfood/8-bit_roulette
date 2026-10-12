@@ -84,6 +84,8 @@ npm run check:story    # story unlocks, glitches, hub changes + which run each l
 - **Twist-only chunks, waves and arenas:** add `{ twists: ['slippery'] }` after a
   chunk's, wave's or arena's art (in `src/gen/chunks.js` / `waves.js` / `arenas.js`) and it only
   shows up when that twist lands, twice as often as a normal one.
+  `{ notTwists: ['darkness'] }` is the opposite: it shows up with every twist
+  except those, at its normal rate. A piece can have one or the other.
   `npm run check:chunks` and `check:shmup` build stages for every twist and
   flag a typo'd twist id.
 - **Rarity:** give a reel entry a `"weight"` (0.5 = half as often).

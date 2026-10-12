@@ -25,12 +25,37 @@
 //     ..........
 //     ##......##
 //     ##########`, { twists: ['slippery'] }),
+//
+// Twist-excluded chunks: { notTwists: [...] } is the opposite. The chunk shows
+// up with every twist EXCEPT those (at its normal rate). Use it for a chunk
+// that's unfair or pointless with a twist, like a leap of faith in Darkness.
+//
+//   chunk('blind_drop', 'jump', 2, `...`, { notTwists: ['darkness'] }),
+//
+// A chunk can have one or the other, not both.
 
 export const CHUNK_W = 10;
 export const CHUNK_H = 14;
 const GROUND_ROW = 12;
 
-function chunk(id, type, difficulty, art, { twists } = {}) {
+// Checks a piece's twist tags and returns the ones it has, ready to attach.
+// Shared by chunks, waves (waves.js) and arenas (arenas.js).
+export function twistTags(what, { twists, notTwists }) {
+  const tags = {};
+  for (const [key, list] of [['twists', twists], ['notTwists', notTwists]]) {
+    if (list === undefined) continue;
+    if (!Array.isArray(list) || !list.length || list.some((t) => typeof t !== 'string')) {
+      throw new Error(`${what}: "${key}" should be a list of twist ids, like ['slippery'].`);
+    }
+    tags[key] = list;
+  }
+  if (tags.twists && tags.notTwists) {
+    throw new Error(`${what}: use "twists" (only with these) or "notTwists" (never with these), not both.`);
+  }
+  return tags;
+}
+
+function chunk(id, type, difficulty, art, tagOptions = {}) {
   const rows = art.trim().split('\n').map((line) => line.trim());
   while (rows.length < CHUNK_H) rows.unshift('.'.repeat(CHUNK_W));
 
@@ -46,14 +71,12 @@ function chunk(id, type, difficulty, art, { twists } = {}) {
   if (ground[0] !== '#' || ground[CHUNK_W - 1] !== '#') {
     throw new Error(`Chunk "${id}" must have solid ground at both edges of row ${GROUND_ROW} so it joins cleanly.`);
   }
-  if (twists !== undefined && (!Array.isArray(twists) || !twists.length || twists.some((t) => typeof t !== 'string'))) {
-    throw new Error(`Chunk "${id}": "twists" should be a list of twist ids, like ['slippery'].`);
-  }
-  return twists ? { id, type, difficulty, rows, twists } : { id, type, difficulty, rows };
+  return { id, type, difficulty, rows, ...twistTags(`Chunk "${id}"`, tagOptions) };
 }
 
-// Can this chunk (or wave) be used with this twist? Untagged ones always can.
-export const fitsTwist = (piece, twist) => !piece.twists || piece.twists.includes(twist);
+// Can this chunk (or wave, or arena) be used with this twist? Untagged ones always can.
+export const fitsTwist = (piece, twist) =>
+  (!piece.twists || piece.twists.includes(twist)) && !piece.notTwists?.includes(twist);
 
 // type: start | exit | rest | secret | jump | combat
 // difficulty: 0-3 for now (costs this many points from the stage's budget)

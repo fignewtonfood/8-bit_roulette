@@ -17,12 +17,18 @@ let stagesBuilt = 0;
 
 // Twist tags must name real twists that this genre supports.
 for (const c of CHUNKS) {
+  for (const t of c.notTwists || []) {
+    if (!content.twists[t]) problems.push(`chunk "${c.id}": unknown twist "${t}" in notTwists (options: ${Object.keys(content.twists).join(', ')})`);
+  }
   for (const t of c.twists || []) {
     if (!content.twists[t]) problems.push(`chunk "${c.id}": unknown twist "${t}" (options: ${Object.keys(content.twists).join(', ')})`);
     else if (!twists.includes(t)) problems.push(`chunk "${c.id}": twist "${t}" doesn't support the ${GENRE}, so it can never show up`);
   }
 }
 // Every twist still needs untagged-or-matching start, exit and rest chunks.
+for (const c of CHUNKS) {
+  if (c.notTwists && twists.every((t) => c.notTwists.includes(t))) problems.push(`chunk "${c.id}": notTwists leaves out every twist, so it can never show up`);
+}
 for (const twist of twists) {
   for (const type of ['start', 'exit', 'rest']) {
     if (!CHUNKS.some((c) => c.type === type && fitsTwist(c, twist))) problems.push(`${twist}: no ${type} chunk it can use`);
@@ -49,7 +55,7 @@ for (const twist of twists) for (let seed = 1; seed <= SEEDS; seed++) {
     }
     for (const id of lvl.chunks) {
       const c = CHUNKS.find((x) => x.id === id.split(' ')[0]);
-      if (c && !fitsTwist(c, twist)) problems.push(`${twist} seed ${seed} stage ${stage}: used ${c.id}, which is only for ${c.twists.join('/')}`);
+      if (c && !fitsTwist(c, twist)) problems.push(`${twist} seed ${seed} stage ${stage}: used ${c.id}, which its twist tags rule out for ${twist}`);
     }
     if (stage === 1) lvl.chunks.forEach((id) => usage[id.split(' ')[0]]++);
   }
@@ -60,8 +66,10 @@ console.log(problems.length ? `\n${problems.length} problem(s):\n  ${problems.sl
 
 console.log('\nChunk usage in stage 1 (all twists together):');
 for (const [id, n] of Object.entries(usage).sort((a, b) => b[1] - a[1])) {
-  const only = CHUNKS.find((c) => c.id === id)?.twists;
-  console.log(`  ${id.padEnd(16)} ${String(n).padStart(5)}${only ? `  only: ${only.join(', ')}` : ''}${n === 0 ? '  <- never used' : ''}`);
+  const piece = CHUNKS.find((c) => c.id === id);
+  const only = piece?.twists;
+  const never = piece?.notTwists;
+  console.log(`  ${id.padEnd(16)} ${String(n).padStart(5)}${only ? `  only: ${only.join(', ')}` : ''}${never ? `  never with: ${never.join(', ')}` : ''}${n === 0 ? '  <- never used' : ''}`);
 }
 
 const example = buildStage({ seed: 12345, stage: 1, twist: twists[0] });

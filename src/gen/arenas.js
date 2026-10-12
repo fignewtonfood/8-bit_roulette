@@ -34,6 +34,9 @@
 // knocked off them. That's the fun of pits and spikes in a brawler.
 //
 // Twist-only arenas: add { twists: [...] } exactly like twist-only chunks.
+// { notTwists: [...] } does the opposite: every twist except those.
+
+import { twistTags } from './chunks.js';
 
 export const ARENA_W = 16;
 export const ARENA_H = 14;
@@ -55,16 +58,13 @@ function padRows(id, label, art, { aboveFloor = false } = {}) {
   return rows;
 }
 
-function arena(id, type, difficulty, art, { twists, reinforce } = {}) {
+function arena(id, type, difficulty, art, { twists, notTwists, reinforce } = {}) {
   const rows = padRows(id, '', art);
   const ground = rows[GROUND_ROW];
   if (ground[0] !== '#' || ground[ARENA_W - 1] !== '#') {
     throw new Error(`Arena "${id}" must have solid ground at both edges of row ${GROUND_ROW} so it joins cleanly.`);
   }
-  if (twists !== undefined && (!Array.isArray(twists) || !twists.length || twists.some((t) => typeof t !== 'string'))) {
-    throw new Error(`Arena "${id}": "twists" should be a list of twist ids, like ['slippery'].`);
-  }
-  const out = { id, type, difficulty, rows };
+  const out = { id, type, difficulty, rows, ...twistTags(`Arena "${id}"`, { twists, notTwists }) };
   if (reinforce !== undefined) {
     out.reinforce = padRows(id, ' reinforcements', reinforce, { aboveFloor: true });
     out.reinforce.forEach((row, y) => {
@@ -72,7 +72,6 @@ function arena(id, type, difficulty, art, { twists, reinforce } = {}) {
       if (bad) throw new Error(`Arena "${id}" reinforcements row ${y}: "${bad}" isn't allowed; only enemies and dots.`);
     });
   }
-  if (twists) out.twists = twists;
   return out;
 }
 

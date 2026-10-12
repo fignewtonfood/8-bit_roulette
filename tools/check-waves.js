@@ -18,10 +18,16 @@ let longest = 0;
 
 // Twist tags must name real twists that this genre supports.
 for (const w of WAVES) {
+  for (const t of w.notTwists || []) {
+    if (!content.twists[t]) problems.push(`wave "${w.id}": unknown twist "${t}" in notTwists (options: ${Object.keys(content.twists).join(', ')})`);
+  }
   for (const t of w.twists || []) {
     if (!content.twists[t]) problems.push(`wave "${w.id}": unknown twist "${t}" (options: ${Object.keys(content.twists).join(', ')})`);
     else if (!twists.includes(t)) problems.push(`wave "${w.id}": twist "${t}" doesn't support the ${GENRE}, so it can never show up`);
   }
+}
+for (const w of WAVES) {
+  if (w.notTwists && twists.every((t) => w.notTwists.includes(t))) problems.push(`wave "${w.id}": notTwists leaves out every twist, so it can never show up`);
 }
 for (const twist of twists) {
   if (!WAVES.some((w) => w.type === 'rest' && fitsTwist(w, twist))) problems.push(`${twist}: no rest wave it can use`);
@@ -46,7 +52,7 @@ for (const twist of twists) for (let seed = 1; seed <= SEEDS; seed++) {
     }
     for (const id of lvl.waves) {
       const w = WAVES.find((x) => x.id === id.split(' ')[0]);
-      if (w && !fitsTwist(w, twist)) problems.push(`${twist} seed ${seed} stage ${stage}: used ${w.id}, which is only for ${w.twists.join('/')}`);
+      if (w && !fitsTwist(w, twist)) problems.push(`${twist} seed ${seed} stage ${stage}: used ${w.id}, which its twist tags rule out for ${twist}`);
     }
     if (stage === 1) {
       lvl.waves.forEach((id) => usage[id.split(' ')[0]]++);
@@ -62,8 +68,10 @@ console.log(`Stage 1 length: ${shortest.toFixed(0)}–${longest.toFixed(0)} seco
 
 console.log('\nWave usage in stage 1 (all twists together):');
 for (const [id, n] of Object.entries(usage).sort((a, b) => b[1] - a[1])) {
-  const only = WAVES.find((w) => w.id === id)?.twists;
-  console.log(`  ${id.padEnd(16)} ${String(n).padStart(5)}${only ? `  only: ${only.join(', ')}` : ''}${n === 0 ? '  <- never used' : ''}`);
+  const piece = WAVES.find((w) => w.id === id);
+  const only = piece?.twists;
+  const never = piece?.notTwists;
+  console.log(`  ${id.padEnd(16)} ${String(n).padStart(5)}${only ? `  only: ${only.join(', ')}` : ''}${never ? `  never with: ${never.join(', ')}` : ''}${n === 0 ? '  <- never used' : ''}`);
 }
 
 const example = buildShmup({ seed: 12345, stage: 1, twist: twists[0] });

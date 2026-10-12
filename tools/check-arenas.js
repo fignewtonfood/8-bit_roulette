@@ -21,10 +21,16 @@ let stagesBuilt = 0;
 
 // Twist tags must name real twists that this genre supports.
 for (const a of ARENAS) {
+  for (const t of a.notTwists || []) {
+    if (!content.twists[t]) problems.push(`arena "${a.id}": unknown twist "${t}" in notTwists (options: ${Object.keys(content.twists).join(', ')})`);
+  }
   for (const t of a.twists || []) {
     if (!content.twists[t]) problems.push(`arena "${a.id}": unknown twist "${t}" (options: ${Object.keys(content.twists).join(', ')})`);
     else if (!twists.includes(t)) problems.push(`arena "${a.id}": twist "${t}" doesn't support the ${GENRE}, so it can never show up`);
   }
+}
+for (const a of ARENAS) {
+  if (a.notTwists && twists.every((t) => a.notTwists.includes(t))) problems.push(`arena "${a.id}": notTwists leaves out every twist, so it can never show up`);
 }
 for (const twist of twists) {
   for (const type of ['start', 'exit', 'rest', 'fight']) {
@@ -104,7 +110,7 @@ for (const twist of twists) for (let seed = 1; seed <= SEEDS; seed++) {
     }
     for (const name of lvl.names) {
       const a = ARENAS.find((x) => x.id === name.split(' ')[0]);
-      if (a && !fitsTwist(a, twist)) problems.push(`${tag}: used ${a.id}, which is only for ${a.twists.join('/')}`);
+      if (a && !fitsTwist(a, twist)) problems.push(`${tag}: used ${a.id}, which its twist tags rule out for ${twist}`);
     }
     if (enemyTotals[stage]) enemyTotals[stage].push(lvl.arenas.reduce((n, r) => n + r.waves.flat().length, 0));
     if (stage === 1) lvl.names.forEach((name) => usage[name.split(' ')[0]]++);
@@ -118,8 +124,10 @@ console.log(`Enemies per stage: about ${avg(enemyTotals[1])} on stage 1, ${avg(e
 
 console.log('\nArena usage in stage 1 (all twists together):');
 for (const [id, n] of Object.entries(usage).sort((a, b) => b[1] - a[1])) {
-  const only = ARENAS.find((a) => a.id === id)?.twists;
-  console.log(`  ${id.padEnd(16)} ${String(n).padStart(5)}${only ? `  only: ${only.join(', ')}` : ''}${n === 0 ? '  <- never used' : ''}`);
+  const piece = ARENAS.find((a) => a.id === id);
+  const only = piece?.twists;
+  const never = piece?.notTwists;
+  console.log(`  ${id.padEnd(16)} ${String(n).padStart(5)}${only ? `  only: ${only.join(', ')}` : ''}${never ? `  never with: ${never.join(', ')}` : ''}${n === 0 ? '  <- never used' : ''}`);
 }
 
 const example = buildBrawl({ seed: 12345, stage: 1, twist: twists[0] });
