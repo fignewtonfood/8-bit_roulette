@@ -117,6 +117,12 @@ export function assembleContent({ reels, genres, themes, twists, compatibility, 
   for (const k of ['startLives', 'stageTokens', 'coinTokens', 'consolation']) {
     if (typeof eco[k] !== 'number' || eco[k] < 0) fail(`economy.json: "${k}" should be a number.`);
   }
+  if (eco.levels !== undefined) {
+    const lv = eco.levels;
+    if (!Array.isArray(lv) || lv.some((n, i) => !Number.isInteger(n) || n < 1 || (i && n <= lv[i - 1]))) {
+      fail('economy.json: "levels" should be rising whole numbers of plays, like [10, 50].');
+    }
+  }
   const lengths = (eco.lengths || []).map((len, i) => {
     const where = `economy.json: length ${i + 1}${len.id ? ` ("${len.id}")` : ''}`;
     if (!len.id || !len.name) fail(`${where} needs an "id" and a "name".`);

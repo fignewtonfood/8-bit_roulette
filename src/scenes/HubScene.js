@@ -3,6 +3,8 @@ import { content } from '../data/index.js';
 import { getSave, setSave, session } from '../engine/profile.js';
 import { startLives, respinsPerVisit } from '../engine/run.js';
 import { unlockedBeats, unreadBeats, markRead, hubState } from '../engine/story.js';
+import { progressLines } from '../engine/progress.js';
+import { LOG_LINES } from '../engine/content.js';
 import { makePlaceholderTextures, tex } from '../art/placeholder.js';
 import { C, hex, label, onPress, HUB_THEME } from '../ui/machine.js';
 import { pixelText } from '../ui/font.js';
@@ -234,8 +236,9 @@ export default class HubScene extends Phaser.Scene {
     return this.panel;
   }
 
-  // The terminal: one page per recovered log, then your records.
-  // Opens on the oldest unread log, if there is one.
+  // The terminal: one page per recovered log, then your records, then your
+  // progress (levels reached, upgrades owned). Opens on the oldest unread log,
+  // if there is one.
   openTerminal() {
     if (this.panel) return;
     const save = getSave();
@@ -244,16 +247,26 @@ export default class HubScene extends Phaser.Scene {
     this.openBox('', '');
     this.panel.kind = 'terminal';
     this.panel.logs = logs;
+    const lines = progressLines(content, save);
+    this.panel.progress = [];
+    for (let i = 0; i < lines.length; i += LOG_LINES) this.panel.progress.push(lines.slice(i, i + LOG_LINES));
     this.showPage(firstUnread >= 0 ? firstUnread : logs.length); // records page by default
   }
 
   showPage(i) {
     const panel = this.panel;
-    const { logs } = panel;
-    const pages = logs.length + 1;
+    const { logs, progress } = panel;
+    const pages = logs.length + 1 + progress.length;
     panel.page = (i + pages) % pages;
     this.finishTyping(false);
-    panel.foot.setText(pages > 1 ? '< >  MORE LOGS      X CLOSE' : 'UP / X  CLOSE');
+    panel.foot.setText('< >  MORE PAGES     X CLOSE');
+
+    if (panel.page > logs.length) {
+      const n = panel.page - logs.length - 1;
+      panel.head.setText(progress.length > 1 ? `> PROGRESS ${n + 1}/${progress.length}` : '> PROGRESS');
+      panel.body.setText(progress[n].join('\n'));
+      return;
+    }
 
     if (panel.page === logs.length) {
       const s = getSave().stats;

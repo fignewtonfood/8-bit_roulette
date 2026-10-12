@@ -13,6 +13,8 @@
 
 // ---------- Upgrades ----------
 
+import { addPlays } from './progress.js';
+
 export const levelOf = (save, upgradeId) => save.upgrades[upgradeId] || 0;
 
 // Total of one perLevel effect across everything owned, e.g. stat(..., 'lives').
@@ -133,7 +135,7 @@ export function payout(content, save, run) {
 export function bank(save, run, pay) {
   if (run.practice) return save;
   return {
-    ...save,
+    ...addPlays(save, run),
     tokens: save.tokens + pay.total,
     stats: {
       ...save.stats,

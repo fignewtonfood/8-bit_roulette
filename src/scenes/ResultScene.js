@@ -3,6 +3,7 @@ import { content } from '../data/index.js';
 import { runTitle } from '../engine/spin.js';
 import { startRun } from '../engine/startRun.js';
 import { makeRun } from '../engine/run.js';
+import { shortName } from '../engine/progress.js';
 import { getSave } from '../engine/profile.js';
 import { randomSeed } from '../gen/rng.js';
 import { onPress } from '../ui/machine.js';
@@ -66,10 +67,16 @@ export default class ResultScene extends Phaser.Scene {
       onPress(this, ['N'], () => again(randomSeed()), 400);
     } else {
       text(196, 'SPACE  BACK TO THE HUB', 8, p.text);
-      if (d.newLogs) {
-        const note = text(176, d.newLogs === 1 ? 'NEW LOG AT THE TERMINAL' : `${d.newLogs} NEW LOGS AT THE TERMINAL`, 8, p.coin);
+      // News: level-ups first, then new logs, one blinking line each.
+      const news = [];
+      const ups = d.levelUps || [];
+      if (ups.length === 1) news.push(`${shortName(content, ups[0].reel, ups[0].id)} REACHED LEVEL ${ups[0].level}`);
+      else if (ups.length > 1) news.push(`${ups.length} LEVEL-UPS · SEE THE TERMINAL`);
+      if (d.newLogs) news.push(d.newLogs === 1 ? 'NEW LOG AT THE TERMINAL' : `${d.newLogs} NEW LOGS AT THE TERMINAL`);
+      news.forEach((line, i) => {
+        const note = text(176 - (news.length - 1 - i) * 11, line, 8, p.coin);
         this.tweens.add({ targets: note, alpha: 0.3, duration: 400, yoyo: true, repeat: -1 });
-      }
+      });
     }
     onPress(this, ['SPACE', 'ENTER'], () => this.scene.start('Hub'), 400);
   }

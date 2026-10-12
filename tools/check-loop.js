@@ -12,6 +12,7 @@ import {
 } from '../src/engine/run.js';
 import { newSave, parseSave, loadSave, storeSave, SAVE_KEY } from '../src/engine/save.js';
 import { makeRng } from '../src/gen/rng.js';
+import { playsOf, levelFor, levelsGained, progressLines, maxLevel } from '../src/engine/progress.js';
 
 const content = loadContent();
 const problems = [];
@@ -125,6 +126,30 @@ loadSave(broken);
 expect(Object.keys(broken.store).some((k) => k.startsWith(`${SAVE_KEY}/broken-`)), 'an unreadable save should be backed up, not lost');
 const blocked = { getItem: () => { throw new Error('blocked'); }, setItem: () => { throw new Error('blocked'); } };
 expect(loadSave(blocked).note && !storeSave(blocked, fresh), 'blocked storage should not crash');
+
+// ---------- Levels from playing ----------
+{
+  const [l2, l3] = eco.levels;
+  expect(levelFor(content, 0) === 1 && levelFor(content, l2 - 1) === 1 && levelFor(content, l2) === 2, `level 2 should start at ${l2} plays`);
+  expect(levelFor(content, l3) === 3 && levelFor(content, 10_000) === maxLevel(content), `level 3 should start at ${l3} plays and stop at the max`);
+  const reels = spin(content, 7);
+  const won = { ...makeRun(content, fresh, reels, 'short'), cleared: 1 };
+  const lost = { ...makeRun(content, fresh, reels, 'short'), cleared: 0 };
+  let s = fresh;
+  for (let i = 0; i < l2 - 1; i++) s = bank(s, i % 2 ? won : lost, payout(content, s, i % 2 ? won : lost));
+  expect(['theme', 'genre', 'twist'].every((r) => playsOf(s, r, reels[r]) === l2 - 1), 'every finished run (win or lose) should count once for each reel');
+  const next = bank(s, lost, payout(content, s, lost));
+  const ups = levelsGained(content, s, next);
+  expect(ups.length === 3 && ups.every((u) => u.level === 2), 'the play that reaches the threshold should level up all three reels');
+  const practice = { ...lost, practice: true };
+  expect(playsOf(bank(s, practice, payout(content, s, practice)), 'theme', reels.theme) === l2 - 1, 'practice runs should not count as plays');
+  const page = progressLines(content, next).join('\n');
+  const others = Object.keys(content.themes).filter((id) => id !== reels.theme).map((id) => content.themes[id].short);
+  expect(!others.some((name) => page.includes(name.toUpperCase())), 'the progress page should only list what has been reached');
+  expect(progressLines(content, next).every((line) => line.length <= 31), 'progress lines should fit the terminal (31 characters)');
+  const fixed = parseSave(JSON.stringify({ plays: { theme: { western: 12, x: -3 }, genre: 'junk' } })).save;
+  expect(fixed.plays.theme.western === 12 && !('x' in fixed.plays.theme) && Object.keys(fixed.plays.genre).length === 0, 'bad play counts in a save should be repaired');
+}
 
 // ---------- Report ----------
 console.log(`Economy: ${eco.lengths.length} lengths, ${Object.keys(upgrades).length} upgrades. Base lives ${eco.startLives}, ${eco.stageTokens} tokens a stage, ${eco.coinTokens} a coin.`);

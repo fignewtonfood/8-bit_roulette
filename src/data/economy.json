@@ -1,9 +1,10 @@
 {
-  "_help": "Payout and bet settings. All numbers are starting values for playtesting. A length with 'requires' stays locked until the player owns that shop upgrade at that level. onFail: 'consolation' pays a flat amount, 'partial' pays the stages you did clear at 1x. Coins are always worth coinTokens each and never multiplied.",
+  "_help": "Payout and bet settings. All numbers are starting values for playtesting. A length with 'requires' stays locked until the player owns that shop upgrade at that level. onFail: 'consolation' pays a flat amount, 'partial' pays the stages you did clear at 1x. Coins are always worth coinTokens each and never multiplied. levels: plays needed for level 2, 3, ... of a theme, genre or twist (any finished run counts as one play of each of its three reels).",
   "startLives": 3,
   "stageTokens": 10,
   "coinTokens": 1,
   "consolation": 3,
+  "levels": [10, 50],
   "lengths": [
     { "id": "short", "name": "Short", "stages": 1, "multiplier": 1, "onFail": "consolation" },
     { "id": "medium", "name": "Medium", "stages": 3, "multiplier": 2.5, "onFail": "partial", "requires": { "upgrade": "bigger-bets", "level": 1 } },

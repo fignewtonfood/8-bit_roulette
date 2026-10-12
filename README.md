@@ -17,8 +17,9 @@ Open the address Vite prints (usually http://localhost:5173).
 - **Hub:** arrows walk, Space jumps, Up uses whatever you're standing at
   (the shop, the slot machine, the terminal, and later the wall and the
   other player)
-- **Terminal:** Left/Right flips through the logs you've found and your
-  records; Up finishes a log that's still typing, then closes
+- **Terminal:** Left/Right flips through the logs you've found, your
+  records, and your progress (levels reached and upgrades owned, never
+  what's left); Up finishes a log that's still typing, then closes
 - **Machine:** Left/Right picks the bet, Space pulls. Whatever lands, you play;
   S re-spins only if you own Re-spin (once per trip to the hub). X goes back
 - **Every genre:** Up or Space jumps, Z or X attacks
@@ -48,6 +49,9 @@ Save tools:
 - `?story=3` unlocks the first 3 story beats (it raises your lifetime stats to
   what they need, so it sticks; combine with `?reset` to start over)
 - `?glitch` makes your next spin a glitch (this visit only)
+- `?plays=50` sets every theme, genre and twist to 50 plays, to see levels on
+  the terminal's progress page (`?plays=0` clears them; take it off the URL
+  afterwards)
 - `?theme=corrupted` plays the glitch theme as a practice run
 
 ## Check everything
@@ -93,6 +97,10 @@ npm run check:story    # story unlocks, glitches, hub changes + which run each l
   flag a typo'd twist id.
 - **Rarity:** give a reel entry a `"weight"` (0.5 = half as often).
 - **Bad combos:** add a rule to `src/data/compatibility.json`.
+- **Levels:** every finished run (win or lose, not practice) counts as one
+  play of its theme, its genre and its twist. `levels` in `economy.json`
+  (`[10, 50]`) is how many plays reach level 2 and 3. Levels are tracked and
+  announced on the result screen; what each level does is still to come.
 - **Payouts, lives, lengths:** `src/data/economy.json`. A length with
   `requires` stays locked until the player owns that upgrade level.
 - **Shop prices and upgrades:** `src/data/shop.json`. One price per level;

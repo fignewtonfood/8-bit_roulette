@@ -24,6 +24,7 @@ import { withStoryUnlocked } from '../engine/story.js';
 //   ?reset                    wipe your save and start over
 //   ?story=3                  unlock the first 3 story beats (raises your lifetime stats)
 //   ?glitch                   the next spin glitches (this visit only)
+//   ?plays=50                 set every theme, genre and twist to 50 plays (levels)
 export default class BootScene extends Phaser.Scene {
   constructor() {
     super('Boot');
@@ -42,6 +43,13 @@ export default class BootScene extends Phaser.Scene {
       const save = getSave();
       setSave({ ...save, tokens: save.tokens + Math.floor(bonus) });
       console.log(`[8-Bit Roulette] +${Math.floor(bonus)} tokens (now ${getSave().tokens}). Remove ?tokens from the URL or a refresh adds them again.`);
+    }
+    const plays = Number(params.get('plays'));
+    if (params.has('plays') && plays >= 0) {
+      const n = Math.floor(plays);
+      const all = (map) => Object.fromEntries(Object.keys(map).map((id) => [id, n]));
+      setSave({ ...getSave(), plays: { theme: all(content.themes), genre: all(content.genres), twist: all(content.twists) } });
+      console.log(`[8-Bit Roulette] Every theme, genre and twist set to ${n} plays. Remove ?plays from the URL or every refresh resets them.`);
     }
     session.unlockAll = params.has('unlock');
     session.forceGlitch = params.has('glitch');

@@ -1,5 +1,5 @@
-// The save file: tokens, owned upgrades, a few stats and which story logs
-// have been read.
+// The save file: tokens, owned upgrades, a few stats, which story logs
+// have been read, and how often each theme, genre and twist has been played.
 // No Phaser and no window in here, so it can be tested with plain Node
 // (npm run check:loop). The game hands it the browser's localStorage;
 // the check tool hands it a fake one.
@@ -18,6 +18,7 @@ export function newSave() {
     upgrades: {}, // upgrade id -> level owned
     stats: { runs: 0, wins: 0, tokensEarned: 0, bestPayout: 0, glitches: 0 },
     story: { read: [] }, // ids of story logs already read at the terminal
+    plays: { theme: {}, genre: {}, twist: {} }, // reel entry id -> finished runs (see progress.js)
   };
 }
 
@@ -43,6 +44,12 @@ export function parseSave(text) {
   for (const k of Object.keys(save.stats)) save.stats[k] = wholeNumber(raw.stats?.[k]);
   const read = Array.isArray(raw.story?.read) ? raw.story.read : [];
   save.story.read = [...new Set(read.filter((id) => typeof id === 'string'))];
+  for (const reel of Object.keys(save.plays)) {
+    for (const [id, n] of Object.entries(raw.plays?.[reel] || {})) {
+      const count = wholeNumber(n);
+      if (count) save.plays[reel][id] = count;
+    }
+  }
   return { save, note: null };
 }
 

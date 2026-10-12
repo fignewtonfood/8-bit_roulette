@@ -6,6 +6,7 @@ import { content } from '../data/index.js';
 import { afterStage, payout, bank } from './run.js';
 import { getSave, setSave } from './profile.js';
 import { newlyUnlocked } from './story.js';
+import { levelsGained } from './progress.js';
 
 export function startRun(scene, run) {
   scene.scene.start(content.genres[run.genre].scene, { run });
@@ -28,5 +29,6 @@ export function endStage(scene, run, stageResult) {
   const after = bank(save, next, pay);
   setSave(after);
   const newLogs = newlyUnlocked(content, save, after).length;
-  scene.scene.start('Result', { mode: 'final', run: next, stage: stageResult, pay, tokensBefore: before, newLogs });
+  const levelUps = levelsGained(content, save, after);
+  scene.scene.start('Result', { mode: 'final', run: next, stage: stageResult, pay, tokensBefore: before, newLogs, levelUps });
 }
