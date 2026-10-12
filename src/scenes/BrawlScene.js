@@ -14,7 +14,7 @@ import { makeBrawlTextures } from '../art/brawlPlaceholder.js';
 // The brawler: walk right through a row of one-screen arenas. Reaching the
 // middle of an arena with enemies locks the screen until they're all down.
 //
-// Controls: arrows move, Up or X jumps, Z or Space attacks.
+// Controls: arrows move, Up or Space jumps, Z or X attacks.
 // Three ground attacks chain into a combo (jab, jab, launcher); attacking in
 // the air is a kick. Hitting an enemy that's already in the air pops it back
 // up, so launcher → jump → kick juggles (much easier in Low Gravity).
@@ -177,8 +177,8 @@ export default class BrawlScene extends Phaser.Scene {
 
     // Input
     this.cursors = this.input.keyboard.createCursorKeys();
-    this.jumpKeys = [this.cursors.up, this.input.keyboard.addKey('X')];
-    this.attackKeys = [this.input.keyboard.addKey('Z'), this.cursors.space];
+    this.jumpKeys = [this.cursors.up, this.cursors.space];
+    this.attackKeys = [this.input.keyboard.addKey('Z'), this.input.keyboard.addKey('X')];
 
     // HUD
     this.hud = pixelText(this, 4, 4, '', { color: theme.palette.text }).setScrollFactor(0).setDepth(10);

@@ -121,9 +121,9 @@ export default class StageScene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, worldW, worldH);
     this.cameras.main.startFollow(this.player, true, 0.2, 0.2);
 
-    // Input: arrows to move; Up, Space or Z to jump
+    // Input: arrows to move; Up or Space to jump (same in every genre)
     this.cursors = this.input.keyboard.createCursorKeys();
-    this.jumpKeys = [this.cursors.up, this.cursors.space, this.input.keyboard.addKey('Z')];
+    this.jumpKeys = [this.cursors.up, this.cursors.space];
 
     // HUD
     this.hud = pixelText(this, 4, 4, '', { color: theme.palette.text })

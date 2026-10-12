@@ -14,15 +14,16 @@ npm run dev
 
 Open the address Vite prints (usually http://localhost:5173).
 
-- **Hub:** arrows walk, Z jumps, Up uses whatever you're standing at
+- **Hub:** arrows walk, Space jumps, Up uses whatever you're standing at
   (the shop, the slot machine, the terminal, and later the wall and the
   other player)
 - **Terminal:** Left/Right flips through the logs you've found and your
   records; Up finishes a log that's still typing, then closes
 - **Machine:** Left/Right picks the bet, Space pulls. Whatever lands, you play;
   S re-spins only if you own Re-spin (once per trip to the hub). X goes back
-- **Platformer:** arrows move; Up, Space or Z jump. **Shmup:** arrows fly, hold Space or Z to fire
-- **Brawler:** arrows move, Up or X jumps, Z or Space attacks. Three ground
+- **Every genre:** Up or Space jumps, Z or X attacks
+- **Platformer:** arrows move, Up or Space jumps. **Shmup:** arrows fly, hold Z or X to fire (Space fires too, since there's no jump)
+- **Brawler:** arrows move, Up or Space jumps, Z or X attacks. Three ground
   hits make a combo (the third launches); attacking in the air is a kick, and
   hitting an enemy that's in the air pops it back up. Each life has 3 hearts.
   Walking into an arena with enemies locks the screen until they're all down

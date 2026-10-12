@@ -106,9 +106,10 @@ export default class ShmupScene extends Phaser.Scene {
       this.glow = new Set(mods.glow || []);
     }
 
-    // Input: arrows to fly, hold Space or Z to fire
+    // Input: arrows to fly, hold Z or X to fire (the attack keys in every genre).
+    // There's no jump here, so Space fires too.
     this.cursors = this.input.keyboard.createCursorKeys();
-    this.fireKeys = [this.cursors.space, this.input.keyboard.addKey('Z')];
+    this.fireKeys = [this.input.keyboard.addKey('Z'), this.input.keyboard.addKey('X'), this.cursors.space];
 
     this.hud = pixelText(this, 4, 4, '', { color: theme.palette.text })
       .setScrollFactor(0)

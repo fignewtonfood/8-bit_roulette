@@ -64,12 +64,12 @@ export default class HubScene extends Phaser.Scene {
     this.tweens.add({ targets: this.prompt, alpha: 0.35, duration: 450, yoyo: true, repeat: -1 });
 
     if (save.stats.runs === 0) {
-      const hint = label(this, W / 2, 30, 'ARROWS WALK   Z JUMP   UP USE', 8, C.faint);
+      const hint = label(this, W / 2, 30, 'ARROWS WALK   SPACE JUMP   UP USE', 8, C.faint);
       this.time.delayedCall(6000, () => this.tweens.add({ targets: hint, alpha: 0, duration: 800 }));
     }
 
     this.cursors = this.input.keyboard.createCursorKeys();
-    this.jumpKeys = [this.cursors.space, this.input.keyboard.addKey('Z')];
+    this.jumpKeys = [this.cursors.space];
     onPress(this, ['UP', 'ENTER'], () => this.use());
     onPress(this, ['X', 'ESC'], () => this.closePanel());
     onPress(this, ['LEFT'], () => this.flip(-1), 0);
