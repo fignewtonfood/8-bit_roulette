@@ -142,7 +142,16 @@ export default class StageScene extends Phaser.Scene {
     // Run
     const left = this.cursors.left.isDown;
     const right = this.cursors.right.isDown;
-    p.setVelocityX(left === right ? 0 : left ? -RUN_SPEED : RUN_SPEED);
+    const runTarget = left === right ? 0 : left ? -RUN_SPEED : RUN_SPEED;
+    if (this.mods.groundGrip !== undefined) {
+      // Twist: Slippery. Speed eases toward what you're pushing for, slowly
+      // on the ground (ice) and a bit faster in the air.
+      const grip = body.blocked.down ? this.mods.groundGrip : this.mods.airGrip ?? this.mods.groundGrip;
+      const k = Math.min(1, grip * dt);
+      p.setVelocityX(body.velocity.x + (runTarget - body.velocity.x) * k);
+    } else {
+      p.setVelocityX(runTarget);
+    }
     if (left !== right) p.setFlipX(left);
 
     // Jump, with coyote time and a jump buffer so it feels fair

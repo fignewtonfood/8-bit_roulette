@@ -1,0 +1,22 @@
+{
+  "id": "western",
+  "name": "Western",
+  "short": "WESTERN",
+  "palette": {
+    "sky": "#e8a25c",
+    "ground": "#9c5a2e",
+    "groundDark": "#6b3a1c",
+    "groundTop": "#d9b36a",
+    "player": "#2b1d14",
+    "enemy": "#5a2f6b",
+    "spike": "#3f7a2e",
+    "coin": "#fff06a",
+    "flag": "#c0392b",
+    "text": "#2b1d14"
+  },
+  "names": {
+    "enemy": "Vulture",
+    "coin": "Gold nugget",
+    "hudCoin": "GOLD"
+  }
+}

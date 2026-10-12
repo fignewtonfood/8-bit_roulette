@@ -1,0 +1,22 @@
+{
+  "id": "prehistoric",
+  "name": "Prehistoric",
+  "short": "DINO",
+  "palette": {
+    "sky": "#7ec8d8",
+    "ground": "#6b4a2b",
+    "groundDark": "#4a321c",
+    "groundTop": "#5fa84a",
+    "player": "#3a2a5a",
+    "enemy": "#b8442e",
+    "spike": "#f2ead8",
+    "coin": "#ff9a1a",
+    "flag": "#2f6b2a",
+    "text": "#1c140c"
+  },
+  "names": {
+    "enemy": "Raptor",
+    "coin": "Amber",
+    "hudCoin": "AMBER"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "id": "slippery",
+  "name": "Slippery",
+  "short": "SLIPPERY",
+  "description": "Ice everywhere. Slow to start and stop.",
+  "_help": "Grip is how fast you reach the speed you're pushing for, per second (higher = less slippery). Platformer: groundGrip on the ground, airGrip in the air. Shmup: shipGrip while you're steering, shipStop when you let go (low = you keep sliding).",
+  "genres": {
+    "platformer": { "groundGrip": 2.5, "airGrip": 6 },
+    "shmup": { "shipGrip": 8, "shipStop": 1.2 }
+  }
+}

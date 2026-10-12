@@ -61,7 +61,9 @@ npm run check:story    # story unlocks, glitches, hub changes + which run each l
 
 - **Theme:** copy `src/data/themes/neon-space.json`, change the id, colours and
   names, then add the id to the `themes` reel in `src/data/reels.json`.
-- **Twist settings:** edit the numbers in `src/data/twists/*.json`.
+- **Twist settings:** edit the numbers in `src/data/twists/*.json`. A twist can
+  also set `lives` (every game starts with exactly that many) and `payout`
+  (multiplies the stage tokens of a won run), like Sudden Death.
 - **On-screen text:** one line fits 42 characters. `npm run check:engine` flags
   twist descriptions, shop descriptions and names that won't fit.
 - **Rarity:** give a reel entry a `"weight"` (0.5 = half as often).

@@ -1,0 +1,13 @@
+{
+  "id": "sudden-death",
+  "name": "Sudden Death",
+  "short": "SUDDEN",
+  "description": "One life. Stage tokens pay x1.5.",
+  "_help": "lives: every game starts with exactly this many, and Extra Life doesn't apply. payout: multiplies the stage tokens of a run you win (coins aren't multiplied).",
+  "lives": 1,
+  "payout": 1.5,
+  "genres": {
+    "platformer": {},
+    "shmup": {}
+  }
+}

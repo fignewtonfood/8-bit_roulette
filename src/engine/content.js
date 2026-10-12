@@ -67,6 +67,8 @@ export function assembleContent({ reels, genres, themes, twists, compatibility, 
     const file = `twists/${id}.json`;
     if (tw.id !== id) fail(`${file}: "id" should be "${id}" (it's "${tw.id}").`);
     if (!tw.genres || !Object.keys(tw.genres).length) fail(`${file}: list at least one genre under "genres".`);
+    if (tw.lives !== undefined && !(Number.isInteger(tw.lives) && tw.lives >= 1)) fail(`${file}: "lives" should be a whole number, 1 or more.`);
+    if (tw.payout !== undefined && !(typeof tw.payout === 'number' && tw.payout > 0)) fail(`${file}: "payout" should be a number above 0.`);
     for (const g of Object.keys(tw.genres || {})) {
       if (!genreMap[g]) fail(`${file}: unknown genre "${g}".`);
     }

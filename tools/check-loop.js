@@ -76,6 +76,20 @@ const banked = bank(fresh, { ...makeRun(content, fresh, combo, 'short'), cleared
 expect(banked.tokens === finished('short', 1, 4).total && banked.stats.runs === 1 && banked.stats.wins === 1, 'bank() should add tokens and stats');
 expect(fresh.tokens === 0, 'bank() must not change the save it was given');
 
+// Twists that change lives or pay (Sudden Death)
+for (const tw of Object.values(content.twists)) {
+  const c = { ...combo, twist: tw.id };
+  const lifeUp = { ...fresh, upgrades: { 'extra-life': 2 } };
+  if (tw.lives !== undefined) {
+    expect(makeRun(content, lifeUp, c, 'short').lives === tw.lives, `${tw.id}: should start with exactly ${tw.lives} li${tw.lives === 1 ? 'fe' : 'ves'}, Extra Life or not`);
+  }
+  const won = payout(content, fresh, { ...makeRun(content, fresh, c, 'short'), cleared: 1, coins: 0 });
+  const base = eco.stageTokens * eco.lengths[0].multiplier;
+  expect(won.total === Math.floor(base * (tw.payout ?? 1)), `${tw.id}: a win should pay ${Math.floor(base * (tw.payout ?? 1))} (paid ${won.total})`);
+  const lost = payout(content, fresh, { ...makeRun(content, fresh, c, 'short'), cleared: 0, coins: 0 });
+  expect(lost.total === eco.consolation, `${tw.id}: a loss should pay the normal consolation`);
+}
+
 // ---------- Shop ----------
 for (const u of Object.values(upgrades)) {
   let save = { ...newSave(), tokens: 0 };

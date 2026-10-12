@@ -138,7 +138,14 @@ export default class ShmupScene extends Phaser.Scene {
     const len = Math.hypot(dx, dy) || 1;
     const vx = (dx / len) * SHIP_SPEED;
     const vy = (dy / len) * SHIP_SPEED;
-    if (this.mods.shipResponse !== undefined) {
+    if (this.mods.shipGrip !== undefined) {
+      // Twist: Slippery. Steering bites quickly, but let go and the ship
+      // keeps sliding.
+      const steering = dx !== 0 || dy !== 0;
+      const k = Math.min(1, (steering ? this.mods.shipGrip : this.mods.shipStop ?? this.mods.shipGrip) * dt);
+      const b = this.player.body.velocity;
+      this.player.setVelocity(b.x + (vx - b.x) * k, b.y + (vy - b.y) * k);
+    } else if (this.mods.shipResponse !== undefined) {
       // Twist: Low Gravity. The ship eases toward the speed you're pushing
       // for instead of snapping to it, so it drifts.
       const k = Math.min(1, this.mods.shipResponse * dt);

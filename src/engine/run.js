@@ -78,7 +78,7 @@ export function makeRun(content, save, spinResult, lengthId, { practice = false 
     stages: len.stages,
     multiplier: len.multiplier,
     stage: 1,
-    lives: startLives(content, save),
+    lives: content.twists[spinResult.twist]?.lives ?? startLives(content, save), // a twist can fix the lives (Sudden Death)
     coins: 0,
     cleared: 0,
     practice,
@@ -107,7 +107,13 @@ export function payout(content, save, run) {
 
   if (won) {
     const base = run.cleared * eco.stageTokens;
-    lines.push([`${run.cleared} STAGE${run.cleared === 1 ? '' : 'S'} x${run.multiplier}`, Math.floor(base * run.multiplier)]);
+    const stagePay = Math.floor(base * run.multiplier);
+    lines.push([`${run.cleared} STAGE${run.cleared === 1 ? '' : 'S'} x${run.multiplier}`, stagePay]);
+    // A twist can pay extra on a win (Sudden Death): shown as its own line.
+    const twist = content.twists[run.twist];
+    if (twist?.payout && twist.payout !== 1) {
+      lines.push([`${twist.short || twist.name.toUpperCase()} x${twist.payout}`, Math.floor(stagePay * twist.payout) - stagePay]);
+    }
   } else if (len.onFail === 'partial') {
     lines.push([`${run.cleared} STAGE${run.cleared === 1 ? '' : 'S'} x1`, run.cleared * eco.stageTokens]);
   } else {
