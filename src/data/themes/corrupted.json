@@ -1,0 +1,23 @@
+{
+  "id": "corrupted",
+  "name": "Corrupted",
+  "short": "ERR_0",
+  "_note": "Not on the reels: only a glitch spin lands here (see story.json). Test it with ?theme=corrupted.",
+  "palette": {
+    "sky": "#12001c",
+    "ground": "#007a78",
+    "groundDark": "#003c3c",
+    "groundTop": "#ff2bd6",
+    "player": "#ffffff",
+    "enemy": "#38ff5a",
+    "spike": "#ff3030",
+    "coin": "#fff200",
+    "flag": "#ff2bd6",
+    "text": "#5affe0"
+  },
+  "names": {
+    "enemy": "Error",
+    "coin": "Memory",
+    "hudCoin": "MEMORY"
+  }
+}

@@ -66,6 +66,10 @@ export default class ResultScene extends Phaser.Scene {
       onPress(this, ['N'], () => again(randomSeed()), 400);
     } else {
       text(196, 'SPACE  BACK TO THE HUB', 8, p.text);
+      if (d.newLogs) {
+        const note = text(176, d.newLogs === 1 ? 'NEW LOG AT THE TERMINAL' : `${d.newLogs} NEW LOGS AT THE TERMINAL`, 8, p.coin);
+        this.tweens.add({ targets: note, alpha: 0.3, duration: 400, yoyo: true, repeat: -1 });
+      }
     }
     onPress(this, ['SPACE', 'ENTER'], () => this.scene.start('Hub'), 400);
   }

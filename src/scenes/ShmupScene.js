@@ -6,6 +6,7 @@ import { describeRun } from '../engine/spin.js';
 import { addDarkness, GLOW_DEPTH } from '../engine/darkness.js';
 import { endStage } from '../engine/startRun.js';
 import { pixelText } from '../ui/font.js';
+import { addGlitchFx } from '../ui/glitch.js';
 import { makePlaceholderTextures, tex } from '../art/placeholder.js';
 import { makeShmupTextures } from '../art/shmupPlaceholder.js';
 
@@ -65,6 +66,7 @@ export default class ShmupScene extends Phaser.Scene {
     const W = this.scale.width;
     const H = this.scale.height;
     this.cameras.main.setBackgroundColor(theme.palette.sky);
+    addGlitchFx(this, this.run);
 
     // Scrolling starfield (cosmetic, so it doesn't need the seed)
     const starColor = Phaser.Display.Color.HexStringToColor(theme.palette.groundTop).color;

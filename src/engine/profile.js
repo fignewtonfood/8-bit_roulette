@@ -41,4 +41,6 @@ export const session = {
   respinsLeft: 0,     // refilled each time you walk into the hub
   lastLength: 'short',
   hubSpot: null,      // where to stand when you come back to the hub
+  forceGlitch: false, // ?glitch: the next spin glitches
+  saysIndex: 0,       // which line the other player says next
 };

@@ -47,7 +47,7 @@ if (!lockedBad.problem) problems.push('a locked blocked combo was not flagged');
 
 const pct = (n, total) => `${((100 * n) / total).toFixed(1)}%`.padStart(6);
 
-console.log(`Content: ${Object.keys(content.themes).length} themes, ${Object.keys(content.genres).length} genres, ${Object.keys(content.twists).length} twists, ${content.blocked.length} blocked rule(s).`);
+console.log(`Content: ${content.reels.theme.length} themes (+${Object.keys(content.themes).length - content.reels.theme.length} off the reels), ${Object.keys(content.genres).length} genres, ${Object.keys(content.twists).length} twists, ${content.blocked.length} blocked rule(s).`);
 console.log(`Spun ${SPINS} seeds.`);
 console.log(problems.length ? `\n${problems.length} problem(s):\n  ${problems.slice(0, 20).join('\n  ')}` : 'No problems found.');
 console.log(`Test rule (shmup + darkness blocked): ${rerolls} of 2000 spins re-rolled a reel, none landed on it.`);

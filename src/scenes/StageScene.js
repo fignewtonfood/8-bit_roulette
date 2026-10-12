@@ -6,6 +6,7 @@ import { describeRun } from '../engine/spin.js';
 import { addDarkness, GLOW_DEPTH } from '../engine/darkness.js';
 import { endStage } from '../engine/startRun.js';
 import { pixelText } from '../ui/font.js';
+import { addGlitchFx } from '../ui/glitch.js';
 import { makePlaceholderTextures, tex } from '../art/placeholder.js';
 
 const TILE = 16;
@@ -54,6 +55,7 @@ export default class StageScene extends Phaser.Scene {
     console.log(`[8-Bit Roulette] ${describeRun(content, this.run)} · stage ${this.run.stage}/${this.run.stages} · seed ${this.seed} · cost ${level.cost}/${level.budget}\n  ${level.chunks.join(' → ')}`);
 
     this.cameras.main.setBackgroundColor(theme.palette.sky);
+    addGlitchFx(this, this.run);
 
     // Twist: Low Gravity. Set every time, because the physics world remembers
     // its gravity between runs.

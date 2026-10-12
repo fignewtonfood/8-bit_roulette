@@ -4,6 +4,7 @@
 //
 // A run is everything needed to rebuild and continue a game:
 //   { seed, theme, genre, twist,       from the slot machine
+//     glitch,                          true if the machine glitched (story.js)
 //     length, stages, multiplier,      from the bet
 //     stage, lives, coins, cleared,    progress so far
 //     practice }                       true for URL test runs (pays nothing)
@@ -72,6 +73,7 @@ export function makeRun(content, save, spinResult, lengthId, { practice = false 
     theme: spinResult.theme,
     genre: spinResult.genre,
     twist: spinResult.twist,
+    glitch: !!spinResult.glitch,
     length: len.id,
     stages: len.stages,
     multiplier: len.multiplier,
@@ -128,10 +130,12 @@ export function bank(save, run, pay) {
     ...save,
     tokens: save.tokens + pay.total,
     stats: {
+      ...save.stats,
       runs: save.stats.runs + 1,
       wins: save.stats.wins + (pay.won ? 1 : 0),
       tokensEarned: save.stats.tokensEarned + pay.total,
       bestPayout: Math.max(save.stats.bestPayout, pay.total),
+      glitches: (save.stats.glitches || 0) + (run.glitch ? 1 : 0),
     },
   };
 }

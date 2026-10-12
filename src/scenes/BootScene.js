@@ -6,6 +6,7 @@ import { makeRun } from '../engine/run.js';
 import { getSave, setSave, resetSave, session } from '../engine/profile.js';
 import { randomSeed } from '../gen/rng.js';
 import { makePixelFont } from '../ui/font.js';
+import { withStoryUnlocked } from '../engine/story.js';
 
 // Reads the URL, then opens the hub or (for testing) jumps somewhere else.
 //
@@ -21,6 +22,8 @@ import { makePixelFont } from '../ui/font.js';
 //   ?unlock                   every length open in the real game (this visit only)
 //   ?tokens=500               add 500 tokens to your save
 //   ?reset                    wipe your save and start over
+//   ?story=3                  unlock the first 3 story beats (raises your lifetime stats)
+//   ?glitch                   the next spin glitches (this visit only)
 export default class BootScene extends Phaser.Scene {
   constructor() {
     super('Boot');
@@ -41,6 +44,12 @@ export default class BootScene extends Phaser.Scene {
       console.log(`[8-Bit Roulette] +${Math.floor(bonus)} tokens (now ${getSave().tokens}). Remove ?tokens from the URL or a refresh adds them again.`);
     }
     session.unlockAll = params.has('unlock');
+    session.forceGlitch = params.has('glitch');
+    const storyBeats = Number(params.get('story'));
+    if (storyBeats > 0) {
+      setSave(withStoryUnlocked(content, getSave(), Math.floor(storyBeats)));
+      console.log(`[8-Bit Roulette] Story unlocked up to beat ${Math.min(Math.floor(storyBeats), content.story.beats.length)}.`);
+    }
 
     const locks = {};
     for (const [reel, known] of [['theme', content.themes], ['genre', content.genres], ['twist', content.twists]]) {

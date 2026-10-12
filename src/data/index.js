@@ -8,6 +8,7 @@ import genres from './genres.json';
 import compatibility from './compatibility.json';
 import economy from './economy.json';
 import shop from './shop.json';
+import story from './story.json';
 
 const byId = (modules) =>
   Object.fromEntries(Object.values(modules).map((m) => [m.default.id, m.default]));
@@ -18,6 +19,7 @@ export const content = assembleContent({
   compatibility,
   economy,
   shop,
+  story,
   themes: byId(import.meta.glob('./themes/*.json', { eager: true })),
   twists: byId(import.meta.glob('./twists/*.json', { eager: true })),
 });

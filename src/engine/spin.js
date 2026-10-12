@@ -14,9 +14,16 @@ import { whyIncompatible } from './content.js';
 
 const REELS = ['theme', 'genre', 'twist'];
 
-export function spin(content, seed, locks = {}) {
+// glitch: true puts the story's glitch theme on the theme reel (story.js
+// decides when). The other reels still roll normally around it.
+export function spin(content, seed, locks = {}, { glitch = false } = {}) {
   const rng = makeRng(seed * 7 + 99991); // offset so it doesn't mirror the stage generator
-  const result = { seed, rerolled: [], firstRoll: {} };
+  const result = { seed, rerolled: [], firstRoll: {}, glitch: false };
+  const glitchTheme = content.story?.glitch?.theme;
+  if (glitch && glitchTheme && !locks.theme) {
+    locks = { ...locks, theme: glitchTheme };
+    result.glitch = true;
+  }
 
   // Does any full combo exist that starts with these choices?
   const canFinish = (partial) => {

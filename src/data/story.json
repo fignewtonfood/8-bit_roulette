@@ -1,0 +1,112 @@
+{
+  "_help": "The story, one beat at a time. Beats unlock in order: a beat needs everything in its 'unlock' AND every beat above it. Unlock keys: runs, wins, tokensEarned, glitches (all lifetime totals from the save), and upgrade: { id, level } to sell a log in the shop. 'log' is what the terminal shows (up to 9 lines of 31 characters). 'hub' adds something to the hub when the beat unlocks: scratches (marks on the wall, read with Up; text in 'wall'), stranger (another player; what they say is in 'says'), watching (the machine's lights turn on you). A later beat's 'says' replaces an earlier one. Glitch spins: 'first' is when the first one is forced (it is the next real spin after these are met); after that each spin has 'chance' of glitching. A glitch spin puts 'theme' on the theme reel.",
+  "glitch": {
+    "theme": "corrupted",
+    "first": { "runs": 4 },
+    "chance": 0.08
+  },
+  "beats": [
+    {
+      "id": "arrival",
+      "title": "WAKE UP",
+      "unlock": {},
+      "log": [
+        "> BOOT... OK",
+        "> PLAYER 1 DETECTED.",
+        "",
+        "YOU WOKE UP ON THE FLOOR.",
+        "NO DOOR. NO WINDOWS. JUST THE",
+        "MACHINE, HUMMING, AND A COIN",
+        "IN YOUR HAND.",
+        "YOU DON'T REMEMBER COMING IN.",
+        "THE MACHINE SEEMS TO."
+      ]
+    },
+    {
+      "id": "scratches",
+      "title": "SCRATCHES",
+      "unlock": { "runs": 2 },
+      "hub": "scratches",
+      "log": [
+        "> NEW MARKS ON THE WALL.",
+        "",
+        "SOMEONE SCRATCHED THEM IN",
+        "WITH A COIN. TALLY MARKS,",
+        "HUNDREDS OF THEM.",
+        "UNDER THE LAST ROW, ONE LINE.",
+        "YOU DIDN'T WRITE IT.",
+        "YOU'RE ALMOST SURE YOU",
+        "DIDN'T WRITE IT."
+      ],
+      "wall": [
+        "|||| |||| |||| |||| |||| ||||",
+        "|||| |||| |||| |||| |||| ||",
+        "",
+        "THE PRIZE IS NOT THE EXIT."
+      ]
+    },
+    {
+      "id": "static",
+      "title": "STATIC",
+      "unlock": { "glitches": 1 },
+      "log": [
+        "> SIGNAL INTERRUPTED.",
+        "",
+        "THE REELS STUTTERED AND",
+        "LANDED ON A GAME THAT ISN'T",
+        "ON THE STRIP. THE COLORS WERE",
+        "WRONG. THE SHARDS WERE WARM.",
+        "",
+        "FOR A SECOND, THROUGH THE",
+        "STATIC, YOU SAW A ROOM. YOURS."
+      ]
+    },
+    {
+      "id": "player-two",
+      "title": "PLAYER 2",
+      "unlock": { "runs": 9 },
+      "hub": "stranger",
+      "log": [
+        "> PLAYER 2 DETECTED.",
+        "",
+        "THERE'S SOMEONE NEAR THE",
+        "TERMINAL. GRAY. FLICKERING.",
+        "THEY DON'T LOOK UP.",
+        "",
+        "THEY'VE BEEN SPINNING FOR A",
+        "LONG TIME. THE TALLY ON THE",
+        "WALL IS THEIRS."
+      ],
+      "says": [
+        "...ONE MORE SPIN.",
+        "YOU'RE NEW. IT LIKES NEW.",
+        "I WON EVERYTHING ONCE. I'M STILL HERE.",
+        "DON'T WATCH THE REELS. WATCH THE GAPS.",
+        "HOW MANY TOKENS IS A DOOR?"
+      ]
+    },
+    {
+      "id": "on-purpose",
+      "title": "ON PURPOSE",
+      "unlock": { "tokensEarned": 300, "glitches": 2 },
+      "hub": "watching",
+      "log": [
+        "> DIAGNOSTIC: REEL WEIGHTS",
+        "",
+        "EVERY SPIN, EVERY GAME, EVERY",
+        "PLAYER: THE MACHINE WROTE IT",
+        "ALL DOWN.",
+        "THE REELS AREN'T RANDOM.",
+        "THEY NEVER WERE.",
+        "IT'S CHOOSING. FOR YOU.",
+        "> TO BE CONTINUED_"
+      ],
+      "says": [
+        "SO NOW YOU KNOW.",
+        "IT PICKED ME A THOUSAND WRONG GAMES.",
+        "IT'S NOT CRUEL. IT'S SEARCHING.",
+        "MAYBE IT'S LOOKING FOR YOU."
+      ]
+    }
+  ]
+}

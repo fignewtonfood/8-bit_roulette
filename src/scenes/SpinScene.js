@@ -5,6 +5,7 @@ import { startRun } from '../engine/startRun.js';
 import { randomSeed } from '../gen/rng.js';
 import { getSave, session } from '../engine/profile.js';
 import { lengthOptions, makeRun } from '../engine/run.js';
+import { glitchNext } from '../engine/story.js';
 import { C, hex, onPress } from '../ui/machine.js';
 import { pixelText } from '../ui/font.js';
 
@@ -15,6 +16,9 @@ import { pixelText } from '../ui/font.js';
 // Whatever lands, you play: once the lever is pulled there's no backing out,
 // and spinning again needs a Re-spin from the shop (once per hub visit).
 // Practice mode (opened from the URL with ?spin) spins freely and pays nothing.
+//
+// Sometimes the machine glitches (story.js decides when): the theme reel
+// scrambles and lands on a theme that isn't on the strip.
 
 const REELS = ['theme', 'genre', 'twist'];
 const LABELS = { theme: 'THEME', genre: 'GENRE', twist: 'TWIST' };
@@ -44,7 +48,7 @@ export default class SpinScene extends Phaser.Scene {
     const text = (x, y, s, size, color) =>
       pixelText(this, x, y, s, { size: size / 8, color, align: 'center' }).setOrigin(0.5);
 
-    text(W / 2, 18, '8-BIT ROULETTE', 16, C.gold);
+    this.title = text(W / 2, 18, '8-BIT ROULETTE', 16, C.gold);
     pixelText(this, 4, 220, this.practice ? 'PRACTICE' : `TOKENS ${getSave().tokens}`, { color: this.practice ? C.warn : C.gold }).setOrigin(0, 1);
 
     // Cabinet
@@ -144,7 +148,14 @@ export default class SpinScene extends Phaser.Scene {
     this.mode = 'spinning';
     this.info.setColor(C.text);
     this.showBet();
-    this.result = spin(content, randomSeed(), this.locks);
+    const glitch = !this.locks.theme && (session.forceGlitch || glitchNext(content, getSave(), Math.random, { practice: this.practice }));
+    session.forceGlitch = false;
+    this.result = spin(content, randomSeed(), this.locks, { glitch });
+    const themeReel = this.reels[0];
+    themeReel.glitchy = this.result.glitch;
+    if (this.result.glitch && !themeReel.strip.some((e) => e.id === this.result.theme)) {
+      themeReel.strip.push({ id: this.result.theme, label: this.label('theme', this.result.theme) });
+    }
     this.info.setText('');
     this.prompt.setText('');
     this.seedText.setText(`SEED ${this.result.seed}`);
@@ -192,6 +203,14 @@ export default class SpinScene extends Phaser.Scene {
 
   land(r, id) {
     r.spinning = false;
+    if (r.glitchy) {
+      r.glitchy = false;
+      r.frame.setStrokeStyle(2, hex(C.screenText));
+      this.cameras.main.flash(160, 95, 224, 138);
+      this.cameras.main.shake(200, 0.01);
+      this.title.setText('8-B?T R0UL#TTE').setColor(C.screenText);
+      this.time.delayedCall(500, () => this.title.setText('8-BIT ROULETTE').setColor(C.gold));
+    }
     r.pos = r.strip.findIndex((e) => e.id === id);
     this.drawReel(r);
     this.tweens.add({ targets: r.lines, y: '+=3', duration: 60, yoyo: true }); // little clunk
@@ -201,7 +220,8 @@ export default class SpinScene extends Phaser.Scene {
     const run = this.result;
     const twist = content.twists[run.twist];
     console.log(`[8-Bit Roulette] spin ${run.seed}: ${describeRun(content, run)}${run.rerolled.length ? ` (re-rolled: ${run.rerolled.join(', ')})` : ''}`);
-    this.info.setText(`${runTitle(content, run)}\n${twist.description}`);
+    this.info.setText(`${runTitle(content, run)}\n${run.glitch ? 'IT STUTTERED. THIS ISN\'T ON THE STRIP.' : twist.description}`);
+    if (run.glitch) this.seedText.setText('SEED ????');
     const respin = this.practice ? '      S SPIN AGAIN' : session.respinsLeft > 0 ? `      S RE-SPIN (${session.respinsLeft})` : '';
     this.prompt.setText(`SPACE PLAY${respin}`).setColor(C.gold);
     this.mode = 'landed';
@@ -216,6 +236,11 @@ export default class SpinScene extends Phaser.Scene {
   }
 
   drawReel(r) {
+    if (r.glitchy && r.spinning) {
+      const junk = () => Array.from({ length: Phaser.Math.Between(3, 6) }, () => Phaser.Utils.Array.GetRandom([...'#?%@*01_/$&'])).join('');
+      r.lines.forEach((line) => line.setText(junk()));
+      return;
+    }
     const n = r.strip.length;
     const at = (k) => r.strip[(((Math.floor(r.pos) + k) % n) + n) % n].label;
     r.lines.forEach((line, j) => line.setText(at(j - 1)));

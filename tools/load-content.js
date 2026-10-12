@@ -26,6 +26,7 @@ export function loadContent() {
     compatibility: read('compatibility.json'),
     economy: read('economy.json'),
     shop: read('shop.json'),
+    story: read('story.json'),
     themes: folder('themes'),
     twists: folder('twists'),
   });

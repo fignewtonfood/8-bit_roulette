@@ -16,9 +16,14 @@ const RULE_KEYS = ['theme', 'genre', 'twist'];
 const EFFECTS = ['lives', 'respins', 'consolation'];
 // The pixel font is 6px a letter on a 256px screen.
 export const SCREEN_CHARS = 42;
+// The story terminal's window is narrower than the screen.
+export const LOG_CHARS = 31;
+export const LOG_LINES = 9;
+const STORY_HUB = ['scratches', 'stranger', 'watching'];
+const UNLOCK_KEYS = ['runs', 'wins', 'tokensEarned', 'glitches', 'upgrade'];
 const ON_FAIL = ['consolation', 'partial'];
 
-export function assembleContent({ reels, genres, themes, twists, compatibility, economy, shop }) {
+export function assembleContent({ reels, genres, themes, twists, compatibility, economy, shop, story }) {
   const errors = [];
   const fail = (msg) => errors.push(msg);
 
@@ -122,6 +127,50 @@ export function assembleContent({ reels, genres, themes, twists, compatibility, 
   if (economy && !lengths.length) fail('economy.json: list at least one length under "lengths".');
   if (economy && lengths.length && lengths[0].requires) fail('economy.json: the first length must be unlocked from the start (no "requires").');
 
+  // Story
+  const beats = [];
+  const glitch = story?.glitch || null;
+  if (story) {
+    const ids = new Set();
+    const checkUnlock = (where, rule) => {
+      for (const [k, v] of Object.entries(rule || {})) {
+        if (!UNLOCK_KEYS.includes(k)) fail(`${where}: unknown unlock "${k}" (options: ${UNLOCK_KEYS.join(', ')}).`);
+        else if (k === 'upgrade') {
+          if (!upgrades[v?.id]) fail(`${where}: unlock upgrade "${v?.id}" is not in shop.json.`);
+        } else if (!Number.isInteger(v) || v < 0) fail(`${where}: unlock "${k}" should be a whole number.`);
+      }
+    };
+    for (const [i, b] of (story.beats || []).entries()) {
+      const where = `story.json: beat ${i + 1}${b.id ? ` ("${b.id}")` : ''}`;
+      if (!b.id) fail(`${where} needs an "id".`);
+      if (ids.has(b.id)) fail(`${where}: the id is used twice.`);
+      ids.add(b.id);
+      if (!b.title) fail(`${where} needs a "title".`);
+      checkUnlock(where, b.unlock);
+      if (!Array.isArray(b.log) || !b.log.length) fail(`${where} needs a "log" (a list of lines).`);
+      if ((b.log || []).length > LOG_LINES) fail(`${where}: "log" has ${b.log.length} lines; the terminal fits ${LOG_LINES}.`);
+      for (const line of b.log || []) {
+        if (String(line).length > LOG_CHARS) fail(`${where}: log line is ${String(line).length} characters; the terminal fits ${LOG_CHARS}: "${line}"`);
+      }
+      if (b.hub && !STORY_HUB.includes(b.hub)) fail(`${where}: unknown hub "${b.hub}" (options: ${STORY_HUB.join(', ')}).`);
+      for (const line of b.wall || []) {
+        if (String(line).length > LOG_CHARS) fail(`${where}: wall line is ${String(line).length} characters; the panel fits ${LOG_CHARS}: "${line}"`);
+      }
+      if (b.wall && b.wall.length > LOG_LINES) fail(`${where}: "wall" fits ${LOG_LINES} lines.`);
+      // Speech is shown in quotes, so two characters fewer than a screen line.
+      for (const line of b.says || []) {
+        if (String(line).length > SCREEN_CHARS - 2) fail(`${where}: says line is ${String(line).length} characters; speech fits ${SCREEN_CHARS - 2}: "${line}"`);
+      }
+      beats.push({ unlock: {}, ...b });
+    }
+    if (beats.length && Object.keys(beats[0].unlock).length) fail('story.json: the first beat must be unlocked from the start ("unlock": {}).');
+    if (glitch) {
+      if (!themes[glitch.theme]) fail(`story.json: glitch theme "${glitch.theme}" has no themes/<id>.json file.`);
+      if (!(glitch.chance >= 0 && glitch.chance <= 1)) fail('story.json: glitch "chance" should be between 0 and 1.');
+      checkUnlock('story.json: glitch "first"', glitch.first);
+    }
+  }
+
   if (errors.length) {
     throw new Error(`Content problems:\n  - ${errors.join('\n  - ')}`);
   }
@@ -134,6 +183,7 @@ export function assembleContent({ reels, genres, themes, twists, compatibility, 
     blocked,
     economy: { ...eco, lengths },
     shop: { upgrades },
+    story: { beats, glitch },
   };
 }
 
