@@ -1,7 +1,7 @@
 // Turns a seed into a playable stage by stitching chunks together.
 // No Phaser in here on purpose: it can be tested with plain Node (npm run check).
 
-import { CHUNKS, CHUNK_W, CHUNK_H } from './chunks.js';
+import { CHUNKS, CHUNK_W, CHUNK_H, fitsTwist } from './chunks.js';
 import { makeRng } from './rng.js';
 
 // Pacing template: the order of chunk "slots" between start and exit.
@@ -12,6 +12,7 @@ export const STAGE_BUDGETS = [10, 14, 19, 24, 30];
 
 const OPTIONAL_ENEMY_COST = 1;
 const RARE_WEIGHT = { secret: 0.2 }; // secret chunks show up ~5x less often
+export const TWIST_WEIGHT = 2;        // twist-only chunks show up 2x as often when their twist is on
 
 const isCore = (c) => c.type !== 'rest' && c.type !== 'secret';
 const SLOT_RULES = {
@@ -21,10 +22,12 @@ const SLOT_RULES = {
   rest: (c) => c.type === 'rest' || c.type === 'secret',
 };
 
-export function buildStage({ seed, stage = 1 }) {
+// twist: the run's twist id. Chunks tagged for other twists are left out.
+export function buildStage({ seed, stage = 1, twist = null }) {
   const rng = makeRng(seed * 31 + stage);
   const budget = STAGE_BUDGETS[Math.min(stage, STAGE_BUDGETS.length) - 1];
-  const pool = CHUNKS.filter((c) => c.type !== 'start' && c.type !== 'exit');
+  const usable = CHUNKS.filter((c) => fitsTwist(c, twist));
+  const pool = usable.filter((c) => c.type !== 'start' && c.type !== 'exit');
   const slotMin = (slot) => Math.min(...pool.filter(SLOT_RULES[slot]).map((c) => c.difficulty));
 
   // 1. Pick a chunk for each slot without blowing the budget.
@@ -40,7 +43,7 @@ export function buildStage({ seed, stage = 1 }) {
 
     let chunk = rng.weighted(affordable, (c) => {
       if (prev && c.id === prev.chunk.id) return 0;            // never twice in a row
-      const rarity = RARE_WEIGHT[c.type] ?? 1;
+      const rarity = (RARE_WEIGHT[c.type] ?? 1) * (c.twists ? TWIST_WEIGHT : 1);
       return rarity / (1 + 3 * (timesUsed[c.id] || 0));         // fade out repeats
     });
     if (!chunk) chunk = pool.filter((c) => c.type === 'rest')[0]; // safe fallback, costs 0
@@ -51,7 +54,7 @@ export function buildStage({ seed, stage = 1 }) {
   });
 
   // 2. Lay the chunks out side by side.
-  const pickOne = (type) => rng.weighted(CHUNKS.filter((c) => c.type === type), () => 1);
+  const pickOne = (type) => rng.weighted(usable.filter((c) => c.type === type), (c) => (c.twists ? TWIST_WEIGHT : 1));
   const sequence = [
     { chunk: pickOne('start'), mirrored: false },
     ...picks,
@@ -61,6 +64,7 @@ export function buildStage({ seed, stage = 1 }) {
   const level = {
     seed,
     stage,
+    twist,
     budget,
     cost: 0,
     widthTiles: sequence.length * CHUNK_W,

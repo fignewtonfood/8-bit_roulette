@@ -4,6 +4,8 @@
 // No Phaser in here, so it can be tested with plain Node.
 
 import { WAVES, WAVE_W } from './waves.js';
+import { fitsTwist } from './chunks.js';
+import { TWIST_WEIGHT } from './buildStage.js';
 import { makeRng } from './rng.js';
 
 export const SHMUP_PACING = ['easy', 'build', 'rest', 'build', 'hard', 'rest', 'hard'];
@@ -25,10 +27,12 @@ const SLOT_RULES = {
   rest: (w) => w.type === 'rest' || w.type === 'secret',
 };
 
-export function buildShmup({ seed, stage = 1 }) {
+// twist: the run's twist id. Waves tagged for other twists are left out.
+export function buildShmup({ seed, stage = 1, twist = null }) {
   const rng = makeRng(seed * 31 + stage + 1000);
   const budget = SHMUP_BUDGETS[Math.min(stage, SHMUP_BUDGETS.length) - 1];
-  const slotMin = (slot) => Math.min(...WAVES.filter(SLOT_RULES[slot]).map((w) => w.difficulty));
+  const pool = WAVES.filter((w) => fitsTwist(w, twist));
+  const slotMin = (slot) => Math.min(...pool.filter(SLOT_RULES[slot]).map((w) => w.difficulty));
 
   // 1. Pick a wave for each slot without blowing the budget.
   let remaining = budget;
@@ -37,15 +41,15 @@ export function buildShmup({ seed, stage = 1 }) {
 
   SHMUP_PACING.forEach((slot, i) => {
     const reserve = SHMUP_PACING.slice(i + 1).reduce((sum, s) => sum + slotMin(s), 0);
-    const affordable = WAVES.filter((w) => SLOT_RULES[slot](w) && w.difficulty <= remaining - reserve);
+    const affordable = pool.filter((w) => SLOT_RULES[slot](w) && w.difficulty <= remaining - reserve);
     const prev = picks[picks.length - 1];
 
     let wave = rng.weighted(affordable, (w) => {
       if (prev && w.id === prev.wave.id) return 0;
-      const rarity = RARE_WEIGHT[w.type] ?? 1;
+      const rarity = (RARE_WEIGHT[w.type] ?? 1) * (w.twists ? TWIST_WEIGHT : 1);
       return rarity / (1 + 3 * (timesUsed[w.id] || 0));
     });
-    if (!wave) wave = WAVES.find((w) => w.type === 'rest');
+    if (!wave) wave = pool.find((w) => w.type === 'rest');
 
     timesUsed[wave.id] = (timesUsed[wave.id] || 0) + 1;
     remaining -= wave.difficulty;
@@ -53,7 +57,7 @@ export function buildShmup({ seed, stage = 1 }) {
   });
 
   // 2. Turn the waves into a timeline of spawn events.
-  const level = { seed, stage, budget, cost: 0, duration: 0, events: [], waves: [], coins: 0 };
+  const level = { seed, stage, twist, budget, cost: 0, duration: 0, events: [], waves: [], coins: 0 };
   const optionalEnemies = [];
   let t = START_DELAY;
 

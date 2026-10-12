@@ -50,8 +50,8 @@ Save tools:
 
 ```
 npm run check          # all five below
-npm run check:chunks   # 5,000 platformer stages
-npm run check:shmup    # 5,000 shmup stages
+npm run check:chunks   # 10,000 platformer stages (every twist)
+npm run check:shmup    # 10,000 shmup stages (every twist)
 npm run check:engine   # data files + 10,000 spins
 npm run check:loop     # bets, payouts, shop, save file + a progression estimate
 npm run check:story    # story unlocks, glitches, hub changes + which run each log arrives on
@@ -66,6 +66,11 @@ npm run check:story    # story unlocks, glitches, hub changes + which run each l
   (multiplies the stage tokens of a won run), like Sudden Death.
 - **On-screen text:** one line fits 42 characters. `npm run check:engine` flags
   twist descriptions, shop descriptions and names that won't fit.
+- **Twist-only chunks and waves:** add `{ twists: ['slippery'] }` after a
+  chunk's or wave's art (in `src/gen/chunks.js` / `waves.js`) and it only
+  shows up when that twist lands, twice as often as a normal one.
+  `npm run check:chunks` and `check:shmup` build stages for every twist and
+  flag a typo'd twist id.
 - **Rarity:** give a reel entry a `"weight"` (0.5 = half as often).
 - **Bad combos:** add a rule to `src/data/compatibility.json`.
 - **Payouts, lives, lengths:** `src/data/economy.json`. A length with

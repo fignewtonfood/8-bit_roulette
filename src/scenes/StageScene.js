@@ -48,7 +48,7 @@ export default class StageScene extends Phaser.Scene {
     const t = (name) => tex(theme, name);
     makePlaceholderTextures(this, theme);
 
-    const level = buildStage({ seed: this.seed, stage: this.run.stage });
+    const level = buildStage({ seed: this.seed, stage: this.run.stage, twist: this.run.twist });
     this.level = level;
     const worldW = level.widthTiles * TILE;
     const worldH = level.heightTiles * TILE;

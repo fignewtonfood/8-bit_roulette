@@ -15,12 +15,22 @@
 //     in the first and last column, so any chunk can join any other chunk
 //
 // Jump limits (keep chunks beatable): about 3 tiles up, and gaps of 3 tiles max.
+//
+// Twist-only chunks: add { twists: [...] } after the art and the chunk only
+// shows up when one of those twists is on the reel (and a bit more often
+// than usual then; see TWIST_WEIGHT in buildStage.js). Chunks without it show
+// up with every twist. The twist ids are the file names in src/data/twists/.
+//
+//   chunk('ice_rink', 'jump', 2, `
+//     ..........
+//     ##......##
+//     ##########`, { twists: ['slippery'] }),
 
 export const CHUNK_W = 10;
 export const CHUNK_H = 14;
 const GROUND_ROW = 12;
 
-function chunk(id, type, difficulty, art) {
+function chunk(id, type, difficulty, art, { twists } = {}) {
   const rows = art.trim().split('\n').map((line) => line.trim());
   while (rows.length < CHUNK_H) rows.unshift('.'.repeat(CHUNK_W));
 
@@ -36,8 +46,14 @@ function chunk(id, type, difficulty, art) {
   if (ground[0] !== '#' || ground[CHUNK_W - 1] !== '#') {
     throw new Error(`Chunk "${id}" must have solid ground at both edges of row ${GROUND_ROW} so it joins cleanly.`);
   }
-  return { id, type, difficulty, rows };
+  if (twists !== undefined && (!Array.isArray(twists) || !twists.length || twists.some((t) => typeof t !== 'string'))) {
+    throw new Error(`Chunk "${id}": "twists" should be a list of twist ids, like ['slippery'].`);
+  }
+  return twists ? { id, type, difficulty, rows, twists } : { id, type, difficulty, rows };
 }
+
+// Can this chunk (or wave) be used with this twist? Untagged ones always can.
+export const fitsTwist = (piece, twist) => !piece.twists || piece.twists.includes(twist);
 
 // type: start | exit | rest | secret | jump | combat
 // difficulty: 0-3 for now (costs this many points from the stage's budget)

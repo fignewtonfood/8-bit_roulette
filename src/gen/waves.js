@@ -15,17 +15,24 @@
 //   lowercase s / w / d / t = optional enemy (spawns only if the budget allows)
 //
 // Rules (checked automatically): every row is exactly 16 characters.
+//
+// Twist-only waves: add { twists: [...] } after the art and the wave only
+// shows up when one of those twists is on the reel, like twist-only chunks
+// (see chunks.js). The twist ids are the file names in src/data/twists/.
 
 export const WAVE_W = 16;
 
-function wave(id, type, difficulty, art) {
+function wave(id, type, difficulty, art, { twists } = {}) {
   const rows = art.trim().split('\n').map((line) => line.trim());
   rows.forEach((row, i) => {
     if (row.length !== WAVE_W) {
       throw new Error(`Wave "${id}" row ${i} ("${row}") is ${row.length} wide; expected ${WAVE_W}.`);
     }
   });
-  return { id, type, difficulty, rows };
+  if (twists !== undefined && (!Array.isArray(twists) || !twists.length || twists.some((t) => typeof t !== 'string'))) {
+    throw new Error(`Wave "${id}": "twists" should be a list of twist ids, like ['slippery'].`);
+  }
+  return twists ? { id, type, difficulty, rows, twists } : { id, type, difficulty, rows };
 }
 
 // type: rest | secret | wave
