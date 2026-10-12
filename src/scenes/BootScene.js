@@ -5,6 +5,7 @@ import { startRun } from '../engine/startRun.js';
 import { makeRun } from '../engine/run.js';
 import { getSave, setSave, resetSave, session } from '../engine/profile.js';
 import { randomSeed } from '../gen/rng.js';
+import { makePixelFont } from '../ui/font.js';
 
 // Reads the URL, then opens the hub or (for testing) jumps somewhere else.
 //
@@ -26,6 +27,7 @@ export default class BootScene extends Phaser.Scene {
   }
 
   create() {
+    makePixelFont(this);
     const params = new URLSearchParams(window.location.search);
 
     if (params.has('reset')) {

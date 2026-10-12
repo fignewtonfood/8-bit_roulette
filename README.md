@@ -29,6 +29,7 @@ Practice runs pay no tokens and don't touch your save:
 - `?length=medium` plays more stages (`short`, `medium`, `long`)
 - `?spin` opens a practice machine: every length open, free re-spins, forced reels stay locked
 - `?debug` shows hitboxes
+- `?zoom=3` forces the size: each game pixel becomes 3x3 screen pixels (normally it picks the biggest whole number that fits the window)
 
 Save tools:
 
@@ -51,6 +52,8 @@ npm run check:loop     # bets, payouts, shop, save file + a progression estimate
 - **Theme:** copy `src/data/themes/neon-space.json`, change the id, colours and
   names, then add the id to the `themes` reel in `src/data/reels.json`.
 - **Twist settings:** edit the numbers in `src/data/twists/*.json`.
+- **On-screen text:** one line fits 42 characters. `npm run check:engine` flags
+  twist descriptions, shop descriptions and names that won't fit.
 - **Rarity:** give a reel entry a `"weight"` (0.5 = half as often).
 - **Bad combos:** add a rule to `src/data/compatibility.json`.
 - **Payouts, lives, lengths:** `src/data/economy.json`. A length with
@@ -81,6 +84,7 @@ genre scene, like Low Gravity and Darkness have. A new genre needs a scene.
 | `src/engine/save.js` | Reading and repairing the save file |
 | `src/engine/profile.js` | The live save in the browser, plus this-visit settings |
 | `src/engine/startRun.js` | Starts a stage; decides next stage or payout when one ends |
+| `src/ui/font.js` | The pixel font (drawn in code; add a letter by drawing it) |
 | `src/ui/machine.js` | The machine's colours and text, shared by hub, machine and shop |
 | `src/scenes/HubScene.js` | The hub room |
 | `src/scenes/ShopScene.js` | The shop |

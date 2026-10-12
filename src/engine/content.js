@@ -14,6 +14,8 @@ export const NAME_KEYS = ['enemy', 'coin', 'hudCoin'];
 const RULE_KEYS = ['theme', 'genre', 'twist'];
 
 const EFFECTS = ['lives', 'respins', 'consolation'];
+// The pixel font is 6px a letter on a 256px screen.
+export const SCREEN_CHARS = 42;
 const ON_FAIL = ['consolation', 'partial'];
 
 export function assembleContent({ reels, genres, themes, twists, compatibility, economy, shop }) {
@@ -74,6 +76,13 @@ export function assembleContent({ reels, genres, themes, twists, compatibility, 
     return rule;
   });
 
+  // Text that has to fit on one line of the screen
+  const tooLong = (where, s) => String(s).length > SCREEN_CHARS && fail(`${where} is ${String(s).length} characters; one screen line fits ${SCREEN_CHARS}: "${s}"`);
+  for (const [id, tw] of Object.entries(twists)) tooLong(`twists/${id}.json: description`, tw.description || '');
+  const longest = (map) => Math.max(...Object.values(map).map((x) => (x.short || x.name || '').length));
+  const titleLen = Math.max(...Object.values(themes).map((t) => t.name.length)) + longest(genreMap) + longest(twists) + 6;
+  if (titleLen > SCREEN_CHARS) fail(`The longest theme name + genre short + twist short is ${titleLen} characters; it must fit in ${SCREEN_CHARS}. Shorten a "name" or "short".`);
+
   // Shop upgrades
   const upgrades = {};
   for (const [i, u] of (shop?.upgrades || []).entries()) {
@@ -87,6 +96,7 @@ export function assembleContent({ reels, genres, themes, twists, compatibility, 
     for (const k of Object.keys(u.perLevel || {})) {
       if (!EFFECTS.includes(k)) fail(`${where}: unknown perLevel "${k}" (options: ${EFFECTS.join(', ')}).`);
     }
+    for (const line of u.description || []) tooLong(`${where}: description`, line);
     upgrades[u.id] = { short: u.name.toUpperCase(), description: [], perLevel: {}, ...u };
   }
 

@@ -156,7 +156,7 @@ export default class HubScene extends Phaser.Scene {
   openTerminal() {
     const W = this.scale.width;
     const s = getSave().stats;
-    const box = this.add.rectangle(W / 2, 100, 200, 120, hex(C.screen)).setStrokeStyle(2, hex(C.screenText));
+    const box = this.add.rectangle(W / 2, 98, 200, 136, hex(C.screen)).setStrokeStyle(2, hex(C.screenText));
     const lines = [
       '> SIGNAL WEAK',
       '> LOGS: 0 RECOVERED',
@@ -168,8 +168,8 @@ export default class HubScene extends Phaser.Scene {
       '',
       '> KEEP SPINNING.',
     ];
-    const text = label(this, W / 2 - 88, 100, lines.join('\n'), 8, C.screenText, 0);
-    const close = label(this, W / 2, 172, 'UP / X  CLOSE', 8, C.faint);
+    const text = label(this, W / 2 - 88, 90, lines.join('\n'), 8, C.screenText, 0);
+    const close = label(this, W / 2, 154, 'UP / X  CLOSE', 8, C.faint);
     this.panel = [box, text, close];
     this.prompt.setVisible(false);
   }

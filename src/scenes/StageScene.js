@@ -5,6 +5,7 @@ import { twistSettings } from '../engine/content.js';
 import { describeRun } from '../engine/spin.js';
 import { addDarkness, GLOW_DEPTH } from '../engine/darkness.js';
 import { endStage } from '../engine/startRun.js';
+import { pixelText } from '../ui/font.js';
 import { makePlaceholderTextures, tex } from '../art/placeholder.js';
 
 const TILE = 16;
@@ -123,8 +124,7 @@ export default class StageScene extends Phaser.Scene {
     this.jumpKeys = [this.cursors.up, this.cursors.space, this.input.keyboard.addKey('Z')];
 
     // HUD
-    this.hud = this.add
-      .text(4, 4, '', { fontFamily: 'monospace', fontSize: '8px', color: theme.palette.text })
+    this.hud = pixelText(this, 4, 4, '', { color: theme.palette.text })
       .setScrollFactor(0)
       .setDepth(10);
     this.updateHud();

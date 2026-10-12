@@ -5,6 +5,7 @@ import { twistSettings } from '../engine/content.js';
 import { describeRun } from '../engine/spin.js';
 import { addDarkness, GLOW_DEPTH } from '../engine/darkness.js';
 import { endStage } from '../engine/startRun.js';
+import { pixelText } from '../ui/font.js';
 import { makePlaceholderTextures, tex } from '../art/placeholder.js';
 import { makeShmupTextures } from '../art/shmupPlaceholder.js';
 
@@ -107,8 +108,7 @@ export default class ShmupScene extends Phaser.Scene {
     this.cursors = this.input.keyboard.createCursorKeys();
     this.fireKeys = [this.cursors.space, this.input.keyboard.addKey('Z')];
 
-    this.hud = this.add
-      .text(4, 4, '', { fontFamily: 'monospace', fontSize: '8px', color: theme.palette.text })
+    this.hud = pixelText(this, 4, 4, '', { color: theme.palette.text })
       .setScrollFactor(0)
       .setDepth(10);
     this.updateHud();

@@ -2,6 +2,7 @@
 // Themes only apply once you're inside a game.
 
 import Phaser from 'phaser';
+import { pixelText } from './font.js';
 
 export const C = {
   bg: '#0e0b16',
@@ -21,11 +22,10 @@ export const C = {
 
 export const hex = (c) => Phaser.Display.Color.HexStringToColor(c).color;
 
-// Centered monospace text, the one font everything uses.
+// Text in the pixel font, centred vertically on y. size 8 = normal, 16 = big.
 export function label(scene, x, y, s, size = 8, color = C.text, originX = 0.5) {
-  return scene.add
-    .text(x, y, s, { fontFamily: 'monospace', fontSize: `${size}px`, color, align: originX === 0.5 ? 'center' : 'left', lineSpacing: 3 })
-    .setOrigin(originX, 0.5);
+  const align = originX === 0.5 ? 'center' : originX === 1 ? 'right' : 'left';
+  return pixelText(scene, x, y, s, { size: size / 8, color, align }).setOrigin(originX, 0.5);
 }
 
 // Keyboard helper: fires once per press (held keys and the key still held

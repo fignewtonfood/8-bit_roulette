@@ -1,11 +1,12 @@
 import Phaser from 'phaser';
 import { content } from '../data/index.js';
-import { spin, describeRun } from '../engine/spin.js';
+import { spin, describeRun, runTitle } from '../engine/spin.js';
 import { startRun } from '../engine/startRun.js';
 import { randomSeed } from '../gen/rng.js';
 import { getSave, session } from '../engine/profile.js';
 import { lengthOptions, makeRun } from '../engine/run.js';
 import { C, hex, onPress } from '../ui/machine.js';
+import { pixelText } from '../ui/font.js';
 
 // The slot machine: pick a bet (game length), pull, and three reels land on a
 // theme, a genre and a twist. The result is decided by spin() the moment you
@@ -41,12 +42,10 @@ export default class SpinScene extends Phaser.Scene {
     const W = this.scale.width;
     this.cameras.main.setBackgroundColor(C.bg);
     const text = (x, y, s, size, color) =>
-      this.add.text(x, y, s, { fontFamily: 'monospace', fontSize: `${size}px`, color }).setOrigin(0.5);
+      pixelText(this, x, y, s, { size: size / 8, color, align: 'center' }).setOrigin(0.5);
 
     text(W / 2, 18, '8-BIT ROULETTE', 16, C.gold);
-    this.add
-      .text(4, 4, this.practice ? 'PRACTICE' : `TOKENS ${getSave().tokens}`, { fontFamily: 'monospace', fontSize: '8px', color: this.practice ? C.warn : C.gold })
-      .setOrigin(0, 0);
+    pixelText(this, 4, 220, this.practice ? 'PRACTICE' : `TOKENS ${getSave().tokens}`, { color: this.practice ? C.warn : C.gold }).setOrigin(0, 1);
 
     // Cabinet
     const g = this.add.graphics();
@@ -71,14 +70,10 @@ export default class SpinScene extends Phaser.Scene {
     text(14, 92, '>', 10, C.gold);
     text(W - 14, 92, '<', 10, C.gold);
 
-    this.info = this.add
-      .text(W / 2, 150, '', { fontFamily: 'monospace', fontSize: '8px', color: C.text, align: 'center', lineSpacing: 3 })
-      .setOrigin(0.5, 0);
+    this.info = pixelText(this, W / 2, 150, '', { color: C.text, align: 'center' }).setOrigin(0.5, 0);
     this.betText = text(W / 2, 188, '', 8, C.text);
     this.prompt = text(W / 2, 206, '', 8, C.gold);
-    this.seedText = this.add
-      .text(W - 4, 220, '', { fontFamily: 'monospace', fontSize: '8px', color: C.faint })
-      .setOrigin(1, 1);
+    this.seedText = pixelText(this, W - 4, 220, '', { color: C.faint }).setOrigin(1, 1);
     this.tweens.add({ targets: this.prompt, alpha: 0.25, duration: 500, yoyo: true, repeat: -1 });
 
     // The bet: every length, locked ones included so you can see what's coming.
@@ -206,7 +201,7 @@ export default class SpinScene extends Phaser.Scene {
     const run = this.result;
     const twist = content.twists[run.twist];
     console.log(`[8-Bit Roulette] spin ${run.seed}: ${describeRun(content, run)}${run.rerolled.length ? ` (re-rolled: ${run.rerolled.join(', ')})` : ''}`);
-    this.info.setText(`${describeRun(content, run)}\n${twist.description}`);
+    this.info.setText(`${runTitle(content, run)}\n${twist.description}`);
     const respin = this.practice ? '      S SPIN AGAIN' : session.respinsLeft > 0 ? `      S RE-SPIN (${session.respinsLeft})` : '';
     this.prompt.setText(`SPACE PLAY${respin}`).setColor(C.gold);
     this.mode = 'landed';

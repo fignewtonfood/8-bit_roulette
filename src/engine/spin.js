@@ -61,6 +61,14 @@ function pick(result, locks, reel, id) {
   return combo;
 }
 
+// The short version that fits on one line of the 256px screen.
+export function runTitle(content, run) {
+  const t = content.themes[run.theme];
+  const g = content.genres[run.genre];
+  const tw = content.twists[run.twist];
+  return `${t.name} · ${g.short || g.name} · ${tw.short || tw.name}`;
+}
+
 export function describeRun(content, run) {
   const t = content.themes[run.theme];
   const g = content.genres[run.genre];

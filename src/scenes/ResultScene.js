@@ -1,11 +1,12 @@
 import Phaser from 'phaser';
 import { content } from '../data/index.js';
-import { describeRun } from '../engine/spin.js';
+import { runTitle } from '../engine/spin.js';
 import { startRun } from '../engine/startRun.js';
 import { makeRun } from '../engine/run.js';
 import { getSave } from '../engine/profile.js';
 import { randomSeed } from '../gen/rng.js';
 import { onPress } from '../ui/machine.js';
+import { pixelText } from '../ui/font.js';
 
 // Two kinds of screen, in the theme's colours:
 //   between  a stage was cleared and the run goes on: SPACE starts the next stage
@@ -24,15 +25,13 @@ export default class ResultScene extends Phaser.Scene {
     const p = theme.palette;
     this.cameras.main.setBackgroundColor(p.sky);
     const text = (y, s, size, color, originY = 0.5) =>
-      this.add
-        .text(cx, y, s, { fontFamily: 'monospace', fontSize: `${size}px`, color, align: 'center', lineSpacing: 4 })
-        .setOrigin(0.5, originY);
+      pixelText(this, cx, y, s, { size: size / 8, color, align: 'center' }).setOrigin(0.5, originY);
 
-    const stageLine = `${theme.names.hudCoin} ${d.stage.coins}/${d.stage.totalCoins}   TIME ${d.stage.seconds}s`;
+    const stageLine = `${theme.names.hudCoin} ${d.stage.coins}/${d.stage.totalCoins}   TIME ${Math.floor(d.stage.seconds / 60)}:${String(d.stage.seconds % 60).padStart(2, '0')}`;
 
     if (d.mode === 'between') {
       text(36, `STAGE ${run.stage - 1} CLEAR`, 16, p.flag);
-      text(70, [describeRun(content, run), '', stageLine, `LIVES ${run.lives}`].join('\n'), 8, p.text, 0);
+      text(70, [runTitle(content, run), '', stageLine, `LIVES ${run.lives}`].join('\n'), 8, p.text, 0);
       text(150, `NEXT: STAGE ${run.stage} OF ${run.stages}`, 8, p.coin);
       text(196, 'SPACE  NEXT STAGE', 8, p.text);
       // Wait a moment so the fire button held in the shmup doesn't skip this.
@@ -47,7 +46,7 @@ export default class ResultScene extends Phaser.Scene {
     const width = 28;
     const row = (label, n) => `${label.padEnd(width - String(n).length - 1)} ${n}`;
     const lines = [
-      describeRun(content, run),
+      runTitle(content, run),
       `${run.length.toUpperCase()} · ${run.cleared}/${run.stages} STAGE${run.stages === 1 ? '' : 'S'} CLEARED`,
       '',
       ...pay.lines.map(([label, n]) => row(label, n)),
