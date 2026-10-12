@@ -25,7 +25,7 @@ const ARENA_PX = ARENA_W * TILE;
 // Feel knobs — tweak these while playtesting.
 const GRAVITY = 800;            // px/s² (the Low Gravity twist scales this)
 const RUN_SPEED = 90;           // px/s
-const JUMP_VELOCITY = 280;      // px/s upward; ~3 tiles high with gravity 800
+const JUMP_VELOCITY = 300;      // px/s upward; ~3.5 tiles high with gravity 800 (same as the platformer)
 const SHORT_HOP = 0.4;
 const COYOTE_TIME = 0.1;
 const JUMP_BUFFER = 0.1;

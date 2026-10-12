@@ -9,6 +9,9 @@ import { fitsTwist } from '../src/gen/chunks.js';
 import { loadContent } from './load-content.js';
 
 const GENRE = 'brawler';
+const GROUND_ROW = 12;
+const MAX_CLIMB = 3; // tiles a normal jump climbs (Low Gravity reaches further)
+const MAX_REACH = 3; // columns sideways you can cover while climbing that high
 const SEEDS = 400; // per twist
 const content = loadContent();
 const twists = Object.keys(content.twists).filter((id) => content.twists[id].genres[GENRE]);
@@ -45,6 +48,31 @@ for (const a of ARENAS) {
   }
   if (a.type !== 'fight' && (a.reinforce || a.rows.some((row) => [...row].some((ch) => ENEMY_KINDS[ch.toUpperCase()])))) {
     problems.push(`${where}: only "fight" arenas can have enemies (this one is "${a.type}")`);
+  }
+  // Every surface you can stand on must be reachable: no more than MAX_CLIMB
+  // tiles above another reachable surface that's within MAX_REACH columns.
+  const tops = [];
+  a.rows.forEach((row, y) => [...row].forEach((ch, x) => {
+    if (ch === '#' && y > 0 && !solidAt(a, x, y - 1)) tops.push({ x, y });
+  }));
+  const reached = new Set(tops.filter((s) => s.y >= GROUND_ROW).map((s) => `${s.x},${s.y}`));
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const s of tops) {
+      if (reached.has(`${s.x},${s.y}`)) continue;
+      const ok = tops.some((o) => reached.has(`${o.x},${o.y}`)
+        && Math.abs(o.x - s.x) <= MAX_REACH && o.y - s.y <= MAX_CLIMB && o.y - s.y >= -MAX_CLIMB);
+      if (ok) {
+        reached.add(`${s.x},${s.y}`);
+        grew = true;
+      }
+    }
+  }
+  const stranded = tops.filter((s) => !reached.has(`${s.x},${s.y}`));
+  if (stranded.length) {
+    const rows = [...new Set(stranded.map((s) => s.y))].join(', ');
+    problems.push(`${where}: a platform on row ${rows} is more than ${MAX_CLIMB} tiles above anything you can jump from`);
   }
   // Respawn spot: the player comes back at the arena's left edge after a fall
   // (column 1, or column 14 when the arena is mirrored).
