@@ -7,7 +7,7 @@ import { buildBrawl } from '../src/gen/buildBrawl.js';
 import { ARENAS, ARENA_W, ENEMY_KINDS } from '../src/gen/arenas.js'; // importing also validates every arena
 import { fitsTwist } from '../src/gen/chunks.js';
 import { loadContent } from './load-content.js';
-import { stageMinimums, twistMaxLevel } from '../src/engine/content.js';
+import { stageRules, twistMaxLevel } from '../src/engine/content.js';
 
 const GENRE = 'brawler';
 const GROUND_ROW = 12;
@@ -93,13 +93,13 @@ for (const a of ARENAS) {
 const enemyTotals = { 1: [], 5: [] };
 for (const twist of twists) for (let seed = 1; seed <= SEEDS; seed++) {
   for (let stage = 1; stage <= 5; stage++) {
-    const lvl = buildBrawl({ seed, stage, twist, ...stageMinimums(content, twist) });
+    const lvl = buildBrawl({ seed, stage, twist, ...stageRules(content, twist) });
     stagesBuilt++;
     const tag = `${twist} seed ${seed} stage ${stage}`;
     if (lvl.cost > lvl.budget) problems.push(`${tag}: cost ${lvl.cost} > budget ${lvl.budget}`);
     if (!lvl.playerStart) problems.push(`${tag}: no player start`);
     if (!lvl.flag) problems.push(`${tag}: no exit flag`);
-    const min = stageMinimums(content, twist);
+    const min = stageRules(content, twist);
     if (lvl.coins.length < min.minCoins) problems.push(`${tag}: ${lvl.coins.length} coins, needs ${min.minCoins}`);
     if (!lvl.arenas.some((r) => r.fight)) problems.push(`${tag}: no fights at all`);
     for (let i = 1; i < lvl.names.length; i++) {
@@ -107,7 +107,7 @@ for (const twist of twists) for (let seed = 1; seed <= SEEDS; seed++) {
       const isRest = ARENAS.find((a) => a.id === id)?.type === 'rest'; // rest is the safe fallback
       if (id === lvl.names[i - 1].split(' ')[0] && !isRest) problems.push(`${tag}: ${lvl.names[i]} repeated back to back`);
     }
-    if (JSON.stringify(lvl) !== JSON.stringify(buildBrawl({ seed, stage, twist, ...stageMinimums(content, twist) }))) {
+    if (JSON.stringify(lvl) !== JSON.stringify(buildBrawl({ seed, stage, twist, ...stageRules(content, twist) }))) {
       problems.push(`${tag}: same seed built a different stage`);
     }
     for (const name of lvl.names) {
@@ -124,7 +124,7 @@ const avg = (xs) => (xs.reduce((s, x) => s + x, 0) / xs.length).toFixed(1);
 let minimumStages = 0;
 for (const twist of twists) {
   for (let level = 2; level <= twistMaxLevel(content, twist); level++) {
-    const min = stageMinimums(content, twist, level);
+    const min = stageRules(content, twist, level);
     if (!min.minCoins && !min.minEnemies) continue;
     for (let seed = 1; seed <= 200; seed++) for (let stage = 1; stage <= 5; stage++) {
       const lvl = buildBrawl({ seed, stage, twist, ...min });

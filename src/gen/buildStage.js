@@ -27,12 +27,14 @@ const SLOT_RULES = {
 // minCoins / minEnemies (Collector / Killer): if the chunks bring fewer than
 // that, unused optional enemy spots fill in first, then extra coins/enemies go
 // on safe floor (see topUp.js). Normal stages pass 0 and are unaffected.
-export function buildStage({ seed, stage = 1, twist = null, minCoins = 0, minEnemies = 0 }) {
+export function buildStage({ seed, stage = 1, twist = null, minCoins = 0, minEnemies = 0, budgetScale = 1 }) {
   const rng = makeRng(seed * 31 + stage);
-  const budget = STAGE_BUDGETS[Math.min(stage, STAGE_BUDGETS.length) - 1];
   const usable = CHUNKS.filter((c) => fitsTwist(c, twist));
   const pool = usable.filter((c) => c.type !== 'start' && c.type !== 'exit');
   const slotMin = (slot) => Math.min(...pool.filter(SLOT_RULES[slot]).map((c) => c.difficulty));
+  // budgetScale (Sudden Death levels): a bigger or smaller difficulty budget,
+  // never below what the pacing slots need at their cheapest.
+  const budget = Math.max(PACING.reduce((sum, s) => sum + slotMin(s), 0), Math.round(STAGE_BUDGETS[Math.min(stage, STAGE_BUDGETS.length) - 1] * budgetScale));
 
   // 1. Pick a chunk for each slot without blowing the budget.
   let remaining = budget;

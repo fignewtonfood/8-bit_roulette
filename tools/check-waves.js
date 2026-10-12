@@ -5,7 +5,7 @@ import { buildShmup } from '../src/gen/buildShmup.js';
 import { WAVES } from '../src/gen/waves.js'; // importing also validates every wave
 import { fitsTwist } from '../src/gen/chunks.js';
 import { loadContent } from './load-content.js';
-import { stageMinimums, twistMaxLevel } from '../src/engine/content.js';
+import { stageRules, twistMaxLevel } from '../src/engine/content.js';
 
 const GENRE = 'shmup';
 const SEEDS = 400; // per twist
@@ -36,11 +36,11 @@ for (const twist of twists) {
 
 for (const twist of twists) for (let seed = 1; seed <= SEEDS; seed++) {
   for (let stage = 1; stage <= 5; stage++) {
-    const lvl = buildShmup({ seed, stage, twist, ...stageMinimums(content, twist) });
+    const lvl = buildShmup({ seed, stage, twist, ...stageRules(content, twist) });
     stagesBuilt++;
     if (lvl.cost > lvl.budget) problems.push(`${twist} seed ${seed} stage ${stage}: cost ${lvl.cost} > budget ${lvl.budget}`);
     if (!lvl.events.some((e) => e.kind !== 'coin')) problems.push(`${twist} seed ${seed} stage ${stage}: no enemies at all`);
-    const min = stageMinimums(content, twist);
+    const min = stageRules(content, twist);
     const foes = lvl.events.filter((e) => e.kind !== 'coin').length;
     if (lvl.coins < min.minCoins) problems.push(`${twist} seed ${seed} stage ${stage}: ${lvl.coins} coins, needs ${min.minCoins}`);
     if (foes < min.minEnemies) problems.push(`${twist} seed ${seed} stage ${stage}: ${foes} enemies, needs ${min.minEnemies}`);
@@ -51,7 +51,7 @@ for (const twist of twists) for (let seed = 1; seed <= SEEDS; seed++) {
         problems.push(`${twist} seed ${seed} stage ${stage}: ${lvl.waves[i]} repeated back to back`);
       }
     }
-    if (JSON.stringify(lvl) !== JSON.stringify(buildShmup({ seed, stage, twist, ...stageMinimums(content, twist) }))) {
+    if (JSON.stringify(lvl) !== JSON.stringify(buildShmup({ seed, stage, twist, ...stageRules(content, twist) }))) {
       problems.push(`${twist} seed ${seed} stage ${stage}: same seed built a different stage`);
     }
     for (const id of lvl.waves) {
@@ -70,7 +70,7 @@ for (const twist of twists) for (let seed = 1; seed <= SEEDS; seed++) {
 let minimumStages = 0;
 for (const twist of twists) {
   for (let level = 2; level <= twistMaxLevel(content, twist); level++) {
-    const min = stageMinimums(content, twist, level);
+    const min = stageRules(content, twist, level);
     if (!min.minCoins && !min.minEnemies) continue;
     for (let seed = 1; seed <= 200; seed++) for (let stage = 1; stage <= 5; stage++) {
       const lvl = buildShmup({ seed, stage, twist, ...min });

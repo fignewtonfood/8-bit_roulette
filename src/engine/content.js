@@ -74,6 +74,7 @@ export function assembleContent({ reels, genres, themes, twists, compatibility, 
     if (tw.payout !== undefined && !(typeof tw.payout === 'number' && tw.payout > 0)) fail(`${file}: "payout" should be a number above 0.`);
     if (tw.objective !== undefined && !OBJECTIVES.includes(tw.objective)) fail(`${file}: unknown objective "${tw.objective}" (options: ${OBJECTIVES.join(', ')}).`);
     if (tw.minimum !== undefined && !tw.objective) fail(`${file}: "minimum" only works with an "objective".`);
+    if (tw.budgetScale !== undefined && !(typeof tw.budgetScale === 'number' && tw.budgetScale > 0 && tw.budgetScale <= 3)) fail(`${file}: "budgetScale" should be a number above 0 (1 = normal difficulty budget).`);
     if (tw.minimum !== undefined && !(Number.isInteger(tw.minimum) && tw.minimum >= 1)) fail(`${file}: "minimum" should be a whole number, 1 or more.`);
     for (const g of Object.keys(tw.genres || {})) {
       if (!genreMap[g]) fail(`${file}: unknown genre "${g}".`);
@@ -89,6 +90,7 @@ export function assembleContent({ reels, genres, themes, twists, compatibility, 
         if (lv.payout !== undefined && !(typeof lv.payout === 'number' && lv.payout > 0)) fail(`${where}: "payout" should be a number above 0.`);
         if (lv.minimum !== undefined && !(Number.isInteger(lv.minimum) && lv.minimum >= 1 && tw.objective)) fail(`${where}: "minimum" should be a whole number, on a twist with an "objective".`);
         if (lv.lives !== undefined && !(Number.isInteger(lv.lives) && lv.lives >= 1)) fail(`${where}: "lives" should be a whole number, 1 or more.`);
+        if (lv.budgetScale !== undefined && !(typeof lv.budgetScale === 'number' && lv.budgetScale > 0 && lv.budgetScale <= 3)) fail(`${where}: "budgetScale" should be a number above 0 (1 = normal difficulty budget).`);
         if (!lv.description) fail(`${where} needs a "description" (shown at the machine).`);
         tooLongLater.push([`${where}: description`, lv.description || '']);
       });
@@ -249,12 +251,17 @@ export function objectiveOf(content, twistId) {
   return content.twists[twistId]?.objective ?? null;
 }
 
-// What a stage generator needs for the run's twist: { minCoins, minEnemies }
-// (Collector and Killer's "minimum"; zero for every other twist).
-export function stageMinimums(content, twistId, level = 1) {
+// What a stage generator needs from the run's twist at its level:
+// { minCoins, minEnemies } (Collector and Killer's "minimum"; zero for every
+// other twist) and budgetScale (the twist's "budgetScale", 1 if it has none).
+export function stageRules(content, twistId, level = 1) {
   const tw = twistAt(content, twistId, level);
   const n = tw?.minimum ?? 0;
-  return { minCoins: tw?.objective === 'collect' ? n : 0, minEnemies: tw?.objective === 'kill' ? n : 0 };
+  return {
+    minCoins: tw?.objective === 'collect' ? n : 0,
+    minEnemies: tw?.objective === 'kill' ? n : 0,
+    budgetScale: tw?.budgetScale ?? 1,
+  };
 }
 
 // The settings a twist gives one genre, e.g. { gravityScale: 0.5, jumpScale: 0.75 }.

@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { buildStage } from '../gen/buildStage.js';
 import { content } from '../data/index.js';
-import { twistSettings, objectiveOf, stageMinimums } from '../engine/content.js';
+import { twistSettings, objectiveOf, stageRules } from '../engine/content.js';
 import { describeRun } from '../engine/spin.js';
 import { addDarkness, GLOW_DEPTH } from '../engine/darkness.js';
 import { endStage } from '../engine/startRun.js';
@@ -50,7 +50,7 @@ export default class StageScene extends Phaser.Scene {
     const t = (name) => tex(theme, name);
     makePlaceholderTextures(this, theme);
 
-    const level = buildStage({ seed: this.seed, stage: this.run.stage, twist: this.run.twist, ...stageMinimums(content, this.run.twist, this.run.levels?.twist) });
+    const level = buildStage({ seed: this.seed, stage: this.run.stage, twist: this.run.twist, ...stageRules(content, this.run.twist, this.run.levels?.twist) });
     this.level = level;
     const worldW = level.widthTiles * TILE;
     const worldH = level.heightTiles * TILE;

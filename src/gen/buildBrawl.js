@@ -26,12 +26,14 @@ const SLOT_RULES = {
 // twist: the run's twist id. Arenas tagged for other twists are left out.
 // minCoins (Collector): if the arenas bring fewer coins than that, extra ones
 // go on safe floor anywhere past the start arena (see topUp.js).
-export function buildBrawl({ seed, stage = 1, twist = null, minCoins = 0 }) {
+export function buildBrawl({ seed, stage = 1, twist = null, minCoins = 0, budgetScale = 1 }) {
   const rng = makeRng(seed * 31 + stage + 2000);
-  const budget = BRAWL_BUDGETS[Math.min(stage, BRAWL_BUDGETS.length) - 1];
   const usable = ARENAS.filter((a) => fitsTwist(a, twist));
   const pool = usable.filter((a) => a.type !== 'start' && a.type !== 'exit');
   const slotMin = (slot) => Math.min(...pool.filter(SLOT_RULES[slot]).map((a) => a.difficulty));
+  // budgetScale (Sudden Death levels): a bigger or smaller difficulty budget,
+  // never below what the pacing slots need at their cheapest.
+  const budget = Math.max(BRAWL_PACING.reduce((sum, s) => sum + slotMin(s), 0), Math.round(BRAWL_BUDGETS[Math.min(stage, BRAWL_BUDGETS.length) - 1] * budgetScale));
 
   // 1. Pick an arena for each slot without blowing the budget.
   let remaining = budget;

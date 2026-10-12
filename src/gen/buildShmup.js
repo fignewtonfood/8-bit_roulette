@@ -31,8 +31,8 @@ const SLOT_RULES = {
 // minCoins / minEnemies (Collector / Killer): if the waves bring fewer, extra
 // coins (or straight-flying bats) are spread evenly through the stage.
 // Normal stages pass 0 and are unaffected.
-export function buildShmup({ seed, stage = 1, twist = null, minCoins = 0, minEnemies = 0 }) {
-  const level = buildOnce({ seed, stage, twist });
+export function buildShmup({ seed, stage = 1, twist = null, minCoins = 0, minEnemies = 0, budgetScale = 1 }) {
+  const level = buildOnce({ seed, stage, twist, budgetScale });
   const extra = makeRng(seed * 31 + stage + 1555);
   const enemies = level.events.filter((e) => e.kind !== 'coin').length;
   const added = [
@@ -60,11 +60,13 @@ function spread(level, rng, kind, count) {
   return out;
 }
 
-function buildOnce({ seed, stage, twist }) {
+function buildOnce({ seed, stage, twist, budgetScale }) {
   const rng = makeRng(seed * 31 + stage + 1000);
-  const budget = SHMUP_BUDGETS[Math.min(stage, SHMUP_BUDGETS.length) - 1];
   const pool = WAVES.filter((w) => fitsTwist(w, twist));
   const slotMin = (slot) => Math.min(...pool.filter(SLOT_RULES[slot]).map((w) => w.difficulty));
+  // budgetScale (Sudden Death levels): a bigger or smaller difficulty budget,
+  // never below what the pacing slots need at their cheapest.
+  const budget = Math.max(SHMUP_PACING.reduce((sum, s) => sum + slotMin(s), 0), Math.round(SHMUP_BUDGETS[Math.min(stage, SHMUP_BUDGETS.length) - 1] * budgetScale));
 
   // 1. Pick a wave for each slot without blowing the budget.
   let remaining = budget;

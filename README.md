@@ -106,7 +106,9 @@ npm run check:story    # story unlocks, glitches, hub changes + which run each l
   is. Once the landed twist has reached level 2 or 3, Left/Right at the
   machine picks the level (practice offers every level). A twist file's
   `levels` list holds level 2 and 3: each can change any genre setting plus
-  `description`, `payout` and (Collector/Killer) `minimum`. Classic has none.
+  `description`, `payout`, `budgetScale` and (Collector/Killer) `minimum`.
+  Classic has none. `budgetScale` multiplies each stage's difficulty budget:
+  Sudden Death is 0.85 at level 1, 1.15 at level 2 and 1.4 at level 3.
   Theme and genre levels are tracked but don't change play yet.
 - **Payouts, lives, lengths:** `src/data/economy.json`. A length with
   `requires` stays locked until the player owns that upgrade level.

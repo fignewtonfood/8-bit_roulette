@@ -2,10 +2,11 @@
   "id": "sudden-death",
   "name": "Sudden Death",
   "short": "SUDDEN",
-  "description": "One life. Stage tokens pay x1.5.",
-  "_help": "lives: every game starts with exactly this many, and Extra Life doesn't apply. payout: multiplies the stage tokens of a run you win (coins aren't multiplied).",
+  "description": "One life, gentler stages. Pays x1.5.",
+  "_help": "lives: every game starts with exactly this many, and Extra Life doesn't apply. payout: multiplies the stage tokens of a run you win (coins aren't multiplied). budgetScale: multiplies each stage's difficulty budget (1 = normal; below 1 = fewer and easier pieces, above 1 = more and harder ones).",
   "lives": 1,
   "payout": 1.5,
+  "budgetScale": 0.85,
   "genres": {
     "platformer": {},
     "shmup": {},
@@ -13,15 +14,17 @@
   },
   "levels": [
     {
-      "description": "One life, fewer hearts. Pays x1.75.",
+      "description": "One life, tougher stages. Pays x1.75.",
       "payout": 1.75,
+      "budgetScale": 1.15,
       "genres": {
         "brawler": { "hearts": 2 }
       }
     },
     {
-      "description": "One life, one hit. Pays x2.",
+      "description": "One life, much tougher stages. Pays x2.",
       "payout": 2,
+      "budgetScale": 1.4,
       "genres": {
         "brawler": { "hearts": 1 }
       }
