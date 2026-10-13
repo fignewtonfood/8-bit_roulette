@@ -436,6 +436,7 @@ export default class ShmupScene extends Phaser.Scene {
       b.age = 0;
       b.volley = 0;
       b.timer = 1.5;
+      b.attacking = false; // invulnerable (and flickering) until its first volley
       b.setVelocityY(30);
       this.boss = b;
       this.bossBar.show(Math.ceil((b.hp / b.maxHp) * 10), 10);
@@ -445,6 +446,7 @@ export default class ShmupScene extends Phaser.Scene {
     const b = this.boss;
     const fast = this.pace * b.boost.speed;
     b.age += dt;
+    if (!b.attacking) b.setAlpha(Math.floor(b.age * 10) % 2 ? 0.45 : 1);
     if (b.y < BOSS_Y) return; // still coming in
     if (b.body.velocity.y) {
       b.setVelocityY(0);
@@ -468,6 +470,10 @@ export default class ShmupScene extends Phaser.Scene {
     b.timer -= dt * fast;
     if (b.timer > 0) return;
     b.volley++;
+    if (!b.attacking) {
+      b.attacking = true; // from now on it can be hurt
+      b.setAlpha(1);
+    }
     b.timer = b.hp > b.maxHp / 2 ? BOSS_VOLLEY[0] : BOSS_VOLLEY[1];
     const speed = BOSS_SHOT_SPEED * fast;
     if (this.run.stage >= 5 && b.volley % SPIRAL_EVERY === 0 && b.volley % BOSS_RING_EVERY !== 0) {
@@ -487,7 +493,12 @@ export default class ShmupScene extends Phaser.Scene {
   }
 
   hitBoss(shot, b) {
-    if (!shot.active || !b.active || b.y < BOSS_Y - 10) return; // can't be hit until it's in place
+    if (!shot.active || !b.active) return;
+    // Invulnerable until it's in place and attacking: shots just vanish.
+    if (!b.attacking) {
+      shot.destroy();
+      return;
+    }
     shot.destroy();
     b.hp--;
     this.bossBar.show(Math.ceil((b.hp / b.maxHp) * 10), 10);
