@@ -56,6 +56,11 @@ const SPIRAL_EVERY = 3;
 const SPIRAL_SHOTS = 14;       // shots in one spiral
 const SPIRAL_TIME = 1.4;       // s it takes to fire them
 const SPIRAL_TURN = 0.55;      // radians between shots
+// Bosses fought on stage 3 or 5 are tougher still: hp multiplies the boss's
+// health (stage 5's on top of BOSS_HP_STAGE5), speed makes it move and
+// shoot that much faster.
+const BOSS_BOOST = { 3: { hp: 2, speed: 1 }, 5: { hp: 2, speed: 1.25 } };
+const bossBoost = (stage) => BOSS_BOOST[stage] || { hp: 1, speed: 1 };
 const BOSS_Y = 48;             // where it stops coming down (clear of the HUD)
 const BOSS_SWAY = [80, 0.8];   // px side to side, how fast
 const BOSS_VOLLEY = [1.4, 1.0]; // s between volleys: healthy, under half
@@ -420,7 +425,8 @@ export default class ShmupScene extends Phaser.Scene {
     if (!this.boss) {
       if (this.elapsed < at) return;
       const b = this.bosses.create(this.scale.width / 2, -14, this.t('sboss')).setDepth(GLOW_DEPTH); // always lit
-      b.maxHp = this.run.stage >= 5 ? BOSS_HP_STAGE5 : BOSS_HP;
+      b.boost = bossBoost(this.run.stage); // tougher on stages 3 and 5
+      b.maxHp = (this.run.stage >= 5 ? BOSS_HP_STAGE5 : BOSS_HP) * b.boost.hp;
       b.hp = b.maxHp;
       b.spiral = null;
       b.age = 0;
@@ -433,7 +439,7 @@ export default class ShmupScene extends Phaser.Scene {
       return;
     }
     const b = this.boss;
-    const fast = this.pace;
+    const fast = this.pace * b.boost.speed;
     b.age += dt;
     if (b.y < BOSS_Y) return; // still coming in
     if (b.body.velocity.y) {
@@ -460,7 +466,7 @@ export default class ShmupScene extends Phaser.Scene {
     b.volley++;
     b.timer = b.hp > b.maxHp / 2 ? BOSS_VOLLEY[0] : BOSS_VOLLEY[1];
     const speed = BOSS_SHOT_SPEED * fast;
-    if (b.maxHp === BOSS_HP_STAGE5 && b.volley % SPIRAL_EVERY === 0 && b.volley % BOSS_RING_EVERY !== 0) {
+    if (this.run.stage >= 5 && b.volley % SPIRAL_EVERY === 0 && b.volley % BOSS_RING_EVERY !== 0) {
       b.spiral = { left: SPIRAL_SHOTS, wait: 0, angle: Math.PI / 2 - 1.2, dir: b.volley % 2 ? 1 : -1 };
     } else if (b.volley % BOSS_RING_EVERY === 0) {
       for (let i = 0; i < BOSS_RING; i++) this.bossShot(b, (i / BOSS_RING) * Math.PI * 2 + b.age, speed * 0.8);

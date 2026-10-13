@@ -143,8 +143,10 @@ npm run check:levels   # every genre at levels 1-3: new pieces, power-ups, bosse
 - **Shmup, stage 4+ power-ups:** shot down, the power-up shoots off away
   from you and bounces off the screen's edges 3 times, then leaves
   (`POWER_RUN`: 70 px/s on stage 4, 100 on stage 5).
-- **Shmup boss on stage 5:** 60 health instead of 40, and a third attack: a
-  spiral stream of shots every third volley (`BOSS_HP_STAGE5`, `SPIRAL_*`).
+- **Shmup bosses on stages 3 and 5:** double health (80 on stage 3, 120 on
+  stage 5; `BOSS_BOOST`). The stage 5 boss also moves and shoots 25% faster
+  and has a third attack: a spiral stream of shots every third volley
+  (`BOSS_HP_STAGE5`, `SPIRAL_*`). A Short run's stage 1 boss has 40.
 - **Brawler, stages 4 and 5 (Long runs):** some grunts, rushers and throwers
   become jumpers (2 on stage 4, 3 on stage 5; `JUMPERS` in `buildBrawl.js`).
   A jumper crouches when you get close, then hops at you, but only to a spot
