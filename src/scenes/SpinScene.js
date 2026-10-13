@@ -83,8 +83,9 @@ export default class SpinScene extends Phaser.Scene {
     text(W - 14, 92, '<', 10, C.gold);
 
     this.info = pixelText(this, W / 2, 150, '', { color: C.text, align: 'center' }).setOrigin(0.5, 0);
-    this.betText = text(W / 2, 188, '', 8, C.text);
-    this.prompt = text(W / 2, 206, '', 8, C.gold);
+    // Bet and prompt sit clear of the token count / seed line at the bottom.
+    this.betText = text(W / 2, 182, '', 8, C.text);
+    this.prompt = text(W / 2, 197, '', 8, C.gold);
     this.seedText = pixelText(this, W - 4, 220, '', { color: C.faint }).setOrigin(1, 1);
     // One level picker under each reel that can have levels.
     this.levelTexts = {

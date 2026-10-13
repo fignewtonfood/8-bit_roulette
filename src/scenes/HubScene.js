@@ -26,7 +26,7 @@ const BASE_STATIONS = [
   { id: 'machine', x: 128, verb: 'SPIN' },
   { id: 'terminal', x: 216, verb: 'READ' },
 ];
-const WALL = { id: 'wall', x: 84, verb: 'READ' };
+const WALL = { id: 'wall', x: 80, verb: 'READ' };
 const STRANGER = { id: 'stranger', x: 172, verb: 'TALK' };
 
 export default class HubScene extends Phaser.Scene {
@@ -100,8 +100,8 @@ export default class HubScene extends Phaser.Scene {
       g.fillStyle(hex(C.faint));
       for (let row = 0; row < 4; row++) {
         for (let group = 0; group < (row === 3 ? 2 : 3); group++) {
-          const ox = 68 + group * 12;
-          const oy = 70 + row * 10;
+          const ox = 64 + group * 12; // rows 56-93: above the UP READ prompt,
+          const oy = 56 + row * 10;   // below what the other player says
           for (let i = 0; i < 4; i++) g.fillRect(ox + i * 2, oy, 1, 7);
           if (row < 3 || group === 0) g.fillRect(ox - 1, oy + 3, 9, 1); // the strike through
         }
@@ -126,7 +126,7 @@ export default class HubScene extends Phaser.Scene {
     g.fillStyle(hex(C.cabinetDark)).fillRect(110, 168, 36, 6); // coin tray
     g.fillStyle(hex(C.faint)).fillRect(155, 116, 3, 30);         // lever
     this.leverKnob = this.add.circle(156, 114, 4, hex(C.warn));
-    label(this, 128, 109, 'SPIN', 8, light);
+    label(this, 128, 113, 'SPIN', 8, light); // under the row of lights
     this.reelBits = [0, 1, 2].map((i) => label(this, 114 + i * 15, 133, '?', 8, C.ink));
     this.lights = Array.from({ length: 6 }, (_, i) => this.add.rectangle(107 + i * 8.4, 103, 3, 3, hex(light)));
     this.time.addEvent({ delay: 220, loop: true, callback: this.blink, callbackScope: this });
@@ -154,7 +154,7 @@ export default class HubScene extends Phaser.Scene {
           this.stranger.x = STRANGER.x + (r > 0.97 ? Phaser.Math.Between(-2, 2) : 0);
         },
       });
-      this.speech = label(this, W / 2, 72, '', 8, C.faint).setVisible(false);
+      this.speech = label(this, W / 2, 44, '', 8, C.faint).setVisible(false); // above the tally marks
     }
   }
 
@@ -195,7 +195,7 @@ export default class HubScene extends Phaser.Scene {
 
     const near = this.nearest();
     this.prompt.setVisible(!!near);
-    if (near) this.prompt.setText(`UP ${near.verb}`).setPosition(near.x, near.id === 'machine' ? 86 : 108);
+    if (near) this.prompt.setText(`UP ${near.verb}`).setPosition(near.x, near.id === 'machine' ? 86 : near.id === 'wall' ? 101 : 108);
   }
 
   use() {
