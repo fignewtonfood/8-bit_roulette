@@ -15,6 +15,15 @@ export const SHMUP_BUDGETS = [10, 14, 19, 24, 30];
 // Timing knobs (seconds). Raise ROW_TIME / WAVE_GAP for a longer, calmer stage.
 export const ROW_TIME = 0.7;
 export const WAVE_GAP = 2.5;
+// Each stage is harder than the one before, and stage 5 is about twice as
+// hard as stage 1 (npm run check:shmup measures it). Later stages already
+// bring more waves (bigger budgets); on top of that:
+//   SHMUP_TEMPO  squeezes the waves closer together (ROW_TIME and WAVE_GAP x this)
+//   SHMUP_PACE   makes enemies fly, dive and shoot faster (used by the scene)
+export const SHMUP_TEMPO = [1, 0.95, 0.9, 0.82, 0.8];
+export const SHMUP_PACE = [1, 1.05, 1.1, 1.15, 1.2];
+export const stageTempo = (stage) => SHMUP_TEMPO[Math.min(stage, SHMUP_TEMPO.length) - 1];
+export const stagePace = (stage) => SHMUP_PACE[Math.min(stage, SHMUP_PACE.length) - 1];
 const START_DELAY = 2;
 
 const OPTIONAL_ENEMY_COST = 1;
@@ -126,13 +135,15 @@ function buildOnce({ seed, stage, twist, budgetScale, genreLevel }) {
   const level = { seed, stage, twist, budget, cost: 0, duration: 0, events: [], waves: [], coins: 0 };
   const optionalEnemies = [];
   let t = START_DELAY;
+  const rowTime = ROW_TIME * stageTempo(stage);
+  const waveGap = WAVE_GAP * stageTempo(stage);
 
   picks.forEach(({ wave, mirrored }) => {
     level.waves.push(wave.id + (mirrored ? ' (mirrored)' : ''));
     wave.rows.forEach((row, r) => {
       const chars = mirrored ? [...row].reverse() : [...row];
       chars.forEach((ch, lane) => {
-        const time = +(t + r * ROW_TIME).toFixed(3);
+        const time = +(t + r * rowTime).toFixed(3);
         if (ch === 'C') {
           level.events.push({ time, lane, kind: 'coin' });
           level.coins++;
@@ -143,7 +154,7 @@ function buildOnce({ seed, stage, twist, budgetScale, genreLevel }) {
         }
       });
     });
-    t += wave.rows.length * ROW_TIME + WAVE_GAP;
+    t += wave.rows.length * rowTime + waveGap;
   });
 
   // 3. Spend leftover budget on optional enemies.

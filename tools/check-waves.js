@@ -1,7 +1,7 @@
 // Builds thousands of shmup stages and reports problems + how often each wave appears.
 // Run with: node tools/check-waves.js   (or npm run check:shmup)
 
-import { buildShmup } from '../src/gen/buildShmup.js';
+import { buildShmup, stagePace } from '../src/gen/buildShmup.js';
 import { WAVES } from '../src/gen/waves.js'; // importing also validates every wave
 import { fitsTwist } from '../src/gen/chunks.js';
 import { loadContent } from './load-content.js';
@@ -141,6 +141,27 @@ for (const { twist, level, scale, pull } of slowShips) {
 if (slowReport.length) console.log(`\nSlow ships (must stay under ${Math.round(SAFETY * 100)}% of the ship's speed):\n${slowReport.join('\n')}`);
 
 console.log(`Built ${stagesBuilt} shmup stages: ${SEEDS} seeds x 5 stages for each twist (${twists.join(', ')}).`);
+// The difficulty curve: every stage harder than the last, stage 5 about
+// twice stage 1. Difficulty = enemy health arriving per second x how fast
+// enemies move and shoot (SHMUP_PACE), averaged over many seeds, at genre
+// levels 1 and 2 (level 2 adds splitters). Tune SHMUP_TEMPO / SHMUP_PACE.
+const HP = { straight: 1, weave: 1, dive: 1, turret: 3, splitter: 4 };
+const curve = [1, 2].map((genreLevel) => [1, 2, 3, 4, 5].map((stage) => {
+  let hp = 0;
+  let time = 0;
+  for (let seed = 1; seed <= 200; seed++) {
+    const lvl = buildShmup({ seed, stage, twist: 'classic', genreLevel });
+    time += lvl.duration;
+    hp += lvl.events.reduce((sum, e) => sum + (HP[e.kind] || 0), 0);
+  }
+  return (hp / time) * stagePace(stage);
+}));
+for (const [i, scores] of curve.entries()) {
+  const rel = scores.map((x) => x / scores[0]);
+  for (let s = 1; s < 5; s++) if (rel[s] <= rel[s - 1]) problems.push(`difficulty: stage ${s + 1} isn't harder than stage ${s} (genre level ${i + 1})`);
+  if (rel[4] < 1.8 || rel[4] > 2.25) problems.push(`difficulty: stage 5 is ${rel[4].toFixed(2)}x stage 1 (genre level ${i + 1}); aim for about 2x`);
+}
+
 console.log(problems.length ? `\n${problems.length} problem(s):\n  ${problems.slice(0, 20).join('\n  ')}` : 'No problems found.');
 console.log(`Stage 1 length: ${shortest.toFixed(0)}–${longest.toFixed(0)} seconds`);
 
@@ -154,5 +175,8 @@ for (const [id, n] of Object.entries(usage).sort((a, b) => b[1] - a[1])) {
 
 const example = buildShmup({ seed: 12345, stage: 1, twist: twists[0] });
 console.log(`\nExample, seed 12345 (cost ${example.cost}/${example.budget}, ${example.duration}s):\n  ${example.waves.join(' → ')}`);
+
+console.log('\nDifficulty by stage (stage 1 = 1.00), genre level 1 / 2:');
+for (let s = 0; s < 5; s++) console.log(`  stage ${s + 1}: ${(curve[0][s] / curve[0][0]).toFixed(2)} / ${(curve[1][s] / curve[1][0]).toFixed(2)}`);
 
 process.exit(problems.length ? 1 : 0);

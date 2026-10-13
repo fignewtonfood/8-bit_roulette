@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { buildShmup } from '../gen/buildShmup.js';
+import { buildShmup, stagePace } from '../gen/buildShmup.js';
 import { content } from '../data/index.js';
 import { twistSettings, objectiveOf } from '../engine/content.js';
 import { stageSetup } from '../engine/run.js';
@@ -14,7 +14,7 @@ import { addObjectiveHint } from '../ui/objective.js';
 import { makePlaceholderTextures, tex } from '../art/placeholder.js';
 import { makeShmupTextures } from '../art/shmupPlaceholder.js';
 import { makeLevelTextures } from '../art/levelPlaceholder.js';
-import { addBossBar, addPowerLabel, addSparkle, POWER_NAMES, FLEE_FROM_STAGE, FLEE_RANGE } from '../ui/levelHud.js';
+import { addBossBar, addPowerLabel, addSparkle, POWER_NAMES, FLEE_FROM_STAGE } from '../ui/levelHud.js';
 
 const LANE = 16;
 
@@ -42,10 +42,20 @@ const HALF_SPREAD = 70;        // px/s sideways the halves fly apart
 // Power-up Spread Shot: two extra shots angled out to the sides.
 const SPREAD_SIDEWAYS = 70;    // px/s
 const POWER_FALL = 35;         // px/s the dropped power-up drifts down
-const POWER_FLEE = 60;         // px/s it moves away from you (stage 4+); you fly at 120
+// From stage 4 a dropped power-up shoots off away from you and bounces off
+// the edges of the screen POWER_BOUNCES times, then leaves. Faster on stage 5.
+const POWER_RUN = { 4: 70, 5: 100 }; // px/s by stage (you fly at 120)
+const POWER_BOUNCES = 3;
 // The boss (genre level 3): slides side to side near the top, firing aimed
 // three-shot spreads, and every few volleys a ring. Faster when it's hurt.
 const BOSS_HP = 40;
+// Stage 5 (the end of a Long run): a tougher boss with one more attack, a
+// spiral: a stream of shots that turns as it fires, every SPIRAL_EVERY volleys.
+const BOSS_HP_STAGE5 = 60;
+const SPIRAL_EVERY = 3;
+const SPIRAL_SHOTS = 14;       // shots in one spiral
+const SPIRAL_TIME = 1.4;       // s it takes to fire them
+const SPIRAL_TURN = 0.55;      // radians between shots
 const BOSS_Y = 48;             // where it stops coming down (clear of the HUD)
 const BOSS_SWAY = [80, 0.8];   // px side to side, how fast
 const BOSS_VOLLEY = [1.4, 1.0]; // s between volleys: healthy, under half
@@ -74,6 +84,9 @@ export default class ShmupScene extends Phaser.Scene {
     this.invulnerable = 0;
     this.finished = false;
     this.setup = stageSetup(content, data.run); // twist rules + genre level, power-up, boss
+    // Enemies fly, dive and shoot faster on later stages (SHMUP_PACE in
+    // buildShmup.js), and faster again with Speedy.
+    this.pace = enemyScale(this.mods) * stagePace(data.run.stage);
     this.power = null;
     this.boss = null;
     this.bossDown = false;
@@ -267,7 +280,7 @@ export default class ShmupScene extends Phaser.Scene {
     enemy.hp = def.hp;
     enemy.age = 0;
     enemy.state = 'enter';
-    enemy.setVelocityY(def.speed * enemyScale(this.mods)); // Speedy speeds enemies up
+    enemy.setVelocityY(def.speed * this.pace); // Speedy speeds enemies up
   }
 
   updateEnemies(dt) {
@@ -275,11 +288,11 @@ export default class ShmupScene extends Phaser.Scene {
       e.age += dt;
 
       if (e.kind === 'weave') {
-        const f = enemyScale(this.mods);
+        const f = this.pace;
         e.setVelocityX(Math.cos(e.age * 3 * f) * 60 * f); // ~20px side to side (Speedy: same width, quicker)
       } else if (e.kind === 'dive' && e.state === 'enter' && e.y > 40) {
         e.state = 'dive';
-        this.physics.moveToObject(e, this.player, DIVE_SPEED * enemyScale(this.mods));
+        this.physics.moveToObject(e, this.player, DIVE_SPEED * this.pace);
       } else if (e.kind === 'turret') {
         if (e.state === 'enter' && e.y > 44) {
           e.state = 'hold';
@@ -292,12 +305,12 @@ export default class ShmupScene extends Phaser.Scene {
           if (e.fireTimer <= 0) {
             const shot = this.enemyShots.create(e.x, e.y + 6, this.t('eshot'));
             this.glowIf('enemyShots', shot);
-            this.physics.moveToObject(shot, this.player, ENEMY_SHOT_SPEED * enemyScale(this.mods));
-            e.fireTimer = TURRET_FIRE_RATE;
+            this.physics.moveToObject(shot, this.player, ENEMY_SHOT_SPEED * this.pace);
+            e.fireTimer = TURRET_FIRE_RATE / this.pace;
           }
           if (e.holdTime > TURRET_HOLD_TIME) {
             e.state = 'leave';
-            e.setVelocityY(ENEMY.turret.speed * enemyScale(this.mods));
+            e.setVelocityY(ENEMY.turret.speed * this.pace);
           }
         }
       }
@@ -325,7 +338,7 @@ export default class ShmupScene extends Phaser.Scene {
 
   // A splitter breaks into two halves that fly apart and down.
   split(e) {
-    const fast = enemyScale(this.mods);
+    const fast = this.pace;
     for (const dir of [-1, 1]) {
       const half = this.enemies.create(e.x + dir * 4, e.y, this.t(ENEMY.half.texture));
       this.glowIf('enemies', half);
@@ -340,26 +353,52 @@ export default class ShmupScene extends Phaser.Scene {
   // ---------- Power-up ----------
 
   // The carrier was shot down: the power-up drifts down from where it was.
+  // From stage 4 it shoots off away from you instead (see updateDrop).
   dropPower(x, y) {
-    const p = this.powerUps.create(x, y, this.t(`power-${this.level.powerUp.kind}`)).setVelocityY(POWER_FALL).setDepth(GLOW_DEPTH);
+    const p = this.powerUps.create(x, y, this.t(`power-${this.level.powerUp.kind}`)).setDepth(GLOW_DEPTH);
     p.power = this.level.powerUp.kind;
     this.sparkle.stop();
+    const run = POWER_RUN[Math.min(this.run.stage, 5)];
+    if (this.run.stage < FLEE_FROM_STAGE || !run) {
+      p.setVelocityY(POWER_FALL);
+      return;
+    }
+    // Away from the ship, never straight up or sideways (so it isn't stuck
+    // skimming an edge).
+    let angle = Phaser.Math.Angle.Between(this.player.x, this.player.y, x, y);
+    const tilt = Math.PI / 6;
+    angle = Phaser.Math.Angle.Wrap(angle);
+    for (const flat of [0, Math.PI, -Math.PI, Math.PI / 2, -Math.PI / 2]) {
+      if (Math.abs(Phaser.Math.Angle.Wrap(angle - flat)) < tilt) angle = flat + (Phaser.Math.Angle.Wrap(angle - flat) < 0 ? -tilt : tilt);
+    }
+    const speed = run * enemyScale(this.mods); // Speedy makes it quicker too
+    p.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
+    p.bounces = 0;
   }
 
-  // From stage 4 a dropped power-up slides away from you as it falls (it
-  // still falls, so get under it). It never leaves the sides of the screen.
+  // A running power-up bounces off the screen's edges POWER_BOUNCES times;
+  // after that it flies off the next edge it reaches and is gone.
   updateDrop() {
-    if (this.run.stage < FLEE_FROM_STAGE) return;
     const W = this.scale.width;
+    const H = this.scale.height;
+    const half = 5;
     this.powerUps.getChildren().forEach((p) => {
-      const dx = p.x - this.player.x;
-      const dy = p.y - this.player.y;
-      const near = Math.hypot(dx, dy) < FLEE_RANGE;
-      let vx = near ? (Math.sign(dx) || 1) * POWER_FLEE * enemyScale(this.mods) : 0;
-      if ((p.x < 8 && vx < 0) || (p.x > W - 8 && vx > 0)) vx = 0; // cornered
-      // Close below you? It slows its fall to keep away.
-      const vy = near && dy > 0 ? POWER_FALL * 0.4 : POWER_FALL;
-      p.setVelocity(vx, vy);
+      if (p.bounces === undefined || p.bounces >= POWER_BOUNCES) return;
+      const v = p.body.velocity;
+      let hit = false;
+      if ((p.x < half && v.x < 0) || (p.x > W - half && v.x > 0)) {
+        p.setVelocityX(-v.x);
+        hit = true;
+      }
+      if ((p.y < half && v.y < 0) || (p.y > H - half && v.y > 0)) {
+        p.setVelocityY(-v.y);
+        hit = true;
+      }
+      if (hit) {
+        p.bounces++;
+        p.setTintFill(0xffffff);
+        this.time.delayedCall(60, () => p.active && p.clearTint());
+      }
     });
   }
 
@@ -381,18 +420,20 @@ export default class ShmupScene extends Phaser.Scene {
     if (!this.boss) {
       if (this.elapsed < at) return;
       const b = this.bosses.create(this.scale.width / 2, -14, this.t('sboss')).setDepth(GLOW_DEPTH); // always lit
-      b.hp = BOSS_HP;
+      b.maxHp = this.run.stage >= 5 ? BOSS_HP_STAGE5 : BOSS_HP;
+      b.hp = b.maxHp;
+      b.spiral = null;
       b.age = 0;
       b.volley = 0;
       b.timer = 1.5;
       b.setVelocityY(30);
       this.boss = b;
-      this.bossBar.show(Math.ceil((b.hp / BOSS_HP) * 10), 10);
+      this.bossBar.show(Math.ceil((b.hp / b.maxHp) * 10), 10);
       this.cameras.main.shake(200, 0.006);
       return;
     }
     const b = this.boss;
-    const fast = enemyScale(this.mods);
+    const fast = this.pace;
     b.age += dt;
     if (b.y < BOSS_Y) return; // still coming in
     if (b.body.velocity.y) {
@@ -402,12 +443,26 @@ export default class ShmupScene extends Phaser.Scene {
     // Sway side to side around the middle of the screen.
     b.setX(this.scale.width / 2 + Math.sin(b.age * BOSS_SWAY[1] * fast) * BOSS_SWAY[0]);
 
+    // Stage 5's extra attack: a spiral, fired a shot at a time.
+    if (b.spiral) {
+      b.spiral.wait -= dt * fast;
+      if (b.spiral.wait <= 0) {
+        this.bossShot(b, b.spiral.angle, BOSS_SHOT_SPEED * fast * 0.85);
+        b.spiral.angle += SPIRAL_TURN * b.spiral.dir;
+        b.spiral.wait = SPIRAL_TIME / SPIRAL_SHOTS;
+        if (--b.spiral.left <= 0) b.spiral = null;
+      }
+      return; // nothing else while it spirals
+    }
+
     b.timer -= dt * fast;
     if (b.timer > 0) return;
     b.volley++;
-    b.timer = b.hp > BOSS_HP / 2 ? BOSS_VOLLEY[0] : BOSS_VOLLEY[1];
+    b.timer = b.hp > b.maxHp / 2 ? BOSS_VOLLEY[0] : BOSS_VOLLEY[1];
     const speed = BOSS_SHOT_SPEED * fast;
-    if (b.volley % BOSS_RING_EVERY === 0) {
+    if (b.maxHp === BOSS_HP_STAGE5 && b.volley % SPIRAL_EVERY === 0 && b.volley % BOSS_RING_EVERY !== 0) {
+      b.spiral = { left: SPIRAL_SHOTS, wait: 0, angle: Math.PI / 2 - 1.2, dir: b.volley % 2 ? 1 : -1 };
+    } else if (b.volley % BOSS_RING_EVERY === 0) {
       for (let i = 0; i < BOSS_RING; i++) this.bossShot(b, (i / BOSS_RING) * Math.PI * 2 + b.age, speed * 0.8);
     } else {
       const aim = Phaser.Math.Angle.Between(b.x, b.y + 10, this.player.x, this.player.y);
@@ -425,7 +480,7 @@ export default class ShmupScene extends Phaser.Scene {
     if (!shot.active || !b.active || b.y < BOSS_Y - 10) return; // can't be hit until it's in place
     shot.destroy();
     b.hp--;
-    this.bossBar.show(Math.ceil((b.hp / BOSS_HP) * 10), 10);
+    this.bossBar.show(Math.ceil((b.hp / b.maxHp) * 10), 10);
     b.setTintFill(0xffffff);
     this.time.delayedCall(50, () => b.active && b.clearTint());
     if (b.hp > 0) return;

@@ -133,6 +133,16 @@ npm run check:levels   # every genre at levels 1-3: new pieces, power-ups, bosse
   stages add. Boss rooms are `BOSS_ROOMS` in `chunks.js` and `BOSS_ARENAS`
   in `arenas.js`; the bosses' feel knobs are at the top of each scene.
   `npm run check:levels` builds every genre at every level and checks it.
+- **Shmup difficulty by stage:** every stage is harder than the one before,
+  and stage 5 is about twice stage 1. Later stages bring more waves (the
+  budget), squeeze them closer together (`SHMUP_TEMPO` in `buildShmup.js`)
+  and make enemies fly and shoot faster (`SHMUP_PACE`). `npm run check:shmup`
+  prints the curve and fails if a stage stops getting harder.
+- **Shmup, stage 4+ power-ups:** shot down, the power-up shoots off away
+  from you and bounces off the screen's edges 3 times, then leaves
+  (`POWER_RUN`: 70 px/s on stage 4, 100 on stage 5).
+- **Shmup boss on stage 5:** 60 health instead of 40, and a third attack: a
+  spiral stream of shots every third volley (`BOSS_HP_STAGE5`, `SPIRAL_*`).
 - **Brawler, stages 4 and 5 (Long runs):** some grunts, rushers and throwers
   become jumpers (2 on stage 4, 3 on stage 5; `JUMPERS` in `buildBrawl.js`).
   A jumper crouches when you get close, then hops at you, but only to a spot
