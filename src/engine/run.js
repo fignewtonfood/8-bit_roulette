@@ -102,9 +102,14 @@ export function afterStage(run, { cleared, coins = 0, livesLeft = 0 }) {
 
 export const runWon = (run) => run.cleared >= run.stages;
 
+// On a 5-stage (Long) run at genre level 3, a boss also ends this stage.
+// It's the same boss a Medium run ends on; the stage 5 boss is tougher.
+export const MIDWAY_BOSS_STAGE = 3;
+
 // Everything a genre's generator and scene need for the run's current stage:
 // the twist's rules at its level, plus the genre's level, its power-up, and
-// whether a boss ends this stage (genre level 3: only the run's last stage).
+// whether a boss ends this stage (genre level 3: the run's last stage, and
+// stage 3 of a 5-stage run too).
 export function stageSetup(content, run) {
   const genre = genreAt(content, run.genre, run.levels?.genre);
   return {
@@ -113,7 +118,7 @@ export function stageSetup(content, run) {
     twist: run.twist,
     ...stageRules(content, run.twist, run.levels?.twist),
     genreLevel: genre.level,
-    boss: !!genre.boss && run.stage >= run.stages,
+    boss: !!genre.boss && (run.stage >= run.stages || (run.stages >= 5 && run.stage === MIDWAY_BOSS_STAGE)),
     powerUp: genre.powerUp,
   };
 }

@@ -288,7 +288,7 @@ export default class BrawlScene extends Phaser.Scene {
     if (punching) runTarget = 0;
     // Twist Windy: faster with the wind, slower against it, in the air too.
     if (this.wind) runTarget *= windScale(this.mods, this.wind.dir, Math.sign(runTarget));
-    else if (left !== right) this.facing = left ? -1 : 1;
+    if (left !== right) this.facing = left ? -1 : 1; // (was skipped under Windy: you got stuck facing right)
     p.setFlipX(this.facing < 0);
     this.steer(p, runTarget, grounded ? this.mods.groundGrip : this.mods.airGrip ?? this.mods.groundGrip, dt);
 

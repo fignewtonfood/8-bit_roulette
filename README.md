@@ -127,7 +127,9 @@ npm run check:levels   # every genre at levels 1-3: new pieces, power-ups, bosse
   a pit (lost for that stage). Taking damage keeps it, losing a life loses
   it, and your sprite shows it while you have it. Speeds and the range are
   in `src/ui/levelHud.js` and at the top of each scene. Level 3
-  adds a boss at the end of the run's last stage and pays x1.5. The new
+  adds a boss at the end of the run's last stage and pays x1.5. A Long
+  run also gets the same boss at the end of stage 3 (`MIDWAY_BOSS_STAGE` in
+  `run.js`); its stage 5 boss is the tougher one. The new
   enemies only come from pieces tagged `{ minLevel: 2 }` (the letters H, P
   and S are only allowed in those), plus some of the extra enemies later
   stages add. Boss rooms are `BOSS_ROOMS` in `chunks.js` and `BOSS_ARENAS`

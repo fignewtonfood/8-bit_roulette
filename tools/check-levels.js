@@ -129,6 +129,21 @@ for (const [genre, g] of Object.entries(GENRES)) {
   }
 }
 
+// Long runs at genre level 3: bosses on stages 3 and 5, nowhere else.
+for (const genre of Object.keys(GENRES)) {
+  for (let stage = 1; stage <= 5; stage++) {
+    const run = { seed: 1, stage, stages: 5, genre, twist: 'classic', levels: { genre: 3, twist: 1 } };
+    const want = stage === 3 || stage === 5;
+    expect(stageSetup(content, run).boss === want, `${genre} Long run stage ${stage}: boss should be ${want}`);
+    for (let seed = 1; seed <= 40; seed++) {
+      const lvl = GENRES[genre].build(stageSetup(content, { ...run, seed }));
+      expect(!!GENRES[genre].hasBoss(lvl) === want, `${genre} Long run seed ${seed} stage ${stage}: ${want ? 'no boss' : 'an unexpected boss'}`);
+    }
+  }
+  const lvl1 = stageSetup(content, { seed: 1, stage: 3, stages: 5, genre, twist: 'classic', levels: { genre: 2, twist: 1 } });
+  expect(!lvl1.boss, `${genre}: no boss below genre level 3, even on a Long run`);
+}
+
 // Jumpers: brawler stages 4 and 5 only (the end of a Long run), at every
 // genre level, never earlier.
 for (let seed = 1; seed <= 300; seed++) for (let stage = 1; stage <= 5; stage++) {
