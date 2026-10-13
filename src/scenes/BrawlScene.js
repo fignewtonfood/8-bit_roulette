@@ -15,7 +15,7 @@ import { addObjectiveHint, leftMessage, LOCKED_ALPHA } from '../ui/objective.js'
 import { makePlaceholderTextures, tex } from '../art/placeholder.js';
 import { makeBrawlTextures } from '../art/brawlPlaceholder.js';
 import { makeLevelTextures } from '../art/levelPlaceholder.js';
-import { addBossBar, addPowerLabel, POWER_NAMES } from '../ui/levelHud.js';
+import { addBossBar, addPowerLabel, addSparkle, fleeSpeed, POWER_NAMES, FLEE_FROM_STAGE } from '../ui/levelHud.js';
 
 // The brawler: walk right through a row of one-screen arenas. Reaching the
 // middle of an arena with enemies locks the screen until they're all down.
@@ -64,10 +64,16 @@ const ENEMY = {
   brute: { texture: 'brute', hp: 6, speed: 24, reach: 18, windup: 0.7, strike: 0.15, cooldown: 1.4, heavy: true },
   shield: { texture: 'shield', hp: 3, speed: 32, reach: 14, windup: 0.5, strike: 0.12, cooldown: 1.1, guard: true, turn: 0.6 },
   boss: { texture: 'bboss', hp: 18, speed: 30, reach: 20, windup: 0.6, strike: 0.15, cooldown: 1.1, heavy: true, boss: true, crouch: 0.55, leap: 300, stompEvery: 3 },
+  // Stages 4-5 only (Long runs). Creeps toward you; get close and it crouches
+  // (lights up), then hops at you. It only hops where it can land on floor.
+  jumper: { texture: 'jumper', hp: 2, speed: 28, windup: 0.35, cooldown: 1.6, range: 100, hop: 260, maxHop: 80 },
 };
+const BOSS_STAGE5_HP = 1.5; // the boss on stage 5 (the end of a Long run) has this much more health
 const FIGHTERS = ['grunt', 'brute', 'shield', 'boss']; // walk up and punch
 const SHOCK_SPEED = 120;  // px/s the boss's shockwaves slide along the floor
 const POWER_FISTS = 2;    // power-up Power Fists: damage multiplier
+const DROP_POP = 200;     // px/s upward when the power-up drops
+const DROP_FLEE_SPEED = 60; // px/s it runs from you on stage 4+ (you run at 90)
 const APPEAR_TIME = 0.6;  // s enemies flicker in before they can act or be hit
 const ROCK_LIFT = 170;    // px/s upward when a rock is thrown
 const ROCK_MAX_SPEED = 150;
@@ -156,14 +162,10 @@ export default class BrawlScene extends Phaser.Scene {
     this.rocks = this.physics.add.group();
     this.shocks = this.physics.add.group({ allowGravity: false });
 
-    // Power-up (genre level 2+): one per stage, it bobs so you notice it.
+    // Power-up (genre level 2+): one enemy carries it (a sparkle marks it)
+    // and drops it when beaten.
     this.powerUp = null;
-    if (level.powerUp) {
-      const { x, y, kind } = level.powerUp;
-      this.powerUp = this.physics.add.staticImage(x * TILE + 8, y * TILE + 8, t(`power-${kind}`)).setDepth(GLOW_DEPTH);
-      this.powerUp.kind = kind;
-      this.tweens.add({ targets: this.powerUp, y: '-=3', duration: 400, yoyo: true, repeat: -1 });
-    }
+    this.sparkle = addSparkle(this, t('sparkle'));
 
     // Player
     const s = level.playerStart;
@@ -196,7 +198,7 @@ export default class BrawlScene extends Phaser.Scene {
       if (this.invulnerable > 0 || this.dying) return;
       this.hurt(1, Math.sign(wave.body.velocity.x) || -this.facing);
     });
-    if (this.powerUp) this.physics.add.overlap(this.player, this.powerUp, () => this.takePower());
+
 
     // Twist: Darkness. Anything listed under "glow" stays visible in the dark.
     this.darkness = null; // the scene object is reused between runs, so reset these
@@ -248,6 +250,8 @@ export default class BrawlScene extends Phaser.Scene {
     }
     this.updateEnemies(dt);
     this.updateArena(dt);
+    this.updateDrop();
+    this.sparkle.update(this.time.now);
 
     this.rocks.getChildren().slice().forEach((r) => r.y > this.worldH + 32 && r.destroy());
     // Shockwaves die at the arena's walls.
@@ -401,6 +405,11 @@ export default class BrawlScene extends Phaser.Scene {
   loseLife(fell) {
     this.lives--;
     this.hp = this.maxHp;
+    // Losing a life loses the power-up (a hit that only costs a heart doesn't).
+    if (this.power) {
+      this.power = null;
+      this.player.setTexture(this.t('player'));
+    }
     this.updateHud();
     this.dying = true;
     this.atk = null;
@@ -427,10 +436,71 @@ export default class BrawlScene extends Phaser.Scene {
     });
   }
 
+  // The carrier was beaten: the power-up pops out on safe floor nearby (if
+  // the carrier went down a pit or onto spikes, the nearest safe spot).
+  dropPower(x) {
+    const kind = this.level.powerUp.kind;
+    const col = this.safeColumnNear(Math.floor(x / TILE));
+    const spot = this.respawnSpot(col);
+    const d = this.physics.add.sprite(spot.x, spot.y - 4, this.t(`power-${kind}`)).setDepth(GLOW_DEPTH);
+    d.kind = kind;
+    d.setCollideWorldBounds(true); // stays in the locked arena
+    d.setVelocityY(-DROP_POP);
+    this.physics.add.collider(d, this.layer);
+    this.physics.add.overlap(this.player, d, () => this.takePower());
+    this.powerUp = d;
+    this.sparkle.stop();
+  }
+
+  // The closest column in the current lane with floor on top and no spikes.
+  safeColumnNear(col) {
+    const lane = this.physics.world.bounds;
+    const lo = Math.ceil(lane.left / TILE) + 1;
+    const hi = Math.floor(lane.right / TILE) - 2;
+    for (let d = 0; d < this.level.solid[0].length; d++) {
+      for (const c of [col - d, col + d]) {
+        if (c < lo || c > hi) continue;
+        const y = this.level.solid.findIndex((row, yy) => row[c] && !(yy > 0 && this.level.solid[yy - 1][c]));
+        if (y > 0 && !this.spikeTiles.has(`${c},${y - 1}`)) return c;
+      }
+    }
+    return Math.max(lo, Math.min(hi, col));
+  }
+
+  // Is there no floor (or spikes) just ahead of this body, going dir, within
+  // `look` pixels? Used for enemies and the fleeing power-up.
+  edgeAhead(body, dir, look = 2) {
+    const aheadX = dir > 0 ? body.right + look : body.left - look;
+    const floor = this.layer.getTileAtWorldXY(aheadX, body.bottom + 2);
+    const spike = this.spikeTiles.has(`${Math.floor(aheadX / TILE)},${Math.floor((body.bottom - 1) / TILE)}`);
+    return !floor || spike;
+  }
+
+  // From stage 4 a dropped power-up runs from you, never off a ledge.
+  updateDrop() {
+    const d = this.powerUp;
+    if (!d?.active) return;
+    if (d.y > this.worldH + 16) {
+      // Somehow fell out: put it back on safe floor.
+      const spot = this.respawnSpot(this.safeColumnNear(Math.floor(this.player.x / TILE)));
+      d.setPosition(spot.x, spot.y - 4).setVelocity(0, 0);
+    }
+    if (!d.body.blocked.down) return;
+    if (this.run.stage < FLEE_FROM_STAGE) {
+      d.setVelocityX(0);
+      return;
+    }
+    const lane = this.physics.world.bounds;
+    const stuck = (dir) => this.edgeAhead(d.body, dir) || (dir > 0 ? d.body.right >= lane.right - 1 : d.body.left <= lane.left + 1);
+    d.setVelocityX(fleeSpeed(d, this.player.x, DROP_FLEE_SPEED * enemyScale(this.mods), stuck));
+  }
+
   takePower() {
-    if (!this.powerUp?.active) return;
+    if (!this.powerUp?.active || this.dying) return;
     this.power = this.powerUp.kind;
-    this.powerUp.disableBody(true, true);
+    this.powerUp.destroy();
+    this.powerUp = null;
+    this.player.setTexture(this.t(`player-${this.power}`));
     this.hint.show(`${POWER_NAMES[this.power]}!`);
     this.cameras.main.flash(120, 255, 255, 255);
     this.updateHud();
@@ -519,7 +589,7 @@ export default class BrawlScene extends Phaser.Scene {
 
   // ---------------------------------------------------------------- enemies
 
-  spawnEnemy({ x, y, kind }) {
+  spawnEnemy({ x, y, kind, carrier }) {
     // Twist Speedy: enemies walk, charge and recover faster. Wind-ups stay
     // the same length, so every attack can still be seen coming.
     const fast = enemyScale(this.mods);
@@ -531,7 +601,11 @@ export default class BrawlScene extends Phaser.Scene {
     e.setCollideWorldBounds(true);
     e.kind = kind;
     e.def = def;
-    e.hp = def.hp;
+    // The boss at the end of a Long run (stage 5) is tougher.
+    e.maxHp = def.boss && this.run.stage >= 5 ? Math.round(def.hp * BOSS_STAGE5_HP) : def.hp;
+    e.hp = e.maxHp;
+    e.carrier = !!carrier; // drops the power-up when beaten
+    if (carrier) this.sparkle.follow(e);
     e.state = 'appear';
     e.timer = APPEAR_TIME;
     e.cool = 0.4;
@@ -543,7 +617,7 @@ export default class BrawlScene extends Phaser.Scene {
     if (this.glow.has('enemies')) e.setDepth(GLOW_DEPTH);
     if (def.boss) {
       e.setDepth(GLOW_DEPTH); // always lit, even in the dark
-      this.bossBar.show(Math.ceil((e.hp / def.hp) * 10), 10);
+      this.bossBar.show(10, 10);
       this.cameras.main.shake(200, 0.006);
     }
   }
@@ -553,7 +627,8 @@ export default class BrawlScene extends Phaser.Scene {
     this.enemies.getChildren().slice().forEach((e) => {
       if (!e.active || e.state === 'dead') return;
       if (e.y > this.worldH + 16) {
-        e.destroy(); // knocked into a pit
+        if (e.carrier && e.state !== 'dead') this.dropPower(e.x); // knocked into a pit
+        e.destroy();
         return;
       }
       const b = e.body;
@@ -583,6 +658,20 @@ export default class BrawlScene extends Phaser.Scene {
         this.think(e, dt, { dx, adx, dy, grounded });
       } else {
         this.walk(e, 0, dt);
+      }
+
+      // No enemy ever walks (or charges, or backs) into a pit or onto
+      // spikes. Being knocked there is another matter: stun, a leap and a
+      // hop aren't walking.
+      if (grounded && !['stun', 'leap', 'hop', 'appear'].includes(e.state)) {
+        const vx = e.body.velocity.x;
+        if (vx && this.edgeAhead(e.body, Math.sign(vx), Math.abs(vx) * dt + 2)) {
+          e.setVelocityX(0);
+          if (e.state === 'charge') {
+            e.state = 'idle';
+            e.cool = e.def.cooldown;
+          }
+        }
       }
 
       e.setFlipX(e.face < 0);
@@ -660,6 +749,26 @@ export default class BrawlScene extends Phaser.Scene {
         e.state = 'idle';
         e.cool = def.cooldown;
       }
+    } else if (e.kind === 'jumper') {
+      if (e.state === 'idle') {
+        e.face = toward;
+        this.walk(e, adx > 40 ? toward * def.speed : 0, dt);
+        if (e.cool <= 0 && grounded && adx < def.range && Math.abs(dy) < 48) {
+          e.state = 'windup';
+          e.timer = def.windup;
+        }
+      } else if (e.state === 'windup') {
+        this.walk(e, 0, dt);
+        e.timer -= dt;
+        if (e.timer <= 0) this.hop(e, dx);
+      } else if (e.state === 'hop') {
+        if (overlaps(boxOf(e.body), boxOf(this.player.body))) this.hurt(1, Math.sign(e.body.velocity.x) || e.face);
+        if (grounded && e.body.velocity.y >= 0) {
+          e.state = 'idle';
+          e.setVelocityX(0);
+          e.cool = def.cooldown * (0.8 + 0.4 * Math.random()); // "occasionally"
+        }
+      }
     } else if (e.kind === 'rusher') {
       if (e.state === 'idle') {
         e.face = toward;
@@ -735,6 +844,31 @@ export default class BrawlScene extends Phaser.Scene {
     return stopped;
   }
 
+  // A jumper hops at you, but only to somewhere it can land: it tries the
+  // full hop, then shorter ones, and stays put if none lands on floor.
+  hop(e, dx) {
+    const def = e.def;
+    const g = this.physics.world.gravity.y;
+    const flight = (2 * def.hop) / g;
+    const reach = Phaser.Math.Clamp(dx, -def.maxHop, def.maxHop);
+    const b = e.body;
+    for (const part of [1, 0.66, 0.33]) {
+      const landX = e.x + reach * part;
+      const col = Math.floor(landX / TILE);
+      const row = Math.floor((b.bottom + 2) / TILE);
+      const lane = this.physics.world.bounds;
+      const inLane = landX > lane.left + 8 && landX < lane.right - 8;
+      const floor = [-b.width / 2 + 1, b.width / 2 - 1].every((ox) => this.layer.getTileAtWorldXY(landX + ox, b.bottom + 2));
+      if (inLane && floor && !this.spikeTiles.has(`${col},${row - 1}`)) {
+        e.state = 'hop';
+        e.setVelocity((reach * part) / flight, -def.hop);
+        return;
+      }
+    }
+    e.state = 'idle';
+    e.cool = def.cooldown;
+  }
+
   throwRock(e) {
     const g = this.physics.world.gravity.y;
     const flight = (2 * ROCK_LIFT) / g; // seconds until it comes back to throwing height
@@ -758,7 +892,7 @@ export default class BrawlScene extends Phaser.Scene {
     }
     e.hp -= atk.damage * (this.power === 'power-fists' ? POWER_FISTS : 1);
     e.flash = 0.08;
-    if (e.def.boss) this.bossBar.show(Math.ceil((Math.max(0, e.hp) / e.def.hp) * 10), 10);
+    if (e.def.boss) this.bossBar.show(Math.ceil((Math.max(0, e.hp) / e.maxHp) * 10), 10);
 
     const knock = atk.knock * (heavy ? 0.35 : 1);
     const lift = (atk.lift || (airborne ? JUGGLE_POP : 0)) * (heavy ? 0.5 : 1);
@@ -778,6 +912,7 @@ export default class BrawlScene extends Phaser.Scene {
   }
 
   kill(e, dir) {
+    if (e.carrier) this.dropPower(e.x);
     if (e.def.boss) {
       this.bossBar.hide();
       this.shocks.clear(true, true);

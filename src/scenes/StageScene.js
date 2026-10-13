@@ -13,7 +13,7 @@ import { addGlitchFx } from '../ui/glitch.js';
 import { addObjectiveHint, leftMessage, LOCKED_ALPHA } from '../ui/objective.js';
 import { makePlaceholderTextures, tex } from '../art/placeholder.js';
 import { makeLevelTextures } from '../art/levelPlaceholder.js';
-import { addBossBar, addPowerLabel, POWER_NAMES } from '../ui/levelHud.js';
+import { addBossBar, addPowerLabel, addSparkle, fleeSpeed, POWER_NAMES, FLEE_FROM_STAGE } from '../ui/levelHud.js';
 
 const TILE = 16;
 
@@ -39,6 +39,9 @@ const BOSS_CROUCH = 0.55;     // s it crouches (and lights up) before a leap
 const BOSS_LEAP = [330, 95];  // px/s up, px/s toward you
 const BOSS_LEAP_EVERY = 2.2;  // s between leaps
 const BOSS_HURT_TIME = 0.9;   // s it can't be stomped again after a stomp
+// A dropped power-up hops out of its carrier; from stage 4 it runs from you.
+const DROP_POP = 200;         // px/s upward when it drops
+const DROP_FLEE_SPEED = 70;   // px/s (you run at 110)
 // Starting lives come from economy.json (plus Extra Life upgrades) and carry
 // over from stage to stage.
 
@@ -108,23 +111,22 @@ export default class StageScene extends Phaser.Scene {
 
     // Enemies walk back and forth, turning at walls and ledges
     this.enemies = this.physics.add.group();
-    level.enemies.forEach(({ x, y, kind }) => {
+    level.enemies.forEach(({ x, y, kind }, i) => {
       const key = t(kind === 'hopper' ? 'hopper' : 'enemy');
       const h = this.textures.getFrame(key).height;
       const e = this.enemies.create(x * TILE + 8, (y + 1) * TILE - h / 2, key);
       e.kind = kind;
       e.dir = -1;
       e.hopTimer = HOPPER_EVERY * (0.4 + 0.6 * ((x * 7 + y) % 5) / 4); // not all in step
+      e.carrier = level.powerUp?.carrier === i; // drops the power-up when stomped
     });
 
-    // Power-up (genre level 2+): one per stage, it bobs so you notice it.
+    // Power-up (genre level 2+): carried by one enemy (a sparkle marks it),
+    // dropped when you stomp it.
     this.powerUp = null;
-    if (level.powerUp) {
-      const { x, y, kind } = level.powerUp;
-      this.powerUp = this.physics.add.staticImage(x * TILE + 8, y * TILE + 8, t(`power-${kind}`)).setDepth(GLOW_DEPTH);
-      this.powerUp.kind = kind;
-      this.tweens.add({ targets: this.powerUp, y: '-=3', duration: 400, yoyo: true, repeat: -1 });
-    }
+    this.sparkle = addSparkle(this, t('sparkle'));
+    const carrier = this.enemies.getChildren().find((e) => e.carrier);
+    if (carrier) this.sparkle.follow(carrier);
 
     // Boss (genre level 3, the run's last stage): waits in its room.
     this.bossGroup = this.physics.add.group();
@@ -155,7 +157,7 @@ export default class StageScene extends Phaser.Scene {
     this.physics.add.collider(this.enemies, this.layer);
     this.physics.add.collider(this.bossGroup, this.layer);
     this.physics.add.overlap(this.player, this.bossGroup, (_p, b) => this.touchBoss(b));
-    if (this.powerUp) this.physics.add.overlap(this.player, this.powerUp, () => this.takePower());
+
     this.physics.add.overlap(this.player, this.spikes, () => this.die());
     this.physics.add.overlap(this.player, this.coins, (_p, coin) => this.collectCoin(coin));
     this.physics.add.overlap(this.player, this.enemies, (_p, enemy) => this.touchEnemy(enemy));
@@ -246,6 +248,8 @@ export default class StageScene extends Phaser.Scene {
 
     this.updateEnemies(dt);
     this.updateBoss(dt);
+    this.updateDrop();
+    this.sparkle.update(this.time.now);
     this.darkness?.update(p);
     this.wind?.update(dt);
   }
@@ -279,12 +283,53 @@ export default class StageScene extends Phaser.Scene {
 
   // ---------- Power-up ----------
 
+  // The carrier was stomped: the power-up pops out of it.
+  dropPower(x, y) {
+    const kind = this.level.powerUp.kind;
+    const d = this.physics.add.sprite(x, y - 4, tex(this.theme, `power-${kind}`)).setDepth(GLOW_DEPTH);
+    d.kind = kind;
+    d.setVelocityY(-DROP_POP);
+    this.physics.add.collider(d, this.layer);
+    this.physics.add.overlap(this.player, d, () => this.takePower());
+    this.powerUp = d;
+    this.sparkle.stop();
+  }
+
+  // From stage 4 a dropped power-up runs from you, but never off a ledge.
+  updateDrop() {
+    const d = this.powerUp;
+    if (!d?.active) return;
+    if (this.run.stage < FLEE_FROM_STAGE || !d.body.blocked.down) {
+      if (d.body.blocked.down) d.setVelocityX(0);
+      return;
+    }
+    const edge = (dir) => {
+      const b = d.body;
+      const aheadX = dir > 0 ? b.right + 2 : b.left - 2;
+      const wall = dir > 0 ? b.blocked.right : b.blocked.left;
+      const spike = this.level.spikes.some((s) => s.x === Math.floor(aheadX / TILE) && s.y === Math.floor((b.bottom - 1) / TILE));
+      return wall || spike || !this.layer.getTileAtWorldXY(aheadX, b.bottom + 2);
+    };
+    d.setVelocityX(fleeSpeed(d, this.player.x, DROP_FLEE_SPEED * enemyScale(this.mods), edge));
+  }
+
   takePower() {
-    if (!this.powerUp?.active) return;
+    if (!this.powerUp?.active || this.dying) return;
     this.power = this.powerUp.kind;
-    this.powerUp.disableBody(true, true);
+    this.powerUp.destroy();
+    this.powerUp = null;
+    this.player.setTexture(tex(this.theme, `player-${this.power}`));
     this.hint.show(`${POWER_NAMES[this.power]}!`);
     this.cameras.main.flash(120, 255, 255, 255);
+    this.updateHud();
+  }
+
+  // Losing a life loses the power-up.
+  losePower() {
+    if (!this.power) return;
+    this.power = null;
+    this.airJumps = 0;
+    this.player.setTexture(tex(this.theme, 'player'));
     this.updateHud();
   }
 
@@ -428,6 +473,7 @@ export default class StageScene extends Phaser.Scene {
     const stomp = p.velocity.y > 0 && p.bottom <= enemy.body.top + 6;
     if (stomp) {
       enemy.disableBody(true, true);
+      if (enemy.carrier) this.dropPower(enemy.x, enemy.y);
       this.player.setVelocityY(-this.jumpVelocity * STOMP_BOUNCE);
       this.refreshObjective();
       this.updateHud();
@@ -440,6 +486,7 @@ export default class StageScene extends Phaser.Scene {
     if (this.dying || this.finished) return;
     this.dying = true;
     this.lives--;
+    this.losePower();
     this.updateHud();
     this.player.disableBody(false, false);
     this.player.setTint(0xff4040);

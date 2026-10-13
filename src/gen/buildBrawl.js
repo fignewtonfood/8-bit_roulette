@@ -5,7 +5,7 @@
 
 import { ARENAS, BOSS_ARENAS, ARENA_W, ARENA_H, ENEMY_KINDS } from './arenas.js';
 import { fitsTwist, fitsLevel } from './chunks.js';
-import { tagWeight } from './buildStage.js';
+import { tagWeight, carrierIn } from './buildStage.js';
 import { makeRng } from './rng.js';
 import { pacingFor, EXTRA_ENEMY_COST } from './pacing.js';
 import { findSpots } from './topUp.js';
@@ -15,6 +15,7 @@ export const BRAWL_PACING = ['easy', 'build', 'rest', 'hard', 'build', 'hard'];
 export const BRAWL_BUDGETS = [9, 12, 16, 20, 25];
 
 const OPTIONAL_ENEMY_COST = 1;
+export const JUMPERS = { 4: 2, 5: 3 }; // stage -> how many jumpers
 const RARE_WEIGHT = { secret: 0.2 };
 
 const SLOT_RULES = {
@@ -29,8 +30,12 @@ const SLOT_RULES = {
 // go on safe floor anywhere past the start arena (see topUp.js).
 // genreLevel: the brawler's level picked at the machine (arenas tagged with a
 // higher minLevel are left out; at level 2+ some extra enemies are shield
-// guards). powerUp: one per stage, in the first rest arena (or the start
-// arena if there's none). boss: true puts a boss arena before the exit.
+// guards). powerUp: one enemy in an arena in the first half of the stage
+// carries it (carrier: true) and drops it when beaten.
+// boss: true puts a boss arena before the exit.
+// Stages 4 and 5 (only Long runs get that far) bring jumpers: JUMPERS[stage]
+// of the stage's grunts, rushers and throwers become jumpers, and if there
+// aren't enough, more join.
 export function buildBrawl({ seed, stage = 1, twist = null, minCoins = 0, budgetScale = 1, genreLevel = 1, powerUp = null, boss = false }) {
   const rng = makeRng(seed * 31 + stage + 2000);
   const usable = ARENAS.filter((a) => fitsTwist(a, twist) && fitsLevel(a, genreLevel));
@@ -93,7 +98,7 @@ export function buildBrawl({ seed, stage = 1, twist = null, minCoins = 0, budget
     // One entry per arena: where it starts (in tiles) and who's waiting in it.
     arenas: [],
     names: [],
-    powerUp: null, // { x, y, kind } or null
+    powerUp: null, // { kind } or null; the enemy carrying it has carrier: true
   };
   const optional = [];
 
@@ -178,13 +183,41 @@ export function buildBrawl({ seed, stage = 1, twist = null, minCoins = 0, budget
     count: minCoins - level.coins.length,
   }));
 
-  // 5. The power-up (genre level 2+): in the first rest arena, so you get it
-  //    between fights, or the start arena if there's no rest.
+  // 5. Jumpers (stages 4 and 5): some ordinary enemies become jumpers.
+  const want = JUMPERS[Math.min(stage, 5)] || 0;
+  if (want) {
+    const jrng = makeRng(seed * 31 + stage + 3333);
+    const fightRooms = level.arenas.filter((r) => r.fight && !r.boss);
+    const plain = jrng.shuffle(fightRooms.flatMap((r) => r.waves.flat()).filter((e) => ['grunt', 'rusher', 'thrower'].includes(e.kind)));
+    plain.slice(0, want).forEach((e) => { e.kind = 'jumper'; });
+    for (let n = Math.min(plain.length, want); n < want; n++) {
+      const room = fightRooms[jrng.int(0, fightRooms.length - 1)];
+      if (!room) break;
+      const [spot] = findSpots({
+        solid: level.solid,
+        spikes: level.spikes,
+        taken: [...level.coins, ...level.arenas.flatMap((r) => r.waves.flat()), level.playerStart, level.flag].filter(Boolean),
+        columns: [room.x0 + 1, room.x0 + ARENA_W - 1],
+        rng: jrng,
+        wide: true,
+        count: 1,
+      });
+      if (spot) room.waves[0].push({ ...spot, kind: 'jumper' });
+    }
+  }
+
+  // 6. The power-up (genre level 2+): an enemy in a fight in the first half
+  //    of the stage carries it (the earliest fight if none are in that half).
   if (powerUp) {
-    const home = level.arenas.find((r) => ARENAS.find((a) => a.id === r.id)?.type === 'rest' || ARENAS.find((a) => a.id === r.id)?.type === 'secret') || level.arenas[0];
-    const taken = [...level.coins, ...enemies, level.playerStart, level.flag].filter(Boolean);
-    const [spot] = findSpots({ solid: level.solid, spikes: level.spikes, taken, columns: [home.x0 + 2, home.x0 + ARENA_W - 2], rng: makeRng(seed * 31 + stage + 999), count: 1 });
-    if (spot) level.powerUp = { ...spot, kind: powerUp };
+    const fightRooms = level.arenas.filter((r) => r.fight && !r.boss);
+    const firstHalf = fightRooms.filter((r) => level.arenas.indexOf(r) < level.arenas.length / 2);
+    const rooms = firstHalf.length ? firstHalf : fightRooms.slice(0, 1);
+    const pool = rooms.flatMap((r) => r.waves.flat());
+    const i = carrierIn(pool, () => true, makeRng(seed * 31 + stage + 999));
+    if (i >= 0) {
+      pool[i].carrier = true;
+      level.powerUp = { kind: powerUp };
+    }
   }
   return level;
 }

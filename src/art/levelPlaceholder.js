@@ -32,6 +32,35 @@ export function makeLevelTextures(scene, theme) {
   // Power fists: a fist
   capsule('power-power-fists', () => g.fillRect(2, 3, 6, 4).fillRect(7, 4, 1, 3));
 
+  // ---- Powered-up player looks: the normal sprite plus the power-up's colour
+  // (the coin colour), so you can tell at a glance. Same size as the normal
+  // sprite, so hitboxes don't change. Keys: 'player-<power>' / 'ship-<power>'.
+  // Double jump (12x14): glowing boots and a band
+  g.fillStyle(toColor(p.player)).fillRect(1, 0, 10, 14);
+  g.fillStyle(toColor(p.sky)).fillRect(6, 3, 2, 3).fillRect(9, 3, 2, 3);
+  g.fillStyle(toColor(p.coin)).fillRect(0, 11, 12, 3).fillRect(1, 7, 10, 1);
+  g.generateTexture(tex(theme, 'player-double-jump'), 12, 14).clear();
+  // Power fists (12x14): big glowing fists out front and back
+  g.fillStyle(toColor(p.player)).fillRect(1, 0, 10, 14);
+  g.fillStyle(toColor(p.sky)).fillRect(6, 3, 2, 3).fillRect(9, 3, 2, 3);
+  g.fillStyle(toColor(p.coin)).fillRect(8, 7, 4, 4).fillRect(0, 7, 3, 4).fillRect(1, 1, 10, 1);
+  g.generateTexture(tex(theme, 'player-power-fists'), 12, 14).clear();
+  // Spread shot (12x12): the ship with glowing side guns
+  g.fillStyle(toColor(p.player)).fillTriangle(6, 0, 0, 12, 12, 12);
+  g.fillStyle(toColor(p.sky)).fillRect(5, 6, 2, 3);
+  g.fillStyle(toColor(p.coin)).fillRect(0, 7, 2, 5).fillRect(10, 7, 2, 5).fillRect(5, 0, 2, 2);
+  g.generateTexture(tex(theme, 'ship-spread-shot'), 12, 12).clear();
+
+  // ---- Brawler: jumper (12x13), a crouched body on a spring (stages 4-5)
+  g.fillStyle(toColor(p.enemy)).fillRect(1, 1, 10, 8);
+  g.fillStyle(toColor(p.groundTop)).fillRect(3, 9, 6, 1).fillRect(4, 10, 4, 1).fillRect(3, 11, 6, 1).fillRect(2, 12, 8, 1);
+  eyes(p.text, 6, 3, 9, 3);
+  g.generateTexture(tex(theme, 'jumper'), 12, 13).clear();
+
+  // A sparkle over the enemy carrying the power-up (4x4)
+  g.fillStyle(toColor(p.coin)).fillRect(1, 0, 2, 4).fillRect(0, 1, 4, 2);
+  g.generateTexture(tex(theme, 'sparkle'), 4, 4).clear();
+
   // ---- Platformer: hopper (12x12), a frog-ish blob with legs
   g.fillStyle(toColor(p.enemy)).fillRect(1, 2, 10, 7);
   g.fillRect(0, 9, 3, 3).fillRect(9, 9, 3, 3);

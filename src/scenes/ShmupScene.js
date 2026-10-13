@@ -14,7 +14,7 @@ import { addObjectiveHint } from '../ui/objective.js';
 import { makePlaceholderTextures, tex } from '../art/placeholder.js';
 import { makeShmupTextures } from '../art/shmupPlaceholder.js';
 import { makeLevelTextures } from '../art/levelPlaceholder.js';
-import { addBossBar, addPowerLabel, POWER_NAMES } from '../ui/levelHud.js';
+import { addBossBar, addPowerLabel, addSparkle, POWER_NAMES, FLEE_FROM_STAGE, FLEE_RANGE } from '../ui/levelHud.js';
 
 const LANE = 16;
 
@@ -41,7 +41,8 @@ const ENEMY = {
 const HALF_SPREAD = 70;        // px/s sideways the halves fly apart
 // Power-up Spread Shot: two extra shots angled out to the sides.
 const SPREAD_SIDEWAYS = 70;    // px/s
-const POWER_FALL = 35;         // px/s the power-up drifts down
+const POWER_FALL = 35;         // px/s the dropped power-up drifts down
+const POWER_FLEE = 60;         // px/s it moves away from you (stage 4+); you fly at 120
 // The boss (genre level 3): slides side to side near the top, firing aimed
 // three-shot spreads, and every few volleys a ring. Faster when it's hurt.
 const BOSS_HP = 40;
@@ -105,6 +106,7 @@ export default class ShmupScene extends Phaser.Scene {
 
     // Player ship with a small, forgiving hitbox
     this.player = this.physics.add.sprite(W / 2, H - 24, this.t('ship'));
+    this.sparkle = addSparkle(this, this.t('sparkle'));
     this.player.setCollideWorldBounds(true);
     this.player.body.setSize(6, 6);
 
@@ -222,6 +224,8 @@ export default class ShmupScene extends Phaser.Scene {
 
     this.updateEnemies(dt);
     this.updateBoss(dt);
+    this.updateDrop();
+    this.sparkle.update(this.time.now);
     this.darkness?.update(this.player);
     this.gravity?.update(dt);
 
@@ -249,11 +253,6 @@ export default class ShmupScene extends Phaser.Scene {
 
   spawn(ev) {
     const x = ev.lane * LANE + LANE / 2;
-    if (ev.kind === 'power') {
-      const p = this.powerUps.create(x, -8, this.t(`power-${ev.power}`)).setVelocityY(POWER_FALL).setDepth(GLOW_DEPTH);
-      p.power = ev.power;
-      return;
-    }
     if (ev.kind === 'coin') {
       const coin = this.coins.create(x, -8, this.t('coin')).setVelocityY(40);
       this.glowIf('coins', coin);
@@ -263,6 +262,8 @@ export default class ShmupScene extends Phaser.Scene {
     const enemy = this.enemies.create(x, -8, this.t(def.texture));
     this.glowIf('enemies', enemy);
     enemy.kind = ev.kind;
+    enemy.carrier = !!ev.carrier; // drops the power-up when shot down
+    if (enemy.carrier) this.sparkle.follow(enemy);
     enemy.hp = def.hp;
     enemy.age = 0;
     enemy.state = 'enter';
@@ -313,6 +314,7 @@ export default class ShmupScene extends Phaser.Scene {
     shot.destroy();
     enemy.hp--;
     if (enemy.hp <= 0) {
+      if (enemy.carrier) this.dropPower(enemy.x, enemy.y);
       if (enemy.kind === 'splitter') this.split(enemy);
       enemy.destroy();
       return;
@@ -337,10 +339,35 @@ export default class ShmupScene extends Phaser.Scene {
 
   // ---------- Power-up ----------
 
+  // The carrier was shot down: the power-up drifts down from where it was.
+  dropPower(x, y) {
+    const p = this.powerUps.create(x, y, this.t(`power-${this.level.powerUp.kind}`)).setVelocityY(POWER_FALL).setDepth(GLOW_DEPTH);
+    p.power = this.level.powerUp.kind;
+    this.sparkle.stop();
+  }
+
+  // From stage 4 a dropped power-up slides away from you as it falls (it
+  // still falls, so get under it). It never leaves the sides of the screen.
+  updateDrop() {
+    if (this.run.stage < FLEE_FROM_STAGE) return;
+    const W = this.scale.width;
+    this.powerUps.getChildren().forEach((p) => {
+      const dx = p.x - this.player.x;
+      const dy = p.y - this.player.y;
+      const near = Math.hypot(dx, dy) < FLEE_RANGE;
+      let vx = near ? (Math.sign(dx) || 1) * POWER_FLEE * enemyScale(this.mods) : 0;
+      if ((p.x < 8 && vx < 0) || (p.x > W - 8 && vx > 0)) vx = 0; // cornered
+      // Close below you? It slows its fall to keep away.
+      const vy = near && dy > 0 ? POWER_FALL * 0.4 : POWER_FALL;
+      p.setVelocity(vx, vy);
+    });
+  }
+
   takePower(p) {
     if (!p.active) return;
     this.power = p.power;
     p.destroy();
+    this.player.setTexture(this.t(`ship-${this.power}`));
     this.hint.show(`${POWER_NAMES[this.power]}!`);
     this.cameras.main.flash(120, 255, 255, 255);
     this.updateHud();
@@ -413,6 +440,11 @@ export default class ShmupScene extends Phaser.Scene {
   hurt() {
     if (this.invulnerable > 0 || this.finished) return;
     this.lives--;
+    // Every hit costs the ship a life, and losing a life loses the power-up.
+    if (this.power) {
+      this.power = null;
+      this.player.setTexture(this.t('ship'));
+    }
     this.updateHud();
     this.cameras.main.shake(150, 0.01);
     if (this.lives <= 0) {

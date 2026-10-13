@@ -118,13 +118,23 @@ npm run check:levels   # every genre at levels 1-3: new pieces, power-ups, bosse
   `levels` in `genres.json`. Each level keeps what the one below gave.
   Level 2 brings the genre's new enemy (platformer hoppers, shmup splitters,
   brawler shield guards), its power-up (double jump, spread shot, power
-  fists: one per stage, held until the stage ends) and pays x1.25. Level 3
+  fists) and pays x1.25. One enemy in the first half of each stage carries
+  the power-up (a sparkle bobs over it) and drops it when beaten; from stage
+  4 the dropped power-up runs from you (it never runs off a ledge). Taking
+  damage keeps it, losing a life loses it, and your sprite shows it while
+  you have it. The rules and the flee range are in `src/ui/levelHud.js`. Level 3
   adds a boss at the end of the run's last stage and pays x1.5. The new
   enemies only come from pieces tagged `{ minLevel: 2 }` (the letters H, P
   and S are only allowed in those), plus some of the extra enemies later
   stages add. Boss rooms are `BOSS_ROOMS` in `chunks.js` and `BOSS_ARENAS`
   in `arenas.js`; the bosses' feel knobs are at the top of each scene.
   `npm run check:levels` builds every genre at every level and checks it.
+- **Brawler, stages 4 and 5 (Long runs):** some grunts, rushers and throwers
+  become jumpers (2 on stage 4, 3 on stage 5; `JUMPERS` in `buildBrawl.js`).
+  A jumper crouches when you get close, then hops at you, but only to a spot
+  it can land on. The stage 5 boss has 1.5x health (`BOSS_STAGE5_HP`).
+  No brawler enemy ever walks, charges or backs into a pit or onto spikes,
+  even on ice; knocking them in still works.
 - **Speed twists:** Speedy (`runScale`/`shipScale` and `enemyScale` above 1)
   and Mud (`runScale`/`shipScale` below 1, enemies unchanged). They change
   ground speed only: in the air you move at normal speed and jumps are

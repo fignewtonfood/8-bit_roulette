@@ -31,7 +31,8 @@ export const tagWeight = (piece) => (piece.twists ? TWIST_WEIGHT : 1) * (piece.m
 // twist: the run's twist id. Chunks tagged for other twists are left out.
 // genreLevel: the platformer's level picked at the machine. Chunks tagged with
 // a higher minLevel are left out. At level 2+ some extra enemies are hoppers.
-// powerUp: the genre level's power-up id (or null); one is placed per stage.
+// powerUp: the genre level's power-up id (or null). One enemy in the first
+// half of the stage carries it and drops it when stomped (see carrierIn).
 // boss: true puts a boss room before the exit (genre level 3, last stage).
 // minCoins / minEnemies (Collector / Killer): if the chunks bring fewer than
 // that, unused optional enemy spots fill in first, then extra coins/enemies go
@@ -98,7 +99,7 @@ export function buildStage({ seed, stage = 1, twist = null, minCoins = 0, minEne
     playerStart: null,
     flag: null,
     chunks: [],
-    powerUp: null,  // { x, y, kind } or null
+    powerUp: null,  // { kind, carrier } or null: carrier = index in enemies
     boss: null,     // { x, y } where the boss starts, or null
     bossRoom: null, // { x0, x1 } tile columns of the boss room
   };
@@ -169,13 +170,28 @@ export function buildStage({ seed, stage = 1, twist = null, minCoins = 0, minEne
   level.enemies.push(...walkers(findSpots({ solid: level.solid, spikes: level.spikes, taken: taken(), columns, rng: extra, count: minEnemies - level.enemies.length })));
   level.coins.push(...findSpots({ solid: level.solid, spikes: level.spikes, taken: taken(), columns, rng: extra, count: minCoins - level.coins.length }));
 
-  // 6. The power-up (genre level 2+): somewhere in the first half of the
-  //    stage, so there's plenty of stage left to use it in.
+  // 6. The power-up (genre level 2+): an enemy in the first half of the
+  //    stage carries it. If no enemy is there, a walker joins to carry it.
   if (powerUp) {
-    const half = [CHUNK_W, Math.max(CHUNK_W * 2, Math.floor(columns[1] / 2))];
-    const [spot] = findSpots({ solid: level.solid, spikes: level.spikes, taken: taken(), columns: half, rng: makeRng(seed * 31 + stage + 999), count: 1 })
-      .concat(findSpots({ solid: level.solid, spikes: level.spikes, taken: taken(), columns, rng: makeRng(seed * 31 + stage + 998), count: 1 }));
-    if (spot) level.powerUp = { ...spot, kind: powerUp };
+    const half = Math.max(CHUNK_W * 2, Math.floor(level.widthTiles / 2));
+    const prng = makeRng(seed * 31 + stage + 999);
+    let carrier = carrierIn(level.enemies, (e) => e.x < half, prng);
+    if (carrier < 0) {
+      const spots = [[CHUNK_W, half], columns].flatMap((cols) => findSpots({ solid: level.solid, spikes: level.spikes, taken: taken(), columns: cols, rng: prng, wide: true, count: 1 }));
+      const spot = spots.find((s) => s.x < half) || spots[0];
+      if (spot) {
+        level.enemies.push({ ...spot, kind: 'walker' });
+        carrier = level.enemies.length - 1;
+      }
+    }
+    if (carrier >= 0) level.powerUp = { kind: powerUp, carrier };
   }
   return level;
+}
+
+// Which enemy carries the power-up: a random one among those that pass the
+// test (index into the list), or -1 if none do. Shared by all three generators.
+export function carrierIn(enemies, ok, rng) {
+  const options = enemies.map((e, i) => (ok(e) ? i : -1)).filter((i) => i >= 0);
+  return options.length ? options[rng.int(0, options.length - 1)] : -1;
 }

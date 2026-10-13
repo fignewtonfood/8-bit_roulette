@@ -35,7 +35,8 @@ const GENRES = {
     used: (lvl) => lvl.chunks,
     newKind: 'hopper',
     kinds: (lvl) => lvl.enemies.map((e) => e.kind),
-    hasPower: (lvl) => !!lvl.powerUp,
+    // One enemy carries it, in the first half of the stage.
+    hasPower: (lvl) => !!lvl.powerUp && lvl.enemies[lvl.powerUp.carrier]?.x < Math.max(20, Math.floor(lvl.widthTiles / 2)),
     hasBoss: (lvl) => !!lvl.boss && !!lvl.bossRoom && lvl.bossRoom.x1 <= lvl.flag.x && lvl.boss.x >= lvl.bossRoom.x0 && lvl.boss.x < lvl.bossRoom.x1,
     coins: (lvl) => lvl.coins.length,
     foes: (lvl) => lvl.enemies.length,
@@ -46,10 +47,13 @@ const GENRES = {
     used: (lvl) => lvl.waves,
     newKind: 'splitter',
     kinds: (lvl) => lvl.events.map((e) => e.kind),
-    hasPower: (lvl) => lvl.events.filter((e) => e.kind === 'power').length === 1,
+    hasPower: (lvl) => {
+      const carriers = lvl.events.filter((e) => e.carrier);
+      return !!lvl.powerUp && carriers.length === 1 && carriers[0].kind !== 'coin' && carriers[0].time < lvl.duration / 2;
+    },
     hasBoss: (lvl) => lvl.bossAt !== null && lvl.bossAt > lvl.duration,
     coins: (lvl) => lvl.coins,
-    foes: (lvl) => lvl.events.filter((e) => e.kind !== 'coin' && e.kind !== 'power').length,
+    foes: (lvl) => lvl.events.filter((e) => e.kind !== 'coin').length,
   },
   brawler: {
     build: buildBrawl,
@@ -57,7 +61,13 @@ const GENRES = {
     used: (lvl) => lvl.names,
     newKind: 'shield',
     kinds: (lvl) => lvl.arenas.flatMap((r) => r.waves.flat().map((e) => e.kind)),
-    hasPower: (lvl) => !!lvl.powerUp,
+    hasPower: (lvl) => {
+      const rooms = lvl.arenas.filter((r) => r.waves.flat().some((e) => e.carrier));
+      const fights = lvl.arenas.filter((r) => r.fight && !r.boss);
+      const i = lvl.arenas.indexOf(rooms[0]);
+      return !!lvl.powerUp && rooms.length === 1 && rooms[0].waves.flat().filter((e) => e.carrier).length === 1
+        && !rooms[0].boss && (i < lvl.arenas.length / 2 || rooms[0] === fights[0]);
+    },
     hasBoss: (lvl) => {
       const i = lvl.arenas.findIndex((r) => r.boss);
       return i === lvl.arenas.length - 2 && lvl.arenas[i].fight && lvl.arenas[i].waves[0].some((e) => e.kind === 'boss');
@@ -115,6 +125,19 @@ for (const [genre, g] of Object.entries(GENRES)) {
   }
   for (const p of g.pieces.filter((x) => x.minLevel)) {
     expect(seen.has(`${p.minLevel}:${p.id}`), `${genre}: "${p.id}" (minLevel ${p.minLevel}) never showed up at level ${p.minLevel}`);
+  }
+}
+
+// Jumpers: brawler stages 4 and 5 only (the end of a Long run), at every
+// genre level, never earlier.
+for (let seed = 1; seed <= 300; seed++) for (let stage = 1; stage <= 5; stage++) {
+  for (const genreLevel of [1, 3]) {
+    const lvl = buildBrawl({ seed, stage, twist: 'classic', genreLevel, boss: genreLevel === 3 && stage === 5 });
+    const jumpers = lvl.arenas.flatMap((r) => r.waves.flat()).filter((e) => e.kind === 'jumper').length;
+    const want = { 4: 2, 5: 3 }[stage] || 0;
+    if (want) expect(jumpers >= want, `brawler seed ${seed} stage ${stage}: ${jumpers} jumpers, wants ${want}`);
+    else expect(jumpers === 0, `brawler seed ${seed} stage ${stage}: a jumper before stage 4`);
+    expect(!lvl.arenas.some((r) => r.boss && r.waves.flat().some((e) => e.kind === 'jumper')), `brawler seed ${seed} stage ${stage}: a jumper in the boss arena`);
   }
 }
 

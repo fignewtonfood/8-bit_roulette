@@ -5,7 +5,7 @@
 
 import { WAVES, WAVE_W } from './waves.js';
 import { fitsTwist, fitsLevel } from './chunks.js';
-import { tagWeight } from './buildStage.js';
+import { tagWeight, carrierIn } from './buildStage.js';
 import { makeRng } from './rng.js';
 import { pacingFor, EXTRA_ENEMY_COST } from './pacing.js';
 
@@ -35,8 +35,9 @@ const SLOT_RULES = {
 // coins (or straight-flying bats) are spread evenly through the stage.
 // Normal stages pass 0 and are unaffected.
 // genreLevel: the shmup's level picked at the machine (waves tagged with a
-// higher minLevel are left out). powerUp: one power-up drifts down about a
-// quarter of the way in. boss: true adds a boss after the last wave
+// higher minLevel are left out). powerUp: one enemy in the first half of the
+// stage carries it (its event gets carrier: true) and drops it when shot down.
+// If it gets away, the power-up goes with it. boss: true adds a boss after the last wave
 // (level.bossAt, in seconds); the stage isn't cleared until it's down.
 export function buildShmup({ seed, stage = 1, twist = null, minCoins = 0, minEnemies = 0, budgetScale = 1, genreLevel = 1, powerUp = null, boss = false }) {
   const level = buildOnce({ seed, stage, twist, budgetScale, genreLevel });
@@ -48,11 +49,22 @@ export function buildShmup({ seed, stage = 1, twist = null, minCoins = 0, minEne
   ];
   level.coins += added.filter((e) => e.kind === 'coin').length;
   level.events.push(...added);
-  if (powerUp) {
-    const [ev] = spreadAt(level, makeRng(seed * 31 + stage + 999), 'power', START_DELAY + (level.duration - START_DELAY) / 4);
-    level.events.push({ ...ev, power: powerUp });
-  }
   level.events.sort((a, b) => a.time - b.time || a.lane - b.lane);
+  if (powerUp) {
+    const prng = makeRng(seed * 31 + stage + 999);
+    const half = level.duration / 2;
+    let i = carrierIn(level.events, (e) => e.kind !== 'coin' && e.time < half, prng);
+    if (i < 0) {
+      const [ev] = spreadAt(level, prng, 'straight', START_DELAY + (half - START_DELAY) / 2);
+      level.events.push(ev);
+      level.events.sort((a, b) => a.time - b.time || a.lane - b.lane);
+      i = level.events.indexOf(ev);
+    }
+    level.events[i] = { ...level.events[i], carrier: true };
+    level.powerUp = { kind: powerUp };
+  } else {
+    level.powerUp = null;
+  }
   level.bossAt = boss ? +(level.duration + BOSS_DELAY).toFixed(3) : null;
   return level;
 }

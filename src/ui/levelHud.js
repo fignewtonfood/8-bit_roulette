@@ -29,3 +29,42 @@ export function addBossBar(scene, color) {
     },
   };
 }
+
+// Power-up rules shared by the three genres:
+// - one enemy in the first half of the stage carries it (a sparkle bobs over
+//   it); beating that enemy drops it
+// - from stage FLEE_FROM_STAGE on, the dropped power-up runs from you
+// - taking damage keeps it, losing a life loses it
+// - while you hold it, your sprite shows it ('<base>-<power>' textures)
+export const FLEE_FROM_STAGE = 4;
+export const FLEE_RANGE = 72;   // px: it starts running when you're this close
+
+// The sparkle that follows the carrier. Call update() every frame.
+export function addSparkle(scene, key) {
+  const s = scene.add.image(0, 0, key).setDepth(9).setVisible(false); // above the dark (GLOW_DEPTH)
+  let target = null;
+  return {
+    follow(obj) {
+      target = obj;
+    },
+    update(time) {
+      const on = !!target?.active && target.state !== 'dead' && target.visible !== false;
+      s.setVisible(on && Math.floor(time / 150) % 2 === 0);
+      if (on) s.setPosition(target.x, target.y - target.displayHeight / 2 - 5 + Math.sin(time / 120) * 1.5);
+    },
+    stop() {
+      target = null;
+      s.setVisible(false);
+    },
+  };
+}
+
+// Run away from (fromX, fromY) along the floor: returns the x speed, 0 at a
+// ledge or spikes or when you're far off. edgeAhead(dir) says if it can't go
+// that way.
+export function fleeSpeed(item, fromX, speed, edgeAhead) {
+  const dx = item.x - fromX;
+  if (Math.abs(dx) > FLEE_RANGE) return 0;
+  const dir = Math.sign(dx) || 1;
+  return edgeAhead(dir) ? 0 : dir * speed;
+}
