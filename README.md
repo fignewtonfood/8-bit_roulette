@@ -118,7 +118,7 @@ npm run check:levels   # every genre at levels 1-3: new pieces, power-ups, bosse
   `levels` in `genres.json`. Each level keeps what the one below gave.
   Level 2 brings the genre's new enemy (platformer hoppers, shmup splitters,
   brawler shield guards), its power-up (double jump, spread shot, power
-  fists) and pays x1.25. One enemy in the first half of each stage carries
+  fists; spread shot is 3 streams at twice the normal bullets per second) and pays x1.25. One enemy in the first half of each stage carries
   the power-up (a sparkle bobs over it) and drops it when beaten. It always
   appears on the nearest safe floor, even if the carrier went down mid-air,
   on spikes or in a pit (`src/engine/powerDrop.js`). From stage 4 it starts

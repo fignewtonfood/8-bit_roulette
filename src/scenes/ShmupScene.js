@@ -39,7 +39,9 @@ const ENEMY = {
   half: { texture: 'shard', hp: 1, speed: 60 },          // what a splitter breaks into
 };
 const HALF_SPREAD = 70;        // px/s sideways the halves fly apart
-// Power-up Spread Shot: two extra shots angled out to the sides.
+// Power-up Spread Shot: two extra streams angled out to the sides. The middle
+// stream fires as usual and the side streams fire on every other shot, so
+// that's 3 streams and twice the bullets per second of no power-up.
 const SPREAD_SIDEWAYS = 70;    // px/s
 const POWER_FALL = 35;         // px/s the dropped power-up drifts down
 // From stage 4 a dropped power-up shoots off away from you and bounces off
@@ -219,8 +221,10 @@ export default class ShmupScene extends Phaser.Scene {
     // Fire
     this.fireCooldown -= dt;
     if (this.fireKeys.some((k) => k.isDown) && this.fireCooldown <= 0) {
-      // Spread Shot adds two angled shots to the straight one.
-      const sideways = this.power === 'spread-shot' ? [0, -SPREAD_SIDEWAYS, SPREAD_SIDEWAYS] : [0];
+      // Spread Shot adds two angled streams, firing on every other shot.
+      this.shotCount = (this.shotCount || 0) + 1;
+      const sides = this.power === 'spread-shot' && this.shotCount % 2 === 1;
+      const sideways = sides ? [0, -SPREAD_SIDEWAYS, SPREAD_SIDEWAYS] : [0];
       for (const vx of sideways) {
         const shot = this.shots.create(this.player.x, this.player.y - 8, this.t('shot'));
         shot.setVelocity(vx, -SHOT_SPEED);
