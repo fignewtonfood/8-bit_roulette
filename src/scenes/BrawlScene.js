@@ -15,7 +15,8 @@ import { addObjectiveHint, leftMessage, LOCKED_ALPHA } from '../ui/objective.js'
 import { makePlaceholderTextures, tex } from '../art/placeholder.js';
 import { makeBrawlTextures } from '../art/brawlPlaceholder.js';
 import { makeLevelTextures } from '../art/levelPlaceholder.js';
-import { addBossBar, addPowerLabel, addSparkle, fleeSpeed, POWER_NAMES, FLEE_FROM_STAGE } from '../ui/levelHud.js';
+import { addBossBar, addPowerLabel, addSparkle, stepRunner, bounce, POWER_NAMES } from '../ui/levelHud.js';
+import { safeSpot, awayFromPit } from '../engine/powerDrop.js';
 
 // The brawler: walk right through a row of one-screen arenas. Reaching the
 // middle of an arena with enemies locks the screen until they're all down.
@@ -436,35 +437,27 @@ export default class BrawlScene extends Phaser.Scene {
     });
   }
 
-  // The carrier was beaten: the power-up pops out on safe floor nearby (if
-  // the carrier went down a pit or onto spikes, the nearest safe spot).
-  dropPower(x) {
+  // The carrier was beaten: the power-up appears on the nearest safe floor
+  // in the current lane (not mid-air, not on spikes, not over a pit, even if
+  // that's where the carrier went down) and pops up out of it.
+  dropPower(x, y) {
     const kind = this.level.powerUp.kind;
-    const col = this.safeColumnNear(Math.floor(x / TILE));
-    const spot = this.respawnSpot(col);
-    const d = this.physics.add.sprite(spot.x, spot.y - 4, this.t(`power-${kind}`)).setDepth(GLOW_DEPTH);
+    const lane = this.physics.world.bounds;
+    const lo = Math.ceil(lane.left / TILE);
+    const hi = Math.floor(lane.right / TILE) - 1;
+    const col = Phaser.Math.Clamp(Math.floor(x / TILE), lo, hi);
+    const row = Phaser.Math.Clamp(Math.floor(y / TILE), 0, this.level.heightTiles - 1);
+    const spot = safeSpot(this.level.solid, this.spikeTiles, col, row, lo, hi);
+    this.sparkle.stop();
+    if (!spot) return;
+    const d = this.physics.add.sprite(spot.x * TILE + 8, (spot.y + 1) * TILE - 6, this.t(`power-${kind}`)).setDepth(GLOW_DEPTH);
     d.kind = kind;
-    d.setCollideWorldBounds(true); // stays in the locked arena
+    d.setCollideWorldBounds(true); // the arena walls; there's no floor, so pits still take it
     d.setVelocityY(-DROP_POP);
     this.physics.add.collider(d, this.layer);
     this.physics.add.overlap(this.player, d, () => this.takePower());
+    this.physics.add.overlap(d, this.enemies, (_d, e) => e.state !== 'dead' && bounce(d, e.x));
     this.powerUp = d;
-    this.sparkle.stop();
-  }
-
-  // The closest column in the current lane with floor on top and no spikes.
-  safeColumnNear(col) {
-    const lane = this.physics.world.bounds;
-    const lo = Math.ceil(lane.left / TILE) + 1;
-    const hi = Math.floor(lane.right / TILE) - 2;
-    for (let d = 0; d < this.level.solid[0].length; d++) {
-      for (const c of [col - d, col + d]) {
-        if (c < lo || c > hi) continue;
-        const y = this.level.solid.findIndex((row, yy) => row[c] && !(yy > 0 && this.level.solid[yy - 1][c]));
-        if (y > 0 && !this.spikeTiles.has(`${c},${y - 1}`)) return c;
-      }
-    }
-    return Math.max(lo, Math.min(hi, col));
   }
 
   // Is there no floor (or spikes) just ahead of this body, going dir, within
@@ -476,23 +469,27 @@ export default class BrawlScene extends Phaser.Scene {
     return !floor || spike;
   }
 
-  // From stage 4 a dropped power-up runs from you, never off a ledge.
+  // From stage 4 a dropped power-up runs: away from the nearest pit first,
+  // then bouncing off walls, spikes and enemies. It can fall into a pit.
   updateDrop() {
     const d = this.powerUp;
     if (!d?.active) return;
     if (d.y > this.worldH + 16) {
-      // Somehow fell out: put it back on safe floor.
-      const spot = this.respawnSpot(this.safeColumnNear(Math.floor(this.player.x / TILE)));
-      d.setPosition(spot.x, spot.y - 4).setVelocity(0, 0);
-    }
-    if (!d.body.blocked.down) return;
-    if (this.run.stage < FLEE_FROM_STAGE) {
-      d.setVelocityX(0);
+      d.destroy();
+      this.powerUp = null;
+      this.hint.show(`${POWER_NAMES[d.kind]} LOST`);
       return;
     }
     const lane = this.physics.world.bounds;
-    const stuck = (dir) => this.edgeAhead(d.body, dir) || (dir > 0 ? d.body.right >= lane.right - 1 : d.body.left <= lane.left + 1);
-    d.setVelocityX(fleeSpeed(d, this.player.x, DROP_FLEE_SPEED * enemyScale(this.mods), stuck));
+    const col = Math.floor(d.x / TILE);
+    const row = Math.floor((d.body.bottom - 1) / TILE);
+    stepRunner(d, {
+      stage: this.run.stage,
+      playerX: this.player.x,
+      speed: DROP_FLEE_SPEED * enemyScale(this.mods),
+      startDir: () => awayFromPit(this.level.solid, col, row, Math.ceil(lane.left / TILE), Math.floor(lane.right / TILE) - 1),
+      spikeAhead: (dir) => this.spikeTiles.has(`${Math.floor((dir > 0 ? d.body.right + 2 : d.body.left - 2) / TILE)},${row}`),
+    });
   }
 
   takePower() {
@@ -627,7 +624,7 @@ export default class BrawlScene extends Phaser.Scene {
     this.enemies.getChildren().slice().forEach((e) => {
       if (!e.active || e.state === 'dead') return;
       if (e.y > this.worldH + 16) {
-        if (e.carrier && e.state !== 'dead') this.dropPower(e.x); // knocked into a pit
+        if (e.carrier && e.state !== 'dead') this.dropPower(e.x, this.worldH - TILE); // knocked into a pit
         e.destroy();
         return;
       }
@@ -912,7 +909,7 @@ export default class BrawlScene extends Phaser.Scene {
   }
 
   kill(e, dir) {
-    if (e.carrier) this.dropPower(e.x);
+    if (e.carrier) this.dropPower(e.x, e.y);
     if (e.def.boss) {
       this.bossBar.hide();
       this.shocks.clear(true, true);

@@ -119,10 +119,14 @@ npm run check:levels   # every genre at levels 1-3: new pieces, power-ups, bosse
   Level 2 brings the genre's new enemy (platformer hoppers, shmup splitters,
   brawler shield guards), its power-up (double jump, spread shot, power
   fists) and pays x1.25. One enemy in the first half of each stage carries
-  the power-up (a sparkle bobs over it) and drops it when beaten; from stage
-  4 the dropped power-up runs from you (it never runs off a ledge). Taking
-  damage keeps it, losing a life loses it, and your sprite shows it while
-  you have it. The rules and the flee range are in `src/ui/levelHud.js`. Level 3
+  the power-up (a sparkle bobs over it) and drops it when beaten. It always
+  appears on the nearest safe floor, even if the carrier went down mid-air,
+  on spikes or in a pit (`src/engine/powerDrop.js`). From stage 4 it starts
+  running when you get close: first away from the nearest pit, then it
+  keeps going, turns around at walls, spikes and enemies, and can fall into
+  a pit (lost for that stage). Taking damage keeps it, losing a life loses
+  it, and your sprite shows it while you have it. Speeds and the range are
+  in `src/ui/levelHud.js` and at the top of each scene. Level 3
   adds a boss at the end of the run's last stage and pays x1.5. The new
   enemies only come from pieces tagged `{ minLevel: 2 }` (the letters H, P
   and S are only allowed in those), plus some of the extra enemies later

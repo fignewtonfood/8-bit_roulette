@@ -13,7 +13,8 @@ import { addGlitchFx } from '../ui/glitch.js';
 import { addObjectiveHint, leftMessage, LOCKED_ALPHA } from '../ui/objective.js';
 import { makePlaceholderTextures, tex } from '../art/placeholder.js';
 import { makeLevelTextures } from '../art/levelPlaceholder.js';
-import { addBossBar, addPowerLabel, addSparkle, fleeSpeed, POWER_NAMES, FLEE_FROM_STAGE } from '../ui/levelHud.js';
+import { addBossBar, addPowerLabel, addSparkle, stepRunner, bounce, POWER_NAMES } from '../ui/levelHud.js';
+import { safeSpot, awayFromPit } from '../engine/powerDrop.js';
 
 const TILE = 16;
 
@@ -283,34 +284,49 @@ export default class StageScene extends Phaser.Scene {
 
   // ---------- Power-up ----------
 
-  // The carrier was stomped: the power-up pops out of it.
+  // The carrier was beaten: the power-up appears on the nearest safe floor
+  // (not mid-air, not on spikes, not over a pit) and pops up out of it.
   dropPower(x, y) {
     const kind = this.level.powerUp.kind;
-    const d = this.physics.add.sprite(x, y - 4, tex(this.theme, `power-${kind}`)).setDepth(GLOW_DEPTH);
+    const spikes = new Set(this.level.spikes.map((p) => `${p.x},${p.y}`));
+    const spot = safeSpot(this.level.solid, spikes, Math.floor(x / TILE), Math.floor(y / TILE));
+    this.sparkle.stop();
+    if (!spot) return;
+    const d = this.physics.add.sprite(spot.x * TILE + 8, (spot.y + 1) * TILE - 6, tex(this.theme, `power-${kind}`)).setDepth(GLOW_DEPTH);
     d.kind = kind;
     d.setVelocityY(-DROP_POP);
+    d.setCollideWorldBounds(true); // the world has no floor, so pits still take it
     this.physics.add.collider(d, this.layer);
     this.physics.add.overlap(this.player, d, () => this.takePower());
+    this.physics.add.overlap(d, this.enemies, (_d, e) => bounce(d, e.x));
+    this.physics.add.overlap(d, this.bossGroup, (_d, e) => bounce(d, e.x));
+    this.spikeSet = spikes;
     this.powerUp = d;
-    this.sparkle.stop();
   }
 
-  // From stage 4 a dropped power-up runs from you, but never off a ledge.
+  // From stage 4 a dropped power-up runs: away from the nearest pit first,
+  // then bouncing off walls, spikes and enemies. It can fall into a pit.
   updateDrop() {
     const d = this.powerUp;
     if (!d?.active) return;
-    if (this.run.stage < FLEE_FROM_STAGE || !d.body.blocked.down) {
-      if (d.body.blocked.down) d.setVelocityX(0);
+    if (d.y > this.level.heightTiles * TILE + 16) {
+      d.destroy();
+      this.powerUp = null;
+      this.hint.show(`${POWER_NAMES[d.kind]} LOST`);
       return;
     }
-    const edge = (dir) => {
-      const b = d.body;
-      const aheadX = dir > 0 ? b.right + 2 : b.left - 2;
-      const wall = dir > 0 ? b.blocked.right : b.blocked.left;
-      const spike = this.level.spikes.some((s) => s.x === Math.floor(aheadX / TILE) && s.y === Math.floor((b.bottom - 1) / TILE));
-      return wall || spike || !this.layer.getTileAtWorldXY(aheadX, b.bottom + 2);
-    };
-    d.setVelocityX(fleeSpeed(d, this.player.x, DROP_FLEE_SPEED * enemyScale(this.mods), edge));
+    const col = Math.floor(d.x / TILE);
+    const row = Math.floor((d.body.bottom - 1) / TILE);
+    stepRunner(d, {
+      stage: this.run.stage,
+      playerX: this.player.x,
+      speed: DROP_FLEE_SPEED * enemyScale(this.mods),
+      startDir: () => awayFromPit(this.level.solid, col, row),
+      spikeAhead: (dir) => {
+        const ax = Math.floor((dir > 0 ? d.body.right + 2 : d.body.left - 2) / TILE);
+        return this.spikeSet.has(`${ax},${row}`);
+      },
+    });
   }
 
   takePower() {

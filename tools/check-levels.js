@@ -21,6 +21,7 @@ import { loadContent } from './load-content.js';
 import { genreAt, genreMaxLevel, stageRules, SCREEN_CHARS } from '../src/engine/content.js';
 import { makeRun, payout, stageSetup } from '../src/engine/run.js';
 import { runTitle } from '../src/engine/spin.js';
+import { safeSpot, awayFromPit, isPit } from '../src/engine/powerDrop.js';
 
 const SEEDS = 120; // per twist, per level
 const content = loadContent();
@@ -138,6 +139,40 @@ for (let seed = 1; seed <= 300; seed++) for (let stage = 1; stage <= 5; stage++)
     if (want) expect(jumpers >= want, `brawler seed ${seed} stage ${stage}: ${jumpers} jumpers, wants ${want}`);
     else expect(jumpers === 0, `brawler seed ${seed} stage ${stage}: a jumper before stage 4`);
     expect(!lvl.arenas.some((r) => r.boss && r.waves.flat().some((e) => e.kind === 'jumper')), `brawler seed ${seed} stage ${stage}: a jumper in the boss arena`);
+  }
+}
+
+// Dropped power-ups: wherever the carrier went down, the drop lands on safe
+// floor (ground under it, no spikes on or beside it, no pit beside it), and a
+// running one starts away from the nearest pit.
+{
+  const safe = (solid, spikes, p) => !!p && !solid[p.y][p.x] && solid[p.y + 1][p.x] && !spikes.has(`${p.x},${p.y}`)
+    && !spikes.has(`${p.x - 1},${p.y}`) && !spikes.has(`${p.x + 1},${p.y}`) && !isPit(solid, p.x - 1, p.y + 1) && !isPit(solid, p.x + 1, p.y + 1);
+  const rows = [
+    '..........',
+    '..........',
+    '....^.....',
+    '###.###..#',
+    '###.###..#',
+  ];
+  const solid = rows.map((r) => [...r].map((c) => c === '#'));
+  const spikes = new Set(rows.flatMap((r, y) => [...r].flatMap((c, x) => (c === '^' ? [`${x},${y}`] : []))));
+  expect(safe(solid, spikes, safeSpot(solid, spikes, 3, 4)), 'a carrier beaten over a pit should drop the power-up on safe floor');
+  expect(safe(solid, spikes, safeSpot(solid, spikes, 4, 2)), 'a carrier beaten on spikes should drop the power-up on safe floor');
+  expect(safeSpot(solid, spikes, 1, 0)?.x === 1 && safe(solid, spikes, safeSpot(solid, spikes, 1, 0)), 'a carrier beaten in mid-air over safe floor drops it straight down');
+  expect(awayFromPit(solid, 1, 2) === -1, 'next to a pit on the right, it should start running left');
+  expect(awayFromPit(solid, 4, 2) === 1, 'nearer the pit on the left, it should start running right');
+  expect(awayFromPit(solid, 5, 2) === 0, 'halfway between two pits, it falls back to running away from you');
+  // Real stages: from anywhere in any arena or chunk, there's safe floor to drop on.
+  for (let seed = 1; seed <= 200; seed++) {
+    const b = buildBrawl({ seed, stage: 4, twist: 'classic', genreLevel: 2, powerUp: 'power-fists' });
+    const bs = new Set(b.spikes.map((p) => `${p.x},${p.y}`));
+    for (const r of b.arenas) {
+      expect(safe(b.solid, bs, safeSpot(b.solid, bs, r.x0 + 8, 13, r.x0, r.x0 + 15)), `brawler seed ${seed}: no safe floor in arena ${r.id}`);
+    }
+    const p = buildStage({ seed, stage: 4, twist: 'classic', genreLevel: 2, powerUp: 'double-jump' });
+    const ps = new Set(p.spikes.map((q) => `${q.x},${q.y}`));
+    for (const e of p.enemies) expect(safe(p.solid, ps, safeSpot(p.solid, ps, e.x, e.y)), `platformer seed ${seed}: no safe floor near the enemy at ${e.x},${e.y}`);
   }
 }
 
