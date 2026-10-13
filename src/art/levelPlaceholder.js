@@ -67,9 +67,12 @@ export function makeLevelTextures(scene, theme) {
   eyes(p.text, 3, 3, 8, 3);
   g.generateTexture(tex(theme, 'hopper'), 12, 12).clear();
 
-  // ---- Platformer boss (26x24): a big crowned blob
-  g.fillStyle(toColor(p.enemy)).fillRect(1, 6, 24, 18);
-  g.fillStyle(toColor(p.coin)).fillTriangle(4, 6, 7, 0, 10, 6).fillTriangle(10, 6, 13, 0, 16, 6).fillTriangle(16, 6, 19, 0, 22, 6);
+  // ---- Platformer boss (26x24): a big blob with a flat, rounded top (no
+  // points or spikes up there: you're meant to stomp on its head). A flat
+  // gold band marks it as the boss.
+  g.fillStyle(toColor(p.enemy)).fillRoundedRect(1, 2, 24, 22, 5);
+  g.fillStyle(toColor(p.coin)).fillRect(3, 6, 20, 3);
+  g.fillStyle(toColor(p.sky)).fillRect(8, 7, 2, 1).fillRect(16, 7, 2, 1);
   g.fillStyle(toColor(p.groundDark)).fillRect(1, 19, 24, 2);
   eyes(p.text, 14, 10, 20, 10);
   g.generateTexture(tex(theme, 'pboss'), 26, 24).clear();
