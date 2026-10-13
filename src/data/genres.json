@@ -1,6 +1,33 @@
 {
-  "_help": "Base genres. A genre is the one part that needs real code: 'scene' is the Phaser scene that plays it.",
-  "platformer": { "name": "Platformer", "short": "PLATFORM", "scene": "Stage" },
-  "shmup": { "name": "Shoot-'em-up", "short": "SHMUP", "scene": "Shmup" },
-  "brawler": { "name": "Brawler", "short": "BRAWLER", "scene": "Brawl" }
+  "_help": "Base genres. A genre is the one part that needs real code: 'scene' is the Phaser scene that plays it. description: shown at the machine. levels: what level 2 and 3 add, picked at the machine like twist levels. Each level keeps what the levels below it gave. payout: multiplies the stage tokens on a win (shown as its own line, like a twist's). powerUp: one pickup per stage (platformer: double-jump, shmup: spread-shot, brawler: power-fists). boss: true puts a boss at the end of the run's last stage. New enemies and pieces come from the chunks, waves and arenas tagged { minLevel: 2 } (see chunks.js).",
+  "platformer": {
+    "name": "Platformer",
+    "short": "PLATFORM",
+    "scene": "Stage",
+    "description": "Run and jump to the flag.",
+    "levels": [
+      { "description": "Hoppers, and a double jump. x1.25.", "payout": 1.25, "powerUp": "double-jump" },
+      { "description": "A boss guards the last flag. x1.5.", "payout": 1.5, "boss": true }
+    ]
+  },
+  "shmup": {
+    "name": "Shoot-'em-up",
+    "short": "SHMUP",
+    "scene": "Shmup",
+    "description": "Survive the waves.",
+    "levels": [
+      { "description": "Splitters, and a spread shot. x1.25.", "payout": 1.25, "powerUp": "spread-shot" },
+      { "description": "A boss ends the last stage. x1.5.", "payout": 1.5, "boss": true }
+    ]
+  },
+  "brawler": {
+    "name": "Brawler",
+    "short": "BRAWLER",
+    "scene": "Brawl",
+    "description": "Clear every arena.",
+    "levels": [
+      { "description": "Shield guards, and power fists. x1.25.", "payout": 1.25, "powerUp": "power-fists" },
+      { "description": "A boss waits in the last arena. x1.5.", "payout": 1.5, "boss": true }
+    ]
+  }
 }

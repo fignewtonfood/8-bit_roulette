@@ -2,7 +2,8 @@ import Phaser from 'phaser';
 import { buildBrawl } from '../gen/buildBrawl.js';
 import { ARENA_W } from '../gen/arenas.js';
 import { content } from '../data/index.js';
-import { twistSettings, objectiveOf, stageRules } from '../engine/content.js';
+import { twistSettings, objectiveOf } from '../engine/content.js';
+import { stageSetup } from '../engine/run.js';
 import { describeRun } from '../engine/spin.js';
 import { addDarkness, GLOW_DEPTH } from '../engine/darkness.js';
 import { endStage } from '../engine/startRun.js';
@@ -13,6 +14,8 @@ import { addGlitchFx } from '../ui/glitch.js';
 import { addObjectiveHint, leftMessage, LOCKED_ALPHA } from '../ui/objective.js';
 import { makePlaceholderTextures, tex } from '../art/placeholder.js';
 import { makeBrawlTextures } from '../art/brawlPlaceholder.js';
+import { makeLevelTextures } from '../art/levelPlaceholder.js';
+import { addBossBar, addPowerLabel, POWER_NAMES } from '../ui/levelHud.js';
 
 // The brawler: walk right through a row of one-screen arenas. Reaching the
 // middle of an arena with enemies locks the screen until they're all down.
@@ -50,12 +53,21 @@ const COMBO = [
 const AIR_KICK = { startup: 0.03, active: 0.22, recovery: 0.12, damage: 1, reach: 14, knock: 90, lift: 0, stun: 0.45, air: true };
 
 // Enemies. heavy = shrugs off jabs (only the launcher staggers it) and barely moves when hit.
+// guard = blocks hits from the front, except the launcher (genre level 2+);
+// it's slow to turn around (turn, in seconds), so you can get behind it.
+// boss = the genre level 3 boss: punches like a brute, and leaps to send
+// shockwaves along the floor (jump over them).
 const ENEMY = {
   grunt: { texture: 'grunt', hp: 3, speed: 40, reach: 14, windup: 0.45, strike: 0.12, cooldown: 1.0 },
   rusher: { texture: 'rusher', hp: 2, speed: 25, chargeSpeed: 150, windup: 0.5, charge: 1.1, cooldown: 1.4 },
   thrower: { texture: 'thrower', hp: 2, speed: 35, windup: 0.4, cooldown: 2.2, keepAway: [70, 120] },
   brute: { texture: 'brute', hp: 6, speed: 24, reach: 18, windup: 0.7, strike: 0.15, cooldown: 1.4, heavy: true },
+  shield: { texture: 'shield', hp: 3, speed: 32, reach: 14, windup: 0.5, strike: 0.12, cooldown: 1.1, guard: true, turn: 0.6 },
+  boss: { texture: 'bboss', hp: 18, speed: 30, reach: 20, windup: 0.6, strike: 0.15, cooldown: 1.1, heavy: true, boss: true, crouch: 0.55, leap: 300, stompEvery: 3 },
 };
+const FIGHTERS = ['grunt', 'brute', 'shield', 'boss']; // walk up and punch
+const SHOCK_SPEED = 120;  // px/s the boss's shockwaves slide along the floor
+const POWER_FISTS = 2;    // power-up Power Fists: damage multiplier
 const APPEAR_TIME = 0.6;  // s enemies flicker in before they can act or be hit
 const ROCK_LIFT = 170;    // px/s upward when a rock is thrown
 const ROCK_MAX_SPEED = 150;
@@ -94,6 +106,8 @@ export default class BrawlScene extends Phaser.Scene {
     this.comboTimer = 0;
     this.locked = null;   // the arena you're locked in, if any
     this.goTimer = 0;
+    this.setup = stageSetup(content, data.run); // twist rules + genre level, power-up, boss
+    this.power = null;
   }
 
   create() {
@@ -103,8 +117,9 @@ export default class BrawlScene extends Phaser.Scene {
     this.t = t;
     makePlaceholderTextures(this, theme);
     makeBrawlTextures(this, theme);
+    makeLevelTextures(this, theme);
 
-    const level = buildBrawl({ seed: this.seed, stage: this.run.stage, twist: this.run.twist, ...stageRules(content, this.run.twist, this.run.levels?.twist) });
+    const level = buildBrawl(this.setup);
     this.level = level;
     this.worldW = level.widthTiles * TILE;
     this.worldH = level.heightTiles * TILE;
@@ -139,6 +154,16 @@ export default class BrawlScene extends Phaser.Scene {
 
     this.enemies = this.physics.add.group();
     this.rocks = this.physics.add.group();
+    this.shocks = this.physics.add.group({ allowGravity: false });
+
+    // Power-up (genre level 2+): one per stage, it bobs so you notice it.
+    this.powerUp = null;
+    if (level.powerUp) {
+      const { x, y, kind } = level.powerUp;
+      this.powerUp = this.physics.add.staticImage(x * TILE + 8, y * TILE + 8, t(`power-${kind}`)).setDepth(GLOW_DEPTH);
+      this.powerUp.kind = kind;
+      this.tweens.add({ targets: this.powerUp, y: '-=3', duration: 400, yoyo: true, repeat: -1 });
+    }
 
     // Player
     const s = level.playerStart;
@@ -165,8 +190,13 @@ export default class BrawlScene extends Phaser.Scene {
       this.hurt(1, dir);
     });
     this.physics.add.overlap(this.enemies, this.spikes, (e) => {
-      if (e.state !== 'dead' && e.state !== 'appear') this.kill(e, Math.sign(e.body.velocity.x) || 1);
+      if (e.state !== 'dead' && e.state !== 'appear' && !e.def.boss) this.kill(e, Math.sign(e.body.velocity.x) || 1);
     });
+    this.physics.add.overlap(this.player, this.shocks, (_p, wave) => {
+      if (this.invulnerable > 0 || this.dying) return;
+      this.hurt(1, Math.sign(wave.body.velocity.x) || -this.facing);
+    });
+    if (this.powerUp) this.physics.add.overlap(this.player, this.powerUp, () => this.takePower());
 
     // Twist: Darkness. Anything listed under "glow" stays visible in the dark.
     this.darkness = null; // the scene object is reused between runs, so reset these
@@ -193,6 +223,8 @@ export default class BrawlScene extends Phaser.Scene {
       .setDepth(10)
       .setVisible(false);
     this.hint = addObjectiveHint(this, theme.palette.text);
+    this.bossBar = addBossBar(this, theme.palette.text);
+    this.powerLabel = addPowerLabel(this, theme.palette.text);
     this.hintCooldown = 0;
     this.refreshObjective();
     this.updateHud();
@@ -218,6 +250,9 @@ export default class BrawlScene extends Phaser.Scene {
     this.updateArena(dt);
 
     this.rocks.getChildren().slice().forEach((r) => r.y > this.worldH + 32 && r.destroy());
+    // Shockwaves die at the arena's walls.
+    const lane = this.physics.world.bounds;
+    this.shocks.getChildren().slice().forEach((w) => (w.x < lane.left + 4 || w.x > lane.right - 4) && w.destroy());
     this.darkness?.update(this.player);
     this.wind?.update(dt);
   }
@@ -392,6 +427,15 @@ export default class BrawlScene extends Phaser.Scene {
     });
   }
 
+  takePower() {
+    if (!this.powerUp?.active) return;
+    this.power = this.powerUp.kind;
+    this.powerUp.disableBody(true, true);
+    this.hint.show(`${POWER_NAMES[this.power]}!`);
+    this.cameras.main.flash(120, 255, 255, 255);
+    this.updateHud();
+  }
+
   collectCoin(coin) {
     coin.disableBody(true, true);
     this.coinsCollected++;
@@ -494,7 +538,14 @@ export default class BrawlScene extends Phaser.Scene {
     e.stun = 0;
     e.flash = 0;
     e.face = this.player.x < e.x ? -1 : 1;
+    e.turn = 0;
+    e.moves = 0;
     if (this.glow.has('enemies')) e.setDepth(GLOW_DEPTH);
+    if (def.boss) {
+      e.setDepth(GLOW_DEPTH); // always lit, even in the dark
+      this.bossBar.show(Math.ceil((e.hp / def.hp) * 10), 10);
+      this.cameras.main.shake(200, 0.006);
+    }
   }
 
   updateEnemies(dt) {
@@ -544,16 +595,35 @@ export default class BrawlScene extends Phaser.Scene {
     const def = e.def;
     const toward = Math.sign(dx) || e.face;
 
-    if (e.kind === 'grunt' || e.kind === 'brute') {
+    if (FIGHTERS.includes(e.kind)) {
       if (e.state === 'idle') {
-        e.face = toward;
+        // Shield guards are slow to turn round: that's your way in.
+        if (def.turn && toward !== e.face) {
+          e.turn += dt;
+          if (e.turn >= def.turn) {
+            e.face = toward;
+            e.turn = 0;
+          }
+        } else {
+          e.face = toward;
+          e.turn = 0;
+        }
+        // The boss: every few moves (or when you keep away) it leaps instead.
+        if (def.boss && e.cool <= 0 && grounded && (adx > 56 || e.moves % def.stompEvery === def.stompEvery - 1)) {
+          e.state = 'crouch';
+          e.timer = def.crouch;
+          e.moves++;
+          this.walk(e, 0, dt);
+          return;
+        }
         // Only one enemy per side gets up close; the rest wait their turn.
         const want = this.crowded(e, toward) ? 34 : def.reach;
         if (adx > want + 2) this.walk(e, toward * def.speed, dt);
         else this.walk(e, 0, dt);
-        if (adx <= def.reach + 4 && Math.abs(dy) < 14 && e.cool <= 0 && grounded) {
+        if (adx <= def.reach + 4 && Math.abs(dy) < 14 && e.cool <= 0 && grounded && e.face === toward) {
           e.state = 'windup';
           e.timer = def.windup;
+          e.moves++;
         }
       } else if (e.state === 'windup') {
         this.walk(e, 0, dt);
@@ -572,6 +642,23 @@ export default class BrawlScene extends Phaser.Scene {
           e.state = 'idle';
           e.cool = def.cooldown;
         }
+      } else if (e.state === 'crouch') {
+        this.walk(e, 0, dt);
+        e.timer -= dt;
+        if (e.timer <= 0) {
+          e.state = 'leap';
+          e.setVelocity(toward * 40, -def.leap);
+        }
+      } else if (e.state === 'leap' && grounded && e.body.velocity.y >= 0) {
+        // Landed: shockwaves both ways along the floor.
+        this.cameras.main.shake(150, 0.008);
+        for (const dir of [-1, 1]) {
+          const w = this.shocks.create(e.x + dir * 12, e.body.bottom - 4, this.t('shock'));
+          w.setVelocityX(dir * SHOCK_SPEED * enemyScale(this.mods));
+          w.setDepth(GLOW_DEPTH);
+        }
+        e.state = 'idle';
+        e.cool = def.cooldown;
       }
     } else if (e.kind === 'rusher') {
       if (e.state === 'idle') {
@@ -660,8 +747,18 @@ export default class BrawlScene extends Phaser.Scene {
   hitEnemy(e, atk) {
     const heavy = e.def.heavy;
     const airborne = !e.body.blocked.down;
-    e.hp -= atk.damage;
+    // Shield guards block from the front, unless it's the launcher, or
+    // they're already reeling.
+    const fromFront = Math.sign(this.player.x - e.x) === e.face;
+    if (e.def.guard && fromFront && !atk.finisher && e.state !== 'stun' && !airborne) {
+      e.setVelocityX(this.facing * 30);
+      e.blocked = 0.12;
+      this.cameras.main.shake(40, 0.002);
+      return;
+    }
+    e.hp -= atk.damage * (this.power === 'power-fists' ? POWER_FISTS : 1);
     e.flash = 0.08;
+    if (e.def.boss) this.bossBar.show(Math.ceil((Math.max(0, e.hp) / e.def.hp) * 10), 10);
 
     const knock = atk.knock * (heavy ? 0.35 : 1);
     const lift = (atk.lift || (airborne ? JUGGLE_POP : 0)) * (heavy ? 0.5 : 1);
@@ -681,6 +778,12 @@ export default class BrawlScene extends Phaser.Scene {
   }
 
   kill(e, dir) {
+    if (e.def.boss) {
+      this.bossBar.hide();
+      this.shocks.clear(true, true);
+      this.cameras.main.flash(250, 255, 255, 255);
+      this.cameras.main.shake(300, 0.012);
+    }
     e.state = 'dead';
     e.setCollideWorldBounds(false);
     e.setVelocity(dir * 80, -180);
@@ -691,8 +794,10 @@ export default class BrawlScene extends Phaser.Scene {
 
   // Tint and depth: white flash when hit, lit up while winding up an attack.
   paintEnemy(e) {
-    const winding = e.state === 'windup';
-    if (e.flash > 0) e.setTintFill(0xffffff);
+    const winding = e.state === 'windup' || e.state === 'crouch';
+    e.blocked = (e.blocked || 0) - this.game.loop.delta / 1000;
+    if (e.blocked > 0) e.setTintFill(Phaser.Display.Color.HexStringToColor(this.theme.palette.groundTop).color); // clank
+    else if (e.flash > 0) e.setTintFill(0xffffff);
     else if (winding) e.setTint(Phaser.Display.Color.HexStringToColor(this.theme.palette.coin).color);
     else e.clearTint();
     if (this.glow.size) {
@@ -724,5 +829,6 @@ export default class BrawlScene extends Phaser.Scene {
     this.hud.setText(
       `LIVES ${this.lives}  HP ${hearts}  ${this.theme.names.hudCoin} ${this.coinsCollected}/${this.level.coins.length}  STAGE ${this.run.stage}/${this.run.stages}`,
     );
+    this.powerLabel?.set(this.power);
   }
 }

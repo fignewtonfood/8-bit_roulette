@@ -21,7 +21,8 @@ Open the address Vite prints (usually http://localhost:5173).
   records, and your progress (levels reached and upgrades owned, never
   what's left); Up finishes a log that's still typing, then closes
 - **Machine:** Left/Right picks the bet, Space pulls. After it lands,
-  Left/Right picks the twist's level if you've reached one. Whatever lands, you play;
+  Left/Right picks the genre's or twist's level if you've reached one (Up/Down
+  switches between them when both can level). Whatever lands, you play;
   S re-spins only if you own Re-spin (once per trip to the hub). X goes back
 - **Every genre:** Up or Space jumps, Z or X attacks
 - **Platformer:** arrows move, Up or Space jumps. **Shmup:** arrows fly, hold Z or X to fire (Space fires too, since there's no jump)
@@ -38,6 +39,8 @@ Practice runs pay no tokens and don't touch your save:
 - `?seed=12345` replays a run exactly (same reels, same stages)
 - `?genre=shmup` (or `brawler`), `?theme=neon-space`, `?twist=darkness` force a reel; mix them freely
 - `?length=medium` plays more stages (`short`, `medium`, `long`)
+- `?genrelevel=3` plays the genre at level 2 or 3, e.g. `?genre=brawler&genrelevel=3`
+  for the boss (also `?twistlevel=2`)
 - `?spin` opens a practice machine: every length open, free re-spins, forced reels stay locked
 - `?debug` shows hitboxes
 - `?zoom=3` forces the size: each game pixel becomes 3x3 screen pixels (normally it picks the biggest whole number that fits the window)
@@ -58,13 +61,14 @@ Save tools:
 ## Check everything
 
 ```
-npm run check          # all six below
+npm run check          # all seven below
 npm run check:chunks   # 10,000 platformer stages (every twist)
 npm run check:shmup    # 10,000 shmup stages (every twist)
 npm run check:brawl    # 10,000 brawler stages (every twist) + arena layout rules
 npm run check:engine   # data files + 10,000 spins
 npm run check:loop     # bets, payouts, shop, save file + a progression estimate
 npm run check:story    # story unlocks, glitches, hub changes + which run each log arrives on
+npm run check:levels   # every genre at levels 1-3: new pieces, power-ups, bosses, payouts
 ```
 
 ## Adding content (no code needed)
@@ -109,7 +113,18 @@ npm run check:story    # story unlocks, glitches, hub changes + which run each l
   `description`, `payout`, `budgetScale` and (Collector/Killer) `minimum`.
   Classic has none. `budgetScale` multiplies each stage's difficulty budget:
   Sudden Death is 0.85 at level 1, 1.15 at level 2 and 1.4 at level 3.
-  Theme and genre levels are tracked but don't change play yet.
+  Theme levels are tracked but don't change play yet.
+- **Genre levels:** picked at the machine like twist levels, from
+  `levels` in `genres.json`. Each level keeps what the one below gave.
+  Level 2 brings the genre's new enemy (platformer hoppers, shmup splitters,
+  brawler shield guards), its power-up (double jump, spread shot, power
+  fists: one per stage, held until the stage ends) and pays x1.25. Level 3
+  adds a boss at the end of the run's last stage and pays x1.5. The new
+  enemies only come from pieces tagged `{ minLevel: 2 }` (the letters H, P
+  and S are only allowed in those), plus some of the extra enemies later
+  stages add. Boss rooms are `BOSS_ROOMS` in `chunks.js` and `BOSS_ARENAS`
+  in `arenas.js`; the bosses' feel knobs are at the top of each scene.
+  `npm run check:levels` builds every genre at every level and checks it.
 - **Speed twists:** Speedy (`runScale`/`shipScale` and `enemyScale` above 1)
   and Mud (`runScale`/`shipScale` below 1, enemies unchanged). They change
   ground speed only: in the air you move at normal speed and jumps are
@@ -166,7 +181,7 @@ log arrives on.
 |---|---|
 | `src/data/reels.json` | What can land on each reel |
 | `src/data/themes/`, `src/data/twists/` | One JSON file per theme / twist |
-| `src/data/genres.json` | Genre names and which scene plays them |
+| `src/data/genres.json` | Genre names, which scene plays them, and their levels |
 | `src/data/compatibility.json` | Combos the machine must never land on |
 | `src/data/economy.json` | Lengths, multipliers, tokens per stage and coin, base lives |
 | `src/data/shop.json` | Upgrades, prices and what each level adds |
@@ -192,6 +207,8 @@ log arrives on.
 | `src/gen/buildStage.js` | Seed → stage: pacing, difficulty budget, mirroring |
 | `src/gen/rng.js` | Seeded random numbers |
 | `src/art/placeholder.js` | Draws placeholder sprites from the palette |
+| `src/art/levelPlaceholder.js` | Sprites for genre levels: new enemies, power-ups, bosses |
+| `src/ui/levelHud.js` | The boss health bar and power-up label |
 | `src/scenes/StageScene.js` | Platformer: player, enemies, the feel knobs |
 | `src/scenes/ShmupScene.js` | Shoot-'em-up: ship, enemies, the feel knobs |
 | `src/scenes/BrawlScene.js` | Brawler: combo, enemy behaviour, arena locks, the feel knobs |

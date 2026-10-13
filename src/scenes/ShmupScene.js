@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import { buildShmup } from '../gen/buildShmup.js';
 import { content } from '../data/index.js';
-import { twistSettings, objectiveOf, stageRules } from '../engine/content.js';
+import { twistSettings, objectiveOf } from '../engine/content.js';
+import { stageSetup } from '../engine/run.js';
 import { describeRun } from '../engine/spin.js';
 import { addDarkness, GLOW_DEPTH } from '../engine/darkness.js';
 import { endStage } from '../engine/startRun.js';
@@ -12,6 +13,8 @@ import { addGlitchFx } from '../ui/glitch.js';
 import { addObjectiveHint } from '../ui/objective.js';
 import { makePlaceholderTextures, tex } from '../art/placeholder.js';
 import { makeShmupTextures } from '../art/shmupPlaceholder.js';
+import { makeLevelTextures } from '../art/levelPlaceholder.js';
+import { addBossBar, addPowerLabel, POWER_NAMES } from '../ui/levelHud.js';
 
 const LANE = 16;
 
@@ -32,7 +35,22 @@ const ENEMY = {
   weave: { texture: 'enemy', hp: 1, speed: 40 },
   dive: { texture: 'ghost', hp: 1, speed: 35 },
   turret: { texture: 'gargoyle', hp: 3, speed: 40 },
+  splitter: { texture: 'splitter', hp: 2, speed: 42 },   // genre level 2+
+  half: { texture: 'shard', hp: 1, speed: 60 },          // what a splitter breaks into
 };
+const HALF_SPREAD = 70;        // px/s sideways the halves fly apart
+// Power-up Spread Shot: two extra shots angled out to the sides.
+const SPREAD_SIDEWAYS = 70;    // px/s
+const POWER_FALL = 35;         // px/s the power-up drifts down
+// The boss (genre level 3): slides side to side near the top, firing aimed
+// three-shot spreads, and every few volleys a ring. Faster when it's hurt.
+const BOSS_HP = 40;
+const BOSS_Y = 48;             // where it stops coming down (clear of the HUD)
+const BOSS_SWAY = [80, 0.8];   // px side to side, how fast
+const BOSS_VOLLEY = [1.4, 1.0]; // s between volleys: healthy, under half
+const BOSS_RING_EVERY = 4;     // every Nth volley is a ring
+const BOSS_RING = 10;          // shots in a ring
+const BOSS_SHOT_SPEED = 70;
 
 export default class ShmupScene extends Phaser.Scene {
   constructor() {
@@ -54,6 +72,10 @@ export default class ShmupScene extends Phaser.Scene {
     this.fireCooldown = 0;
     this.invulnerable = 0;
     this.finished = false;
+    this.setup = stageSetup(content, data.run); // twist rules + genre level, power-up, boss
+    this.power = null;
+    this.boss = null;
+    this.bossDown = false;
   }
 
   create() {
@@ -61,9 +83,10 @@ export default class ShmupScene extends Phaser.Scene {
     const mods = this.mods;
     makePlaceholderTextures(this, theme); // bats and shards come from the platformer set
     makeShmupTextures(this, theme);
+    makeLevelTextures(this, theme);
     this.t = (name) => tex(theme, name);
 
-    const level = buildShmup({ seed: this.seed, stage: this.run.stage, twist: this.run.twist, ...stageRules(content, this.run.twist, this.run.levels?.twist) });
+    const level = buildShmup(this.setup);
     this.level = level;
     console.log(`[8-Bit Roulette] ${describeRun(content, this.run)} · stage ${this.run.stage}/${this.run.stages} · seed ${this.seed} · cost ${level.cost}/${level.budget} · ${level.duration}s\n  ${level.waves.join(' → ')}`);
 
@@ -89,6 +112,8 @@ export default class ShmupScene extends Phaser.Scene {
     this.enemies = this.physics.add.group();
     this.enemyShots = this.physics.add.group();
     this.coins = this.physics.add.group();
+    this.powerUps = this.physics.add.group();
+    this.bosses = this.physics.add.group();
 
     this.physics.add.overlap(this.shots, this.enemies, (shot, enemy) => this.hitEnemy(shot, enemy));
     this.physics.add.overlap(this.player, this.enemies, () => this.hurt());
@@ -96,6 +121,9 @@ export default class ShmupScene extends Phaser.Scene {
       shot.destroy();
       this.hurt();
     });
+    this.physics.add.overlap(this.shots, this.bosses, (shot, boss) => this.hitBoss(shot, boss));
+    this.physics.add.overlap(this.player, this.bosses, () => this.hurt());
+    this.physics.add.overlap(this.player, this.powerUps, (_p, power) => this.takePower(power));
     this.physics.add.overlap(this.player, this.coins, (_p, coin) => {
       coin.destroy();
       this.coinsCollected++;
@@ -120,6 +148,8 @@ export default class ShmupScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(10);
     this.hint = addObjectiveHint(this, theme.palette.text);
+    this.bossBar = addBossBar(this, theme.palette.text);
+    this.powerLabel = addPowerLabel(this, theme.palette.text);
     this.updateHud();
   }
 
@@ -169,8 +199,12 @@ export default class ShmupScene extends Phaser.Scene {
     // Fire
     this.fireCooldown -= dt;
     if (this.fireKeys.some((k) => k.isDown) && this.fireCooldown <= 0) {
-      const shot = this.shots.create(this.player.x, this.player.y - 8, this.t('shot'));
-      shot.setVelocityY(-SHOT_SPEED);
+      // Spread Shot adds two angled shots to the straight one.
+      const sideways = this.power === 'spread-shot' ? [0, -SPREAD_SIDEWAYS, SPREAD_SIDEWAYS] : [0];
+      for (const vx of sideways) {
+        const shot = this.shots.create(this.player.x, this.player.y - 8, this.t('shot'));
+        shot.setVelocity(vx, -SHOT_SPEED);
+      }
       this.fireCooldown = FIRE_RATE;
     }
 
@@ -187,30 +221,39 @@ export default class ShmupScene extends Phaser.Scene {
     }
 
     this.updateEnemies(dt);
+    this.updateBoss(dt);
     this.darkness?.update(this.player);
     this.gravity?.update(dt);
 
     // Clean up anything that left the screen. Twists Collector and Killer:
     // a coin or an enemy that gets away costs a life.
     const missable = { collect: this.coins, kill: this.enemies }[this.objective];
-    [this.shots, this.enemyShots, this.coins, this.enemies].forEach((group) => {
+    // (A splitter's halves don't count: they fly apart, you can't catch both.)
+    [this.shots, this.enemyShots, this.coins, this.enemies, this.powerUps].forEach((group) => {
       group.getChildren().slice().forEach((o) => {
         if (o.y < -24 || o.y > H + 24 || o.x < -24 || o.x > W + 24) {
           o.destroy();
-          if (group === missable) this.missedObjective();
+          if (group === missable && o.kind !== 'half') this.missedObjective();
         }
       });
     });
     if (this.finished) return;
 
-    // Cleared: every wave has spawned and nothing hostile is left
-    if (this.nextEvent >= events.length && this.elapsed > this.level.duration && this.enemies.countActive() === 0) {
+    // Cleared: every wave has spawned, nothing hostile is left, and the boss
+    // (genre level 3) is down.
+    const bossDone = this.level.bossAt === null || this.bossDown;
+    if (this.nextEvent >= events.length && this.elapsed > this.level.duration && this.enemies.countActive() === 0 && bossDone) {
       this.finish(true);
     }
   }
 
   spawn(ev) {
     const x = ev.lane * LANE + LANE / 2;
+    if (ev.kind === 'power') {
+      const p = this.powerUps.create(x, -8, this.t(`power-${ev.power}`)).setVelocityY(POWER_FALL).setDepth(GLOW_DEPTH);
+      p.power = ev.power;
+      return;
+    }
     if (ev.kind === 'coin') {
       const coin = this.coins.create(x, -8, this.t('coin')).setVelocityY(40);
       this.glowIf('coins', coin);
@@ -270,11 +313,101 @@ export default class ShmupScene extends Phaser.Scene {
     shot.destroy();
     enemy.hp--;
     if (enemy.hp <= 0) {
+      if (enemy.kind === 'splitter') this.split(enemy);
       enemy.destroy();
       return;
     }
     enemy.setTintFill(0xffffff); // flash white when hit
     this.time.delayedCall(60, () => enemy.active && enemy.clearTint());
+  }
+
+  // A splitter breaks into two halves that fly apart and down.
+  split(e) {
+    const fast = enemyScale(this.mods);
+    for (const dir of [-1, 1]) {
+      const half = this.enemies.create(e.x + dir * 4, e.y, this.t(ENEMY.half.texture));
+      this.glowIf('enemies', half);
+      half.kind = 'half';
+      half.hp = ENEMY.half.hp;
+      half.age = 0;
+      half.state = 'enter';
+      half.setVelocity(dir * HALF_SPREAD * fast, ENEMY.half.speed * fast);
+    }
+  }
+
+  // ---------- Power-up ----------
+
+  takePower(p) {
+    if (!p.active) return;
+    this.power = p.power;
+    p.destroy();
+    this.hint.show(`${POWER_NAMES[this.power]}!`);
+    this.cameras.main.flash(120, 255, 255, 255);
+    this.updateHud();
+  }
+
+  // ---------- Boss ----------
+
+  updateBoss(dt) {
+    const at = this.level.bossAt;
+    if (at === null || this.bossDown) return;
+    if (!this.boss) {
+      if (this.elapsed < at) return;
+      const b = this.bosses.create(this.scale.width / 2, -14, this.t('sboss')).setDepth(GLOW_DEPTH); // always lit
+      b.hp = BOSS_HP;
+      b.age = 0;
+      b.volley = 0;
+      b.timer = 1.5;
+      b.setVelocityY(30);
+      this.boss = b;
+      this.bossBar.show(Math.ceil((b.hp / BOSS_HP) * 10), 10);
+      this.cameras.main.shake(200, 0.006);
+      return;
+    }
+    const b = this.boss;
+    const fast = enemyScale(this.mods);
+    b.age += dt;
+    if (b.y < BOSS_Y) return; // still coming in
+    if (b.body.velocity.y) {
+      b.setVelocityY(0);
+      b.age = 0;
+    }
+    // Sway side to side around the middle of the screen.
+    b.setX(this.scale.width / 2 + Math.sin(b.age * BOSS_SWAY[1] * fast) * BOSS_SWAY[0]);
+
+    b.timer -= dt * fast;
+    if (b.timer > 0) return;
+    b.volley++;
+    b.timer = b.hp > BOSS_HP / 2 ? BOSS_VOLLEY[0] : BOSS_VOLLEY[1];
+    const speed = BOSS_SHOT_SPEED * fast;
+    if (b.volley % BOSS_RING_EVERY === 0) {
+      for (let i = 0; i < BOSS_RING; i++) this.bossShot(b, (i / BOSS_RING) * Math.PI * 2 + b.age, speed * 0.8);
+    } else {
+      const aim = Phaser.Math.Angle.Between(b.x, b.y + 10, this.player.x, this.player.y);
+      for (const da of [-0.26, 0, 0.26]) this.bossShot(b, aim + da, speed);
+    }
+  }
+
+  bossShot(b, angle, speed) {
+    const shot = this.enemyShots.create(b.x, b.y + 10, this.t('eshot'));
+    this.glowIf('enemyShots', shot);
+    shot.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
+  }
+
+  hitBoss(shot, b) {
+    if (!shot.active || !b.active || b.y < BOSS_Y - 10) return; // can't be hit until it's in place
+    shot.destroy();
+    b.hp--;
+    this.bossBar.show(Math.ceil((b.hp / BOSS_HP) * 10), 10);
+    b.setTintFill(0xffffff);
+    this.time.delayedCall(50, () => b.active && b.clearTint());
+    if (b.hp > 0) return;
+    this.bossDown = true;
+    b.destroy();
+    this.bossBar.hide();
+    this.enemyShots.clear(true, true); // its shots vanish with it
+    this.cameras.main.flash(250, 255, 255, 255);
+    this.cameras.main.shake(300, 0.012);
   }
 
   hurt() {
@@ -319,5 +452,6 @@ export default class ShmupScene extends Phaser.Scene {
 
   updateHud() {
     this.hud.setText(`LIVES ${this.lives}   ${this.theme.names.hudCoin} ${this.coinsCollected}/${this.level.coins}   STAGE ${this.run.stage}/${this.run.stages}`);
+    this.powerLabel?.set(this.power);
   }
 }

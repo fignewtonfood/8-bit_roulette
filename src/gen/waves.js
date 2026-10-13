@@ -11,8 +11,10 @@
 //   W  bat that weaves side to side
 //   D  ghost that dives at the player
 //   T  gargoyle that stops, shoots at the player, then leaves (takes 3 hits)
+//   P  splitter: takes 2 hits, then breaks into two halves that fly apart
+//      (genre level 2+ waves only; see minLevel below)
 //   C  soul shard pickup
-//   lowercase s / w / d / t = optional enemy (spawns only if the budget allows)
+//   lowercase s / w / d / t / p = optional enemy (spawns only if the budget allows)
 //
 // Rules (checked automatically): every row is exactly 16 characters.
 //
@@ -21,8 +23,12 @@
 // (see chunks.js). The twist ids are the file names in src/data/twists/.
 // { notTwists: [...] } does the opposite: the wave shows up with every twist
 // except those.
+//
+// Genre-level waves: { minLevel: 2 } keeps a wave out until the shmup is
+// played at level 2 or higher, like genre-level chunks (see chunks.js).
+// Splitters (P, p) only go in these.
 
-import { twistTags, checkDifficulty } from './chunks.js';
+import { twistTags, checkDifficulty, checkLevelOnly } from './chunks.js';
 
 export const WAVE_W = 16;
 
@@ -34,7 +40,9 @@ function wave(id, type, difficulty, art, tagOptions = {}) {
     }
   });
   checkDifficulty(`Wave "${id}"`, difficulty);
-  return { id, type, difficulty, rows, ...twistTags(`Wave "${id}"`, tagOptions) };
+  const tags = twistTags(`Wave "${id}"`, tagOptions);
+  checkLevelOnly(`Wave "${id}"`, rows, 'Pp', 'splitters', tags);
+  return { id, type, difficulty, rows, ...tags };
 }
 
 // type: rest | secret | wave
@@ -224,4 +232,24 @@ export const WAVES = [
     .SSSSS....SSSSS.
     ................
     .....D....D.....`, { twists: ['slippery', 'low-gravity'] }),
+
+  // --- genre level 2: splitters (starter set; add your own) ---
+  // Pop a splitter and its halves fly out sideways: don't sit right under it.
+  wave('split_pair', 'wave', 1, `
+    ....P......P....
+    ................
+    .......CC.......`, { minLevel: 2 }),
+
+  wave('split_line', 'wave', 2, `
+    ..P....P....P...
+    ................
+    ................
+    ...s........s...`, { minLevel: 2 }),
+
+  wave('split_escort', 'wave', 3, `
+    .......P........
+    ................
+    ...W........W...
+    ................
+    .....p....p.....`, { minLevel: 2 }),
 ];

@@ -4,8 +4,8 @@
 // No Phaser in here, so it can be tested with plain Node.
 
 import { WAVES, WAVE_W } from './waves.js';
-import { fitsTwist } from './chunks.js';
-import { TWIST_WEIGHT } from './buildStage.js';
+import { fitsTwist, fitsLevel } from './chunks.js';
+import { tagWeight } from './buildStage.js';
 import { makeRng } from './rng.js';
 import { pacingFor, EXTRA_ENEMY_COST } from './pacing.js';
 
@@ -19,7 +19,9 @@ const START_DELAY = 2;
 
 const OPTIONAL_ENEMY_COST = 1;
 const RARE_WEIGHT = { secret: 0.2 };
-const KINDS = { S: 'straight', W: 'weave', D: 'dive', T: 'turret' };
+const KINDS = { S: 'straight', W: 'weave', D: 'dive', T: 'turret', P: 'splitter' };
+// The boss (genre level 3) flies in this long after the last wave has started.
+export const BOSS_DELAY = 3;
 
 const SLOT_RULES = {
   easy: (w) => w.type === 'wave' && w.difficulty <= 1,
@@ -32,8 +34,12 @@ const SLOT_RULES = {
 // minCoins / minEnemies (Collector / Killer): if the waves bring fewer, extra
 // coins (or straight-flying bats) are spread evenly through the stage.
 // Normal stages pass 0 and are unaffected.
-export function buildShmup({ seed, stage = 1, twist = null, minCoins = 0, minEnemies = 0, budgetScale = 1 }) {
-  const level = buildOnce({ seed, stage, twist, budgetScale });
+// genreLevel: the shmup's level picked at the machine (waves tagged with a
+// higher minLevel are left out). powerUp: one power-up drifts down about a
+// quarter of the way in. boss: true adds a boss after the last wave
+// (level.bossAt, in seconds); the stage isn't cleared until it's down.
+export function buildShmup({ seed, stage = 1, twist = null, minCoins = 0, minEnemies = 0, budgetScale = 1, genreLevel = 1, powerUp = null, boss = false }) {
+  const level = buildOnce({ seed, stage, twist, budgetScale, genreLevel });
   const extra = makeRng(seed * 31 + stage + 1555);
   const enemies = level.events.filter((e) => e.kind !== 'coin').length;
   const added = [
@@ -42,8 +48,20 @@ export function buildShmup({ seed, stage = 1, twist = null, minCoins = 0, minEne
   ];
   level.coins += added.filter((e) => e.kind === 'coin').length;
   level.events.push(...added);
+  if (powerUp) {
+    const [ev] = spreadAt(level, makeRng(seed * 31 + stage + 999), 'power', START_DELAY + (level.duration - START_DELAY) / 4);
+    level.events.push({ ...ev, power: powerUp });
+  }
   level.events.sort((a, b) => a.time - b.time || a.lane - b.lane);
+  level.bossAt = boss ? +(level.duration + BOSS_DELAY).toFixed(3) : null;
   return level;
+}
+
+// One event at a set time, in a lane clear of anything spawning about then.
+function spreadAt(level, rng, kind, time) {
+  const busy = (lane) => level.events.some((e) => Math.abs(e.time - time) < 0.6 && Math.abs(e.lane - lane) < 2);
+  const lanes = rng.shuffle(Array.from({ length: WAVE_W - 4 }, (_, k) => k + 2));
+  return [{ time: +time.toFixed(3), lane: lanes.find((l) => !busy(l)) ?? lanes[0], kind }];
 }
 
 // count events of one kind, evenly spaced in time, in lanes clear of anything
@@ -61,9 +79,9 @@ function spread(level, rng, kind, count) {
   return out;
 }
 
-function buildOnce({ seed, stage, twist, budgetScale }) {
+function buildOnce({ seed, stage, twist, budgetScale, genreLevel }) {
   const rng = makeRng(seed * 31 + stage + 1000);
-  const pool = WAVES.filter((w) => fitsTwist(w, twist));
+  const pool = WAVES.filter((w) => fitsTwist(w, twist) && fitsLevel(w, genreLevel));
   const slotMin = (slot) => Math.min(...pool.filter(SLOT_RULES[slot]).map((w) => w.difficulty));
   // budgetScale (Sudden Death levels): a bigger or smaller difficulty budget,
   // never below what the pacing slots need at their cheapest.
@@ -82,7 +100,7 @@ function buildOnce({ seed, stage, twist, budgetScale }) {
 
     let wave = rng.weighted(affordable, (w) => {
       if (prev && w.id === prev.wave.id) return 0;
-      const rarity = (RARE_WEIGHT[w.type] ?? 1) * (w.twists ? TWIST_WEIGHT : 1);
+      const rarity = (RARE_WEIGHT[w.type] ?? 1) * tagWeight(w);
       return rarity / (1 + 3 * (timesUsed[w.id] || 0));
     });
     if (!wave) wave = pool.find((w) => w.type === 'rest');
@@ -129,7 +147,7 @@ function buildOnce({ seed, stage, twist, budgetScale }) {
   //    spread through the stage, at most one per wave. Divers join from stage 3.
   const spare = makeRng(seed * 31 + stage + 777);
   const extraCount = Math.min(Math.floor(remaining / EXTRA_ENEMY_COST), picks.length);
-  const kinds = stage >= 3 ? ['straight', 'weave', 'dive'] : ['straight', 'weave'];
+  const kinds = [...(stage >= 3 ? ['straight', 'weave', 'dive'] : ['straight', 'weave']), ...(genreLevel >= 2 ? ['splitter'] : [])];
   const extras = spread(level, spare, 'straight', extraCount).map((ev, i) => ({ ...ev, kind: kinds[i % kinds.length] }));
   level.events.push(...extras);
   remaining -= extras.length * EXTRA_ENEMY_COST;

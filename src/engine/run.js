@@ -14,7 +14,7 @@
 // ---------- Upgrades ----------
 
 import { addPlays } from './progress.js';
-import { twistAt } from './content.js';
+import { twistAt, genreAt, stageRules } from './content.js';
 
 export const levelOf = (save, upgradeId) => save.upgrades[upgradeId] || 0;
 
@@ -76,7 +76,7 @@ export function makeRun(content, save, spinResult, lengthId, { practice = false 
     theme: spinResult.theme,
     genre: spinResult.genre,
     twist: spinResult.twist,
-    levels: { twist: 1, ...(spinResult.levels || {}) }, // the level picked at the machine for each reel
+    levels: { genre: 1, twist: 1, ...(spinResult.levels || {}) }, // the level picked at the machine for each reel
     glitch: !!spinResult.glitch,
     length: len.id,
     stages: len.stages,
@@ -102,6 +102,22 @@ export function afterStage(run, { cleared, coins = 0, livesLeft = 0 }) {
 
 export const runWon = (run) => run.cleared >= run.stages;
 
+// Everything a genre's generator and scene need for the run's current stage:
+// the twist's rules at its level, plus the genre's level, its power-up, and
+// whether a boss ends this stage (genre level 3: only the run's last stage).
+export function stageSetup(content, run) {
+  const genre = genreAt(content, run.genre, run.levels?.genre);
+  return {
+    seed: run.seed,
+    stage: run.stage,
+    twist: run.twist,
+    ...stageRules(content, run.twist, run.levels?.twist),
+    genreLevel: genre.level,
+    boss: !!genre.boss && run.stage >= run.stages,
+    powerUp: genre.powerUp,
+  };
+}
+
 // What a finished run pays. Returns { total, won, lines: [[label, amount], ...] }.
 export function payout(content, save, run) {
   const eco = content.economy;
@@ -113,6 +129,11 @@ export function payout(content, save, run) {
     const base = run.cleared * eco.stageTokens;
     const stagePay = Math.floor(base * run.multiplier);
     lines.push([`${run.cleared} STAGE${run.cleared === 1 ? '' : 'S'} x${run.multiplier}`, stagePay]);
+    // A genre level pays extra on a win: shown as its own line.
+    const genre = genreAt(content, run.genre, run.levels?.genre);
+    if (genre && genre.payout !== 1) {
+      lines.push([`${genre.short} LV${genre.level} x${genre.payout}`, Math.floor(stagePay * genre.payout) - stagePay]);
+    }
     // A twist can pay extra on a win (Sudden Death): shown as its own line.
     const twist = twistAt(content, run.twist, run.levels?.twist);
     if (twist?.payout && twist.payout !== 1) {

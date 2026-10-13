@@ -10,7 +10,7 @@
 // combination, a spin can never get stuck.
 
 import { makeRng } from '../gen/rng.js';
-import { whyIncompatible } from './content.js';
+import { whyIncompatible, SCREEN_CHARS } from './content.js';
 
 const REELS = ['theme', 'genre', 'twist'];
 
@@ -73,14 +73,17 @@ export function runTitle(content, run) {
   const t = content.themes[run.theme];
   const g = content.genres[run.genre];
   const tw = content.twists[run.twist];
-  const lv = run.levels?.twist > 1 ? ` LV${run.levels.twist}` : '';
-  return `${t.name} · ${g.short || g.name} · ${tw.short || tw.name}${lv}`;
+  const lv = (reel) => (run.levels?.[reel] > 1 ? ` LV${run.levels[reel]}` : '');
+  const rest = ` · ${g.short || g.name}${lv('genre')} · ${tw.short || tw.name}${lv('twist')}`;
+  // With both levels showing, a long theme name drops to its short one to fit.
+  const name = t.name.length + rest.length > SCREEN_CHARS ? t.short || t.name : t.name;
+  return `${name}${rest}`;
 }
 
 export function describeRun(content, run) {
   const t = content.themes[run.theme];
   const g = content.genres[run.genre];
   const tw = content.twists[run.twist];
-  const lv = run.levels?.twist > 1 ? ` (level ${run.levels.twist})` : '';
-  return `${t.name} · ${g.name} · ${tw.name}${lv}`;
+  const lv = (reel) => (run.levels?.[reel] > 1 ? ` (level ${run.levels[reel]})` : '');
+  return `${t.name} · ${g.name}${lv('genre')} · ${tw.name}${lv('twist')}`;
 }

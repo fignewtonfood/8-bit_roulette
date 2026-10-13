@@ -24,6 +24,8 @@ const UNLOCK_KEYS = ['runs', 'wins', 'tokensEarned', 'glitches', 'upgrade'];
 const ON_FAIL = ['consolation', 'partial'];
 // Objective twists change how a stage is won (see twists/collector.json).
 export const OBJECTIVES = ['collect', 'kill'];
+// The power-ups each genre's scene knows how to play (genres.json "powerUp").
+export const GENRE_POWER_UPS = { platformer: ['double-jump'], shmup: ['spread-shot'], brawler: ['power-fists'] };
 
 export function assembleContent({ reels, genres, themes, twists, compatibility, economy, shop, story }) {
   const errors = [];
@@ -31,9 +33,27 @@ export function assembleContent({ reels, genres, themes, twists, compatibility, 
 
   // Genres: strip the _help note, keep the rest.
   const genreMap = {};
+  const tooLongLater = [];
+  const maxLevels = (economy?.levels || []).length;
   for (const [id, g] of Object.entries(genres)) {
     if (id.startsWith('_')) continue;
-    if (!g.scene) fail(`genres.json: "${id}" needs a "scene".`);
+    const where = `genres.json: "${id}"`;
+    if (!g.scene) fail(`${where} needs a "scene".`);
+    if (!g.description) fail(`${where} needs a "description" (shown at the machine).`);
+    tooLongLater.push([`${where} description`, g.description || '']);
+    // Levels 2 and up add to the genre (each level keeps what the ones below it gave).
+    if (g.levels !== undefined) {
+      if (!Array.isArray(g.levels) || !g.levels.length) fail(`${where}: "levels" should be a list, one entry per level from level 2.`);
+      else if (g.levels.length > maxLevels) fail(`${where}: "levels" has ${g.levels.length} entries but economy.json only has ${maxLevels} level(s) above 1.`);
+      (g.levels || []).forEach((lv, i) => {
+        const at = `${where} level ${i + 2}`;
+        if (!(typeof lv.payout === 'number' && lv.payout > 0)) fail(`${at}: "payout" should be a number above 0.`);
+        if (!lv.description) fail(`${at} needs a "description" (shown at the machine).`);
+        if (lv.powerUp !== undefined && !GENRE_POWER_UPS[id]?.includes(lv.powerUp)) fail(`${at}: unknown powerUp "${lv.powerUp}" (options: ${(GENRE_POWER_UPS[id] || []).join(', ') || 'none for this genre'}).`);
+        if (lv.boss !== undefined && typeof lv.boss !== 'boolean') fail(`${at}: "boss" should be true or false.`);
+        tooLongLater.push([`${at} description`, lv.description || '']);
+      });
+    }
     genreMap[id] = { id, short: g.short || g.name || id, ...g };
   }
 
@@ -65,7 +85,6 @@ export function assembleContent({ reels, genres, themes, twists, compatibility, 
   }
 
   // Twists
-  const tooLongLater = [];
   for (const [id, tw] of Object.entries(twists)) {
     const file = `twists/${id}.json`;
     if (tw.id !== id) fail(`${file}: "id" should be "${id}" (it's "${tw.id}").`);
@@ -80,7 +99,6 @@ export function assembleContent({ reels, genres, themes, twists, compatibility, 
       if (!genreMap[g]) fail(`${file}: unknown genre "${g}".`);
     }
     // Levels 2 and up: each entry overrides settings for that level.
-    const maxLevels = (economy?.levels || []).length;
     if (tw.levels !== undefined) {
       if (!Array.isArray(tw.levels) || !tw.levels.length) fail(`${file}: "levels" should be a list, one entry per level from level 2.`);
       else if (tw.levels.length > maxLevels) fail(`${file}: "levels" has ${tw.levels.length} entries but economy.json only has ${maxLevels} level(s) above 1.`);
@@ -111,9 +129,12 @@ export function assembleContent({ reels, genres, themes, twists, compatibility, 
   for (const [id, tw] of Object.entries(twists)) tooLong(`twists/${id}.json: description`, tw.description || '');
   for (const [where, s] of tooLongLater) tooLong(where, s);
   const longest = (map) => Math.max(...Object.values(map).map((x) => (x.short || x.name || '').length));
-  // + 6 for the separators, + 4 for a twist level (" LV3")
-  const titleLen = Math.max(...Object.values(themes).map((t) => t.name.length)) + longest(genreMap) + longest(twists) + 10;
-  if (titleLen > SCREEN_CHARS) fail(`The longest theme name + genre short + twist short is ${titleLen} characters; it must fit in ${SCREEN_CHARS}. Shorten a "name" or "short".`);
+  // + 6 for the separators, + 4 each for a genre and a twist level (" LV3").
+  // The title uses the theme's name, or its short name when that's too long
+  // (see runTitle in spin.js), so the short name must always fit.
+  const themeShort = Math.max(...Object.values(themes).map((t) => (t.short || t.name).length));
+  const titleLen = themeShort + longest(genreMap) + longest(twists) + 14;
+  if (titleLen > SCREEN_CHARS) fail(`The longest theme short + genre short + twist short, with both levels, is ${titleLen} characters; it must fit in ${SCREEN_CHARS}. Shorten a "short".`);
 
   // Shop upgrades
   const upgrades = {};
@@ -242,6 +263,20 @@ export function twistAt(content, twistId, level = 1) {
   for (const g of Object.keys(tw.genres)) genres[g] = { ...tw.genres[g], ...(lv.genres?.[g] || {}) };
   return { ...tw, ...lv, genres, level };
 }
+
+// A genre as played at a level: level 1 as written, and each level above adds
+// its entry in "levels" on top (so level 3 keeps level 2's power-up).
+// { ...genre, payout, powerUp, boss, level }
+export function genreAt(content, genreId, level = 1) {
+  const g = content.genres[genreId];
+  if (!g) return g;
+  const out = { ...g, payout: 1, powerUp: null, boss: false, level: 1 };
+  (g.levels || []).slice(0, Math.max(0, level - 1)).forEach((lv, i) => Object.assign(out, lv, { level: i + 2 }));
+  return out;
+}
+
+// The highest level a genre has settings for (1 if it has no "levels").
+export const genreMaxLevel = (content, genreId) => 1 + (content.genres[genreId]?.levels?.length || 0);
 
 // The highest level a twist has settings for (1 if it has no "levels").
 export const twistMaxLevel = (content, twistId) => 1 + (content.twists[twistId]?.levels?.length || 0);

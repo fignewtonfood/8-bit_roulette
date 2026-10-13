@@ -3,9 +3,9 @@
 // mirroring), but each piece is a whole screen, and enemies belong to the
 // arena they lock you into. No Phaser in here, so it can be tested with Node.
 
-import { ARENAS, ARENA_W, ARENA_H, ENEMY_KINDS } from './arenas.js';
-import { fitsTwist } from './chunks.js';
-import { TWIST_WEIGHT } from './buildStage.js';
+import { ARENAS, BOSS_ARENAS, ARENA_W, ARENA_H, ENEMY_KINDS } from './arenas.js';
+import { fitsTwist, fitsLevel } from './chunks.js';
+import { tagWeight } from './buildStage.js';
 import { makeRng } from './rng.js';
 import { pacingFor, EXTRA_ENEMY_COST } from './pacing.js';
 import { findSpots } from './topUp.js';
@@ -27,9 +27,13 @@ const SLOT_RULES = {
 // twist: the run's twist id. Arenas tagged for other twists are left out.
 // minCoins (Collector): if the arenas bring fewer coins than that, extra ones
 // go on safe floor anywhere past the start arena (see topUp.js).
-export function buildBrawl({ seed, stage = 1, twist = null, minCoins = 0, budgetScale = 1 }) {
+// genreLevel: the brawler's level picked at the machine (arenas tagged with a
+// higher minLevel are left out; at level 2+ some extra enemies are shield
+// guards). powerUp: one per stage, in the first rest arena (or the start
+// arena if there's none). boss: true puts a boss arena before the exit.
+export function buildBrawl({ seed, stage = 1, twist = null, minCoins = 0, budgetScale = 1, genreLevel = 1, powerUp = null, boss = false }) {
   const rng = makeRng(seed * 31 + stage + 2000);
-  const usable = ARENAS.filter((a) => fitsTwist(a, twist));
+  const usable = ARENAS.filter((a) => fitsTwist(a, twist) && fitsLevel(a, genreLevel));
   const pool = usable.filter((a) => a.type !== 'start' && a.type !== 'exit');
   const slotMin = (slot) => Math.min(...pool.filter(SLOT_RULES[slot]).map((a) => a.difficulty));
   // budgetScale (Sudden Death levels): a bigger or smaller difficulty budget,
@@ -49,7 +53,7 @@ export function buildBrawl({ seed, stage = 1, twist = null, minCoins = 0, budget
 
     let pick = rng.weighted(affordable, (a) => {
       if (prev && a.id === prev.arena.id) return 0;
-      const rarity = (RARE_WEIGHT[a.type] ?? 1) * (a.twists ? TWIST_WEIGHT : 1);
+      const rarity = (RARE_WEIGHT[a.type] ?? 1) * tagWeight(a);
       return rarity / (1 + 3 * (timesUsed[a.id] || 0));
     });
     if (!pick) pick = pool.find((a) => a.type === 'rest'); // safe fallback, costs 0
@@ -60,12 +64,18 @@ export function buildBrawl({ seed, stage = 1, twist = null, minCoins = 0, budget
   });
 
   // 2. Lay the arenas out side by side.
-  const pickOne = (type) => rng.weighted(usable.filter((a) => a.type === type), (a) => (a.twists ? TWIST_WEIGHT : 1));
+  const pickOne = (type) => rng.weighted(usable.filter((a) => a.type === type), tagWeight);
   const sequence = [
     { arena: pickOne('start'), mirrored: false },
     ...picks,
     { arena: pickOne('exit'), mirrored: false },
   ];
+  // The boss arena goes just before the exit, with its own random numbers so
+  // the rest of the stage is the same with or without it.
+  if (boss) {
+    const room = BOSS_ARENAS[makeRng(seed * 31 + stage + 4321).int(0, BOSS_ARENAS.length - 1)];
+    sequence.splice(sequence.length - 1, 0, { arena: room, mirrored: false });
+  }
 
   const level = {
     seed,
@@ -83,12 +93,13 @@ export function buildBrawl({ seed, stage = 1, twist = null, minCoins = 0, budget
     // One entry per arena: where it starts (in tiles) and who's waiting in it.
     arenas: [],
     names: [],
+    powerUp: null, // { x, y, kind } or null
   };
   const optional = [];
 
   sequence.forEach(({ arena, mirrored }, ai) => {
     const x0 = ai * ARENA_W;
-    const room = { id: arena.id, x0, waves: [[], []] };
+    const room = { id: arena.id, x0, waves: [[], []], boss: arena.type === 'boss' };
     level.names.push(arena.id + (mirrored ? ' (mirrored)' : ''));
 
     const read = (rows, wave) => rows.forEach((row, y) => {
@@ -101,6 +112,7 @@ export function buildBrawl({ seed, stage = 1, twist = null, minCoins = 0, budget
           else if (ch === 'C') level.coins.push(pos);
           else if (ch === 'P') level.playerStart = pos;
           else if (ch === 'F') level.flag = pos;
+          else if (ch === 'K') room.waves[0].push({ ...pos, kind: 'boss' });
         }
         if (ENEMY_KINDS[ch]) room.waves[wave].push({ ...pos, kind: ENEMY_KINDS[ch] });
         else if (ENEMY_KINDS[ch.toUpperCase()]) optional.push({ room, wave, enemy: { ...pos, kind: ENEMY_KINDS[ch.toUpperCase()] } });
@@ -121,7 +133,7 @@ export function buildBrawl({ seed, stage = 1, twist = null, minCoins = 0, budget
   // 4. Still budget left (later stages, Sudden Death level 3): extra enemies
   //    join fight arenas, at most two per arena, in the first wave.
   const spare = makeRng(seed * 31 + stage + 777);
-  const fights = level.arenas.filter((r) => r.waves[0].length || r.waves[1].length);
+  const fights = level.arenas.filter((r) => !r.boss && (r.waves[0].length || r.waves[1].length));
   let budgetLeft = Math.floor(remaining / EXTRA_ENEMY_COST);
   for (let round = 0; round < 2 && budgetLeft > 0; round++) {
     for (const room of spare.shuffle(fights)) {
@@ -136,7 +148,8 @@ export function buildBrawl({ seed, stage = 1, twist = null, minCoins = 0, budget
         count: 1,
       });
       if (!spot) continue;
-      const kind = spare.weighted(['grunt', 'thrower', 'rusher'], (k) => (k === 'grunt' ? 2 : 1));
+      const kinds = genreLevel >= 2 ? ['grunt', 'thrower', 'rusher', 'shield'] : ['grunt', 'thrower', 'rusher'];
+      const kind = spare.weighted(kinds, (k) => (k === 'grunt' ? 2 : 1));
       room.waves[0].push({ ...spot, kind });
       remaining -= EXTRA_ENEMY_COST;
       budgetLeft--;
@@ -164,5 +177,14 @@ export function buildBrawl({ seed, stage = 1, twist = null, minCoins = 0, budget
     rng: makeRng(seed * 31 + stage + 2555),
     count: minCoins - level.coins.length,
   }));
+
+  // 5. The power-up (genre level 2+): in the first rest arena, so you get it
+  //    between fights, or the start arena if there's no rest.
+  if (powerUp) {
+    const home = level.arenas.find((r) => ARENAS.find((a) => a.id === r.id)?.type === 'rest' || ARENAS.find((a) => a.id === r.id)?.type === 'secret') || level.arenas[0];
+    const taken = [...level.coins, ...enemies, level.playerStart, level.flag].filter(Boolean);
+    const [spot] = findSpots({ solid: level.solid, spikes: level.spikes, taken, columns: [home.x0 + 2, home.x0 + ARENA_W - 2], rng: makeRng(seed * 31 + stage + 999), count: 1 });
+    if (spot) level.powerUp = { ...spot, kind: powerUp };
+  }
   return level;
 }

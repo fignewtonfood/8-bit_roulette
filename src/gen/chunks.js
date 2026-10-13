@@ -7,7 +7,9 @@
 //   .  empty            #  solid ground
 //   ^  spikes           C  coin (soul shard)
 //   E  enemy (always)   e  optional enemy (spawns only if the budget allows)
+//   H  hopper (always)  h  optional hopper     (genre level 2+ pieces only)
 //   P  player start     F  exit flag
+//   B  boss (boss rooms only; see BOSS_ROOMS at the bottom)
 //
 // Rules (checked automatically when the game loads):
 //   - every row is exactly 10 characters
@@ -33,6 +35,12 @@
 //   chunk('blind_drop', 'jump', 2, `...`, { notTwists: ['darkness'] }),
 //
 // A chunk can have one or the other, not both.
+//
+// Genre-level chunks: { minLevel: 2 } keeps a chunk out until the platformer
+// is played at level 2 or higher (picked at the machine). Hoppers (H, h) only
+// go in these. It combines with twists or notTwists:
+//
+//   chunk('hop_pit', 'combat', 2, `...`, { minLevel: 2, notTwists: ['darkness'] }),
 
 export const CHUNK_W = 10;
 export const CHUNK_H = 14;
@@ -46,10 +54,19 @@ export function checkDifficulty(what, difficulty) {
   }
 }
 
-// Checks a piece's twist tags and returns the ones it has, ready to attach.
-// Shared by chunks, waves (waves.js) and arenas (arenas.js).
-export function twistTags(what, { twists, notTwists }) {
+// The highest genre level (economy.json "levels" gives levels 2 and 3).
+export const MAX_GENRE_LEVEL = 3;
+
+// Checks a piece's twist and level tags and returns the ones it has, ready to
+// attach. Shared by chunks, waves (waves.js) and arenas (arenas.js).
+export function twistTags(what, { twists, notTwists, minLevel }) {
   const tags = {};
+  if (minLevel !== undefined) {
+    if (!Number.isInteger(minLevel) || minLevel < 2 || minLevel > MAX_GENRE_LEVEL) {
+      throw new Error(`${what}: "minLevel" should be 2 or ${MAX_GENRE_LEVEL} (leave it out for level 1).`);
+    }
+    tags.minLevel = minLevel;
+  }
   for (const [key, list] of [['twists', twists], ['notTwists', notTwists]]) {
     if (list === undefined) continue;
     if (!Array.isArray(list) || !list.length || list.some((t) => typeof t !== 'string')) {
@@ -80,8 +97,25 @@ function chunk(id, type, difficulty, art, tagOptions = {}) {
     throw new Error(`Chunk "${id}" must have solid ground at both edges of row ${GROUND_ROW} so it joins cleanly.`);
   }
   checkDifficulty(`Chunk "${id}"`, difficulty);
-  return { id, type, difficulty, rows, ...twistTags(`Chunk "${id}"`, tagOptions) };
+  const tags = twistTags(`Chunk "${id}"`, tagOptions);
+  checkLevelOnly(`Chunk "${id}"`, rows, 'Hh', 'hoppers', tags);
+  if (type !== 'boss' && rows.join('').includes('B')) throw new Error(`Chunk "${id}": "B" (boss) only goes in BOSS_ROOMS.`);
+  return { id, type, difficulty, rows, ...tags };
 }
+
+// New enemies from a genre level only go in pieces tagged with that level.
+export function checkLevelOnly(what, rows, chars, name, tags) {
+  if ((tags.minLevel ?? 1) >= 2) return;
+  if (rows.some((row) => [...row].some((ch) => chars.includes(ch)))) {
+    throw new Error(`${what} has ${name} (${[...chars].join(', ')}), which need { minLevel: 2 } so they only come at genre level 2+.`);
+  }
+}
+
+// Can this piece be used at this genre level? Untagged ones always can.
+export const fitsLevel = (piece, level = 1) => (piece.minLevel ?? 1) <= level;
+// Pieces new at a genre level show up a bit more often than the rest, so the
+// level feels different (see buildStage.js).
+export const LEVEL_WEIGHT = 1.5;
 
 // Can this chunk (or wave, or arena) be used with this twist? Untagged ones always can.
 export const fitsTwist = (piece, twist) =>
@@ -363,4 +397,74 @@ chunk('trap', 'combat', 3, `
     ...^.E..^.
     ##########
     ##########`, { twists: ['darkness'] }),
+
+  // --- genre level 2: hoppers (starter set; add your own) ---
+  // Hoppers bob up and down as they creep along, so the stomp is about timing.
+  chunk('hop_lane', 'combat', 2, `
+    ....C.C...
+    ..........
+    ..H....h..
+    ##########
+    ##########`, { minLevel: 2 }),
+
+  chunk('hop_steps', 'jump', 2, `
+    ........C.
+    .......###
+    ....H..###
+    ##########
+    ##########`, { minLevel: 2 }),
+
+  chunk('hop_pit', 'jump', 3, `
+    ....C.....
+    ..........
+    .H......H.
+    ###...####
+    ###...####`, { minLevel: 2, notTwists: ['darkness'] }),
+];
+
+// Boss rooms (genre level 3): a flat room two chunks wide that goes just
+// before the exit on the run's last stage. B marks where the boss starts.
+// The flag stays locked until the boss is down, and losing a life in the
+// room puts you back at its left edge, not the start of the stage.
+// Each room is [left chunk, right chunk]; both follow the same rules as
+// every chunk (10 wide, solid ground at both edges of row 12).
+const bossChunk = (id, art) => chunk(id, 'boss', 0, art);
+
+export const BOSS_ROOMS = [
+  [
+    bossChunk('boss_flat_l', `
+      ..........
+      ..........
+      ...###....
+      ..........
+      ..........
+      ##########
+      ##########`),
+    bossChunk('boss_flat_r', `
+      ..........
+      ..........
+      ....###...
+      ..........
+      .....B....
+      ##########
+      ##########`),
+  ],
+  [
+    bossChunk('boss_ledges_l', `
+      ..........
+      ..........
+      ..........
+      .......###
+      ..........
+      ##########
+      ##########`),
+    bossChunk('boss_ledges_r', `
+      ..........
+      ..........
+      ###.......
+      ..........
+      .......B..
+      ##########
+      ##########`),
+  ],
 ];

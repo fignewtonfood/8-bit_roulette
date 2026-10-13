@@ -14,7 +14,11 @@
 //   R  rusher: winds up, then charges across the floor (2 hits)
 //   T  thrower: keeps its distance and lobs rocks (2 hits)
 //   B  brute: slow, tough, hard to knock around (6 hits)
-//   lowercase g / r / t / b = optional enemy (spawns only if the budget allows)
+//   S  shield guard: blocks hits from the front; get behind it, or launch it
+//      (the third hit of the combo breaks its guard) (3 hits).
+//      Genre level 2+ arenas only; see minLevel below.
+//   K  the boss (boss arenas only; see BOSS_ARENAS at the bottom)
+//   lowercase g / r / t / b / s = optional enemy (spawns only if the budget allows)
 //
 // Reinforcements: add { reinforce: `...` } after the art to bring in a second
 // wave once only one enemy from the first is left. Draw only enemies and
@@ -35,13 +39,17 @@
 //
 // Twist-only arenas: add { twists: [...] } exactly like twist-only chunks.
 // { notTwists: [...] } does the opposite: every twist except those.
+//
+// Genre-level arenas: { minLevel: 2 } keeps an arena out until the brawler is
+// played at level 2 or higher, like genre-level chunks (see chunks.js).
+// Shield guards (S, s) only go in these, reinforcements included.
 
-import { twistTags, checkDifficulty } from './chunks.js';
+import { twistTags, checkDifficulty, checkLevelOnly } from './chunks.js';
 
 export const ARENA_W = 16;
 export const ARENA_H = 14;
 const GROUND_ROW = 12;
-export const ENEMY_KINDS = { G: 'grunt', R: 'rusher', T: 'thrower', B: 'brute' };
+export const ENEMY_KINDS = { G: 'grunt', R: 'rusher', T: 'thrower', B: 'brute', S: 'shield' };
 
 const FLOOR_ROWS = ARENA_H - (GROUND_ROW - 1) - 1; // rows below row 11
 
@@ -58,20 +66,23 @@ function padRows(id, label, art, { aboveFloor = false } = {}) {
   return rows;
 }
 
-function arena(id, type, difficulty, art, { twists, notTwists, reinforce } = {}) {
+function arena(id, type, difficulty, art, { twists, notTwists, minLevel, reinforce } = {}) {
   const rows = padRows(id, '', art);
+  if (type !== 'boss' && rows.join('').includes('K')) throw new Error(`Arena "${id}": "K" (boss) only goes in BOSS_ARENAS.`);
   const ground = rows[GROUND_ROW];
   if (ground[0] !== '#' || ground[ARENA_W - 1] !== '#') {
     throw new Error(`Arena "${id}" must have solid ground at both edges of row ${GROUND_ROW} so it joins cleanly.`);
   }
   checkDifficulty(`Arena "${id}"`, difficulty);
-  const out = { id, type, difficulty, rows, ...twistTags(`Arena "${id}"`, { twists, notTwists }) };
+  const out = { id, type, difficulty, rows, ...twistTags(`Arena "${id}"`, { twists, notTwists, minLevel }) };
+  checkLevelOnly(`Arena "${id}"`, rows, 'Ss', 'shield guards', out);
   if (reinforce !== undefined) {
     out.reinforce = padRows(id, ' reinforcements', reinforce, { aboveFloor: true });
     out.reinforce.forEach((row, y) => {
       const bad = [...row].find((ch) => ch !== '.' && !ENEMY_KINDS[ch.toUpperCase()]);
       if (bad) throw new Error(`Arena "${id}" reinforcements row ${y}: "${bad}" isn't allowed; only enemies and dots.`);
     });
+    checkLevelOnly(`Arena "${id}" reinforcements`, out.reinforce, 'Ss', 'shield guards', out);
   }
   return out;
 }
@@ -278,4 +289,50 @@ export const ARENAS = [
     reinforce: `
     .......T........`,
   }),
+
+  // --- genre level 2: shield guards (starter set; add your own) ---
+  // Jump over a guard to hit it from behind, or open with jab, jab, launcher.
+  arena('shield_wall', 'fight', 2, `
+    ................
+    ......S...g.....
+    ################
+    ################`, { minLevel: 2 }),
+
+  arena('shield_ledges', 'fight', 3, `
+    ................
+    ..T..........T..
+    #####......#####
+    ................
+    .......S........
+    ################
+    ################`, { minLevel: 2 }),
+
+  arena('phalanx', 'fight', 4, `
+    ................
+    ...S..G...S.....
+    ################
+    ################`, {
+    minLevel: 2,
+    reinforce: `
+    ..s.........R...`,
+  }),
+];
+
+// Boss arenas (genre level 3): one goes just before the exit on the run's
+// last stage. K marks where the boss stands. It locks like any fight and
+// opens when the boss is down. Same rules as every arena.
+export const BOSS_ARENAS = [
+  arena('throne', 'boss', 0, `
+    ................
+    ............K...
+    ################
+    ################`),
+
+  arena('throne_steps', 'boss', 0, `
+    ................
+    ................
+    ###..........###
+    ...........K....
+    ################
+    ################`),
 ];

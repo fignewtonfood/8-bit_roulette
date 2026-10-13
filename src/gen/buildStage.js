@@ -1,7 +1,7 @@
 // Turns a seed into a playable stage by stitching chunks together.
 // No Phaser in here on purpose: it can be tested with plain Node (npm run check).
 
-import { CHUNKS, CHUNK_W, CHUNK_H, fitsTwist } from './chunks.js';
+import { CHUNKS, BOSS_ROOMS, CHUNK_W, CHUNK_H, fitsTwist, fitsLevel, LEVEL_WEIGHT } from './chunks.js';
 import { makeRng } from './rng.js';
 import { pacingFor, EXTRA_ENEMY_COST } from './pacing.js';
 import { findSpots } from './topUp.js';
@@ -24,13 +24,21 @@ const SLOT_RULES = {
   rest: (c) => c.type === 'rest' || c.type === 'secret',
 };
 
+// The weight a piece gets from its tags: twist-only and new-at-this-level
+// pieces show up more often. Shared by all three generators.
+export const tagWeight = (piece) => (piece.twists ? TWIST_WEIGHT : 1) * (piece.minLevel ? LEVEL_WEIGHT : 1);
+
 // twist: the run's twist id. Chunks tagged for other twists are left out.
+// genreLevel: the platformer's level picked at the machine. Chunks tagged with
+// a higher minLevel are left out. At level 2+ some extra enemies are hoppers.
+// powerUp: the genre level's power-up id (or null); one is placed per stage.
+// boss: true puts a boss room before the exit (genre level 3, last stage).
 // minCoins / minEnemies (Collector / Killer): if the chunks bring fewer than
 // that, unused optional enemy spots fill in first, then extra coins/enemies go
 // on safe floor (see topUp.js). Normal stages pass 0 and are unaffected.
-export function buildStage({ seed, stage = 1, twist = null, minCoins = 0, minEnemies = 0, budgetScale = 1 }) {
+export function buildStage({ seed, stage = 1, twist = null, minCoins = 0, minEnemies = 0, budgetScale = 1, genreLevel = 1, powerUp = null, boss = false }) {
   const rng = makeRng(seed * 31 + stage);
-  const usable = CHUNKS.filter((c) => fitsTwist(c, twist));
+  const usable = CHUNKS.filter((c) => fitsTwist(c, twist) && fitsLevel(c, genreLevel));
   const pool = usable.filter((c) => c.type !== 'start' && c.type !== 'exit');
   const slotMin = (slot) => Math.min(...pool.filter(SLOT_RULES[slot]).map((c) => c.difficulty));
   // budgetScale (Sudden Death levels): a bigger or smaller difficulty budget,
@@ -51,7 +59,7 @@ export function buildStage({ seed, stage = 1, twist = null, minCoins = 0, minEne
 
     let chunk = rng.weighted(affordable, (c) => {
       if (prev && c.id === prev.chunk.id) return 0;            // never twice in a row
-      const rarity = (RARE_WEIGHT[c.type] ?? 1) * (c.twists ? TWIST_WEIGHT : 1);
+      const rarity = (RARE_WEIGHT[c.type] ?? 1) * tagWeight(c);
       return rarity / (1 + 3 * (timesUsed[c.id] || 0));         // fade out repeats
     });
     if (!chunk) chunk = pool.filter((c) => c.type === 'rest')[0]; // safe fallback, costs 0
@@ -62,12 +70,18 @@ export function buildStage({ seed, stage = 1, twist = null, minCoins = 0, minEne
   });
 
   // 2. Lay the chunks out side by side.
-  const pickOne = (type) => rng.weighted(usable.filter((c) => c.type === type), (c) => (c.twists ? TWIST_WEIGHT : 1));
+  const pickOne = (type) => rng.weighted(usable.filter((c) => c.type === type), tagWeight);
   const sequence = [
     { chunk: pickOne('start'), mirrored: false },
     ...picks,
     { chunk: pickOne('exit'), mirrored: false },
   ];
+  // The boss room goes just before the exit. Its own random numbers, so the
+  // rest of the stage is the same with or without it.
+  if (boss) {
+    const room = BOSS_ROOMS[makeRng(seed * 31 + stage + 4321).int(0, BOSS_ROOMS.length - 1)];
+    sequence.splice(sequence.length - 1, 0, ...room.map((chunk) => ({ chunk, mirrored: false })));
+  }
 
   const level = {
     seed,
@@ -84,6 +98,9 @@ export function buildStage({ seed, stage = 1, twist = null, minCoins = 0, minEne
     playerStart: null,
     flag: null,
     chunks: [],
+    powerUp: null,  // { x, y, kind } or null
+    boss: null,     // { x, y } where the boss starts, or null
+    bossRoom: null, // { x0, x1 } tile columns of the boss room
   };
   const optionalEnemies = [];
 
@@ -96,12 +113,19 @@ export function buildStage({ seed, stage = 1, twist = null, minCoins = 0, minEne
         level.solid[y][pos.x] = ch === '#';
         if (ch === '^') level.spikes.push(pos);
         else if (ch === 'C') level.coins.push(pos);
-        else if (ch === 'E') level.enemies.push(pos);
-        else if (ch === 'e') optionalEnemies.push(pos);
+        else if (ch === 'E') level.enemies.push({ ...pos, kind: 'walker' });
+        else if (ch === 'e') optionalEnemies.push({ ...pos, kind: 'walker' });
+        else if (ch === 'H') level.enemies.push({ ...pos, kind: 'hopper' });
+        else if (ch === 'h') optionalEnemies.push({ ...pos, kind: 'hopper' });
         else if (ch === 'P') level.playerStart = pos;
         else if (ch === 'F') level.flag = pos;
+        else if (ch === 'B') level.boss = pos;
       });
     });
+    if (chunk.type === 'boss') {
+      const x0 = ci * CHUNK_W;
+      level.bossRoom = { x0: level.bossRoom?.x0 ?? x0, x1: x0 + CHUNK_W };
+    }
   });
 
   // 3. Spend leftover budget on optional enemies.
@@ -123,7 +147,7 @@ export function buildStage({ seed, stage = 1, twist = null, minCoins = 0, minEne
     rng: spare,
     wide: true,
     count: extraCount,
-  });
+  }).map((pos, i) => ({ ...pos, kind: genreLevel >= 2 && i % 3 === 2 ? 'hopper' : 'walker' }));
   level.enemies.push(...extras);
   remaining -= extras.length * EXTRA_ENEMY_COST;
 
@@ -136,11 +160,22 @@ export function buildStage({ seed, stage = 1, twist = null, minCoins = 0, minEne
     if (level.enemies.length >= minEnemies) break;
     level.enemies.push(pos);
   }
-  const columns = [CHUNK_W, level.widthTiles - CHUNK_W]; // not in the start or exit chunk
+  // Not in the start or exit chunk, or the boss room.
+  const columns = [CHUNK_W, level.bossRoom ? level.bossRoom.x0 : level.widthTiles - CHUNK_W];
   const taken = () => [...level.coins, ...level.enemies, level.playerStart, level.flag];
   // Walkers want room to patrol; only if that runs out do narrower spots get used.
-  level.enemies.push(...findSpots({ solid: level.solid, spikes: level.spikes, taken: taken(), columns, rng: extra, wide: true, count: minEnemies - level.enemies.length }));
-  level.enemies.push(...findSpots({ solid: level.solid, spikes: level.spikes, taken: taken(), columns, rng: extra, count: minEnemies - level.enemies.length }));
+  const walkers = (spots) => spots.map((pos) => ({ ...pos, kind: 'walker' }));
+  level.enemies.push(...walkers(findSpots({ solid: level.solid, spikes: level.spikes, taken: taken(), columns, rng: extra, wide: true, count: minEnemies - level.enemies.length })));
+  level.enemies.push(...walkers(findSpots({ solid: level.solid, spikes: level.spikes, taken: taken(), columns, rng: extra, count: minEnemies - level.enemies.length })));
   level.coins.push(...findSpots({ solid: level.solid, spikes: level.spikes, taken: taken(), columns, rng: extra, count: minCoins - level.coins.length }));
+
+  // 6. The power-up (genre level 2+): somewhere in the first half of the
+  //    stage, so there's plenty of stage left to use it in.
+  if (powerUp) {
+    const half = [CHUNK_W, Math.max(CHUNK_W * 2, Math.floor(columns[1] / 2))];
+    const [spot] = findSpots({ solid: level.solid, spikes: level.spikes, taken: taken(), columns: half, rng: makeRng(seed * 31 + stage + 999), count: 1 })
+      .concat(findSpots({ solid: level.solid, spikes: level.spikes, taken: taken(), columns, rng: makeRng(seed * 31 + stage + 998), count: 1 }));
+    if (spot) level.powerUp = { ...spot, kind: powerUp };
+  }
   return level;
 }
