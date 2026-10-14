@@ -3,6 +3,8 @@
 // and 3 it swaps to a new direction every mods.shiftEvery seconds, and the
 // arrow blinks for the last second before a swap. The strength never changes.
 // Directions come from the run's seed, so a replayed seed swaps the same way.
+// dirs: which ways it can point (the racer only uses down and up: heavier
+// or lighter jumps); it always starts on the first one.
 
 import Phaser from 'phaser';
 import { GRAVITY_DIRS } from '../engine/speed.js';
@@ -11,7 +13,7 @@ import { makeRng } from '../gen/rng.js';
 const WARN = 1; // seconds of blinking before a swap
 const ANGLE = { down: 90, left: 180, up: 270, right: 0 }; // the arrow is drawn pointing right
 
-export function addGravity(scene, mods, color, seed) {
+export function addGravity(scene, mods, color, seed, dirs = Object.keys(GRAVITY_DIRS)) {
   if (!mods.pull) return null;
   if (!scene.textures.exists('gravity-arrow')) {
     const g = scene.add.graphics();
@@ -24,14 +26,14 @@ export function addGravity(scene, mods, color, seed) {
     .setTint(Phaser.Display.Color.HexStringToColor(color).color)
     .setScrollFactor(0)
     .setDepth(10);
-  const grav = { name: 'down', left: mods.shiftEvery || Infinity };
+  const grav = { name: dirs[0], left: mods.shiftEvery || Infinity };
   const point = () => arrow.setAngle(ANGLE[grav.name]);
 
   grav.vector = () => GRAVITY_DIRS[grav.name].map((n) => n * mods.pull);
   grav.update = (dt) => {
     grav.left -= dt;
     if (grav.left <= 0) {
-      const others = Object.keys(GRAVITY_DIRS).filter((d) => d !== grav.name);
+      const others = dirs.filter((d) => d !== grav.name);
       grav.name = others[Math.floor(rng.next() * others.length)];
       grav.left += mods.shiftEvery;
       point();

@@ -1,5 +1,5 @@
 {
-  "_help": "Base genres. A genre is the one part that needs real code: 'scene' is the Phaser scene that plays it. description: shown at the machine. levels: what level 2 and 3 add, picked at the machine like twist levels. Each level keeps what the levels below it gave. payout: multiplies the stage tokens on a win (shown as its own line, like a twist's). powerUp: one pickup per stage (platformer: double-jump, shmup: spread-shot, brawler: power-fists). boss: true puts a boss at the end of the run's last stage. New enemies and pieces come from the chunks, waves and arenas tagged { minLevel: 2 } (see chunks.js).",
+  "_help": "Base genres. A genre is the one part that needs real code: 'scene' is the Phaser scene that plays it. description: shown at the machine. levels: what level 2 and 3 add, picked at the machine like twist levels. Each level keeps what the levels below it gave. payout: multiplies the stage tokens on a win (shown as its own line, like a twist's). powerUp: one pickup per stage (platformer: double-jump, shmup: spread-shot, brawler: power-fists, racer: nitro). boss: true puts a boss at the end of the run's last stage. New enemies and pieces come from the chunks, waves and arenas tagged { minLevel: 2 } (see chunks.js).",
   "platformer": {
     "name": "Platformer",
     "short": "PLATFORM",
@@ -28,6 +28,16 @@
     "levels": [
       { "description": "Shield guards, and power fists. x1.25.", "payout": 1.25, "powerUp": "power-fists" },
       { "description": "A boss waits in the last arena. x1.5.", "payout": 1.5, "boss": true }
+    ]
+  },
+  "racer": {
+    "name": "Racing",
+    "short": "RACING",
+    "scene": "Race",
+    "description": "Race to the flag before time runs out.",
+    "levels": [
+      { "description": "Rammers, and nitro. x1.25.", "payout": 1.25, "powerUp": "nitro" },
+      { "description": "A champion races you on a loop. x1.5.", "payout": 1.5, "boss": true }
     ]
   }
 }

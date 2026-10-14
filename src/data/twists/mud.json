@@ -3,11 +3,12 @@
   "name": "Mud",
   "short": "MUD",
   "description": "Slow going on foot. Jumps are normal.",
-  "_help": "runScale: your speed on the ground (platformer, brawler); in the air you move at normal speed, so jumps are as high and as long as usual. shipScale: your ship (shmup), kept higher than runScale so every shmup stays dodgeable (npm run check:shmup checks this). Enemies are not slowed. levels: settings for level 2 and 3, picked at the machine.",
+  "_help": "runScale: your speed on the ground (platformer, brawler); in the air you move at normal speed, so jumps are as high and as long as usual. shipScale: your ship (shmup), kept higher than runScale so every shmup stays dodgeable (npm run check:shmup checks this). Racer: runScale is your speed on the ground; in the air you keep normal speed, so jumps are as long as usual. Rivals never ride faster than you can, so you always catch them. Enemies are not slowed. levels: settings for level 2 and 3, picked at the machine.",
   "genres": {
     "platformer": { "runScale": 0.7 },
     "shmup": { "shipScale": 0.8 },
-    "brawler": { "runScale": 0.7 }
+    "brawler": { "runScale": 0.7 },
+    "racer": { "runScale": 0.7 }
   },
   "levels": [
     {
@@ -16,7 +17,8 @@
       "genres": {
         "platformer": { "runScale": 0.55 },
         "shmup": { "shipScale": 0.7 },
-        "brawler": { "runScale": 0.55 }
+        "brawler": { "runScale": 0.55 },
+        "racer": { "runScale": 0.55 }
       }
     },
     {
@@ -25,7 +27,8 @@
       "genres": {
         "platformer": { "runScale": 0.45 },
         "shmup": { "shipScale": 0.6 },
-        "brawler": { "runScale": 0.45 }
+        "brawler": { "runScale": 0.45 },
+        "racer": { "runScale": 0.45 }
       }
     }
   ]

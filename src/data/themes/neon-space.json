@@ -36,7 +36,8 @@
         "names": {
           "double-jump": "THRUSTER JUMP",
           "spread-shot": "PLASMA SPREAD",
-          "power-fists": "ION FISTS"
+          "power-fists": "ION FISTS",
+          "nitro": "PLASMA NITRO"
         }
       },
       "boss": {
@@ -80,7 +81,8 @@
         "names": {
           "double-jump": "WARP JUMP",
           "spread-shot": "NOVA SPREAD",
-          "power-fists": "QUASAR FISTS"
+          "power-fists": "QUASAR FISTS",
+          "nitro": "WARP NITRO"
         }
       },
       "boss": {

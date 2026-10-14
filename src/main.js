@@ -6,6 +6,7 @@ import SpinScene from './scenes/SpinScene.js';
 import StageScene from './scenes/StageScene.js';
 import ShmupScene from './scenes/ShmupScene.js';
 import BrawlScene from './scenes/BrawlScene.js';
+import RaceScene from './scenes/RaceScene.js';
 import ResultScene from './scenes/ResultScene.js';
 
 const params = new URLSearchParams(window.location.search);
@@ -26,7 +27,7 @@ const game = new Phaser.Game({
     default: 'arcade',
     arcade: { gravity: { y: 800 }, debug: params.has('debug') }, // ?debug shows hitboxes
   },
-  scene: [BootScene, HubScene, ShopScene, SpinScene, StageScene, ShmupScene, BrawlScene, ResultScene],
+  scene: [BootScene, HubScene, ShopScene, SpinScene, StageScene, ShmupScene, BrawlScene, RaceScene, ResultScene],
 });
 
 // Pixel-perfect scaling: every game pixel becomes a whole number of screen

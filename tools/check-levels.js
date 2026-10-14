@@ -16,9 +16,11 @@
 import { buildStage } from '../src/gen/buildStage.js';
 import { buildShmup } from '../src/gen/buildShmup.js';
 import { buildBrawl } from '../src/gen/buildBrawl.js';
+import { buildRace } from '../src/gen/buildRace.js';
 import { CHUNKS } from '../src/gen/chunks.js';
 import { WAVES } from '../src/gen/waves.js';
 import { ARENAS } from '../src/gen/arenas.js';
+import { TRACKS } from '../src/gen/tracks.js';
 import { loadContent } from './load-content.js';
 import { genreAt, genreMaxLevel, themeAt, themeMaxLevel, stageRules, SCREEN_CHARS, POWER_NAME_CHARS, BOSS_NAME_CHARS } from '../src/engine/content.js';
 import { hazardCount } from '../src/engine/hazardTiming.js';
@@ -78,6 +80,22 @@ const GENRES = {
     },
     coins: (lvl) => lvl.coins.length,
     foes: () => Infinity, // Killer isn't offered on the brawler
+  },
+  racer: {
+    build: buildRace,
+    pieces: TRACKS,
+    used: (lvl) => lvl.names,
+    newKind: 'rammer',
+    kinds: (lvl) => lvl.rivals.map((r) => r.kind),
+    // One rival carries it, in the first half of the stage (or the first rival).
+    hasPower: (lvl) => {
+      const carriers = lvl.rivals.filter((r) => r.carrier);
+      return !!lvl.powerUp && carriers.length === 1 && (carriers[0].x < lvl.flag.x / 2 || carriers[0] === lvl.rivals[0]);
+    },
+    // The boss loop sits just before the exit, with the champion in it.
+    hasBoss: (lvl) => !!lvl.bossLoop && lvl.pieces[lvl.pieces.length - 2].type === 'boss' && lvl.boss.x >= lvl.bossLoop.x0 && lvl.boss.x < lvl.bossLoop.x0 + lvl.bossLoop.w,
+    coins: (lvl) => lvl.coins.length,
+    foes: (lvl) => lvl.rivals.length,
   },
 };
 

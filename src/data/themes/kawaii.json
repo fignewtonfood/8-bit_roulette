@@ -36,7 +36,8 @@
         "names": {
           "double-jump": "BUNNY HOP",
           "spread-shot": "STAR SPREAD",
-          "power-fists": "KITTY PAWS"
+          "power-fists": "KITTY PAWS",
+          "nitro": "SUGAR RUSH"
         }
       },
       "boss": {
@@ -80,7 +81,8 @@
         "names": {
           "double-jump": "CLOUD HOP",
           "spread-shot": "CANDY SPREAD",
-          "power-fists": "MOCHI PUNCH"
+          "power-fists": "MOCHI PUNCH",
+          "nitro": "CANDY NITRO"
         }
       },
       "boss": {

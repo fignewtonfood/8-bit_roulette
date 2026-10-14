@@ -3,11 +3,12 @@
   "name": "Low Gravity",
   "short": "LOW-G",
   "description": "Floaty jumps. Ships drift.",
-  "_help": "gravityScale: 1 = normal, 0.5 = half gravity. jumpScale shrinks the jump so it stays floaty instead of sky-high. shipResponse: how fast the ship reaches full speed (higher = snappier, 0 = never). Brawler uses the platformer settings; launched enemies hang in the air longer, so juggles get easy. levels: settings for level 2 and 3, picked at the machine once reached; each can change any setting above plus description, payout (and minimum on Collector/Killer).",
+  "_help": "gravityScale: 1 = normal, 0.5 = half gravity. jumpScale shrinks the jump so it stays floaty instead of sky-high. shipResponse: how fast the ship reaches full speed (higher = snappier, 0 = never). Racer: hops and ramp launches both use them, so every jump flies higher, further and slower. Brawler uses the platformer settings; launched enemies hang in the air longer, so juggles get easy. levels: settings for level 2 and 3, picked at the machine once reached; each can change any setting above plus description, payout (and minimum on Collector/Killer).",
   "genres": {
     "platformer": { "gravityScale": 0.5, "jumpScale": 0.75 },
     "shmup": { "shipResponse": 3 },
-    "brawler": { "gravityScale": 0.5, "jumpScale": 0.75 }
+    "brawler": { "gravityScale": 0.5, "jumpScale": 0.75 },
+    "racer": { "gravityScale": 0.55, "jumpScale": 0.8 }
   },
   "levels": [
     {
@@ -16,7 +17,8 @@
       "genres": {
         "platformer": { "gravityScale": 0.4, "jumpScale": 0.7 },
         "shmup": { "shipResponse": 2.2 },
-        "brawler": { "gravityScale": 0.4, "jumpScale": 0.7 }
+        "brawler": { "gravityScale": 0.4, "jumpScale": 0.7 },
+        "racer": { "gravityScale": 0.45, "jumpScale": 0.75 }
       }
     },
     {
@@ -25,7 +27,8 @@
       "genres": {
         "platformer": { "gravityScale": 0.3, "jumpScale": 0.62 },
         "shmup": { "shipResponse": 1.5 },
-        "brawler": { "gravityScale": 0.3, "jumpScale": 0.62 }
+        "brawler": { "gravityScale": 0.3, "jumpScale": 0.62 },
+        "racer": { "gravityScale": 0.35, "jumpScale": 0.68 }
       }
     }
   ]

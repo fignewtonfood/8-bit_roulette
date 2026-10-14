@@ -1,10 +1,11 @@
 // Placeholder sprites for what genre levels add: the level 2 enemies, the
-// power-ups and the level 3 bosses, for all three genres. Drawn from the
+// power-ups and the level 3 bosses, for every genre. Drawn from the
 // theme palette like the rest (see placeholder.js). Enemies and bosses face
 // right; the scenes flip them.
 
 import Phaser from 'phaser';
 import { tex } from './placeholder.js';
+import { drawBike } from './racePlaceholder.js';
 
 const toColor = (hex) => Phaser.Display.Color.HexStringToColor(hex).color;
 
@@ -31,6 +32,8 @@ export function makeLevelTextures(scene, theme) {
   capsule('power-spread-shot', () => g.fillRect(2, 2, 2, 2).fillRect(4, 3, 2, 2).fillRect(6, 2, 2, 2).fillRect(4, 6, 2, 2));
   // Power fists: a fist
   capsule('power-power-fists', () => g.fillRect(2, 3, 6, 4).fillRect(7, 4, 1, 3));
+  // Nitro: a lightning bolt
+  capsule('power-nitro', () => g.fillRect(5, 2, 2, 2).fillRect(4, 4, 2, 1).fillRect(3, 5, 4, 1).fillRect(5, 6, 2, 1).fillRect(4, 7, 2, 1));
 
   // ---- Powered-up player looks: the normal sprite plus the power-up's colour
   // (the coin colour), so you can tell at a glance. Same size as the normal
@@ -50,6 +53,22 @@ export function makeLevelTextures(scene, theme) {
   g.fillStyle(toColor(p.sky)).fillRect(5, 6, 2, 3);
   g.fillStyle(toColor(p.coin)).fillRect(0, 7, 2, 5).fillRect(10, 7, 2, 5).fillRect(5, 0, 2, 2);
   g.generateTexture(tex(theme, 'ship-spread-shot'), 12, 12).clear();
+  // Nitro (20x14): the bike with a glowing stripe and an exhaust flame
+  drawBike(g, p, p.player, { trim: p.coin, flame: p.coin });
+  g.generateTexture(tex(theme, 'bike-nitro'), 20, 14).clear();
+
+  // ---- Racing: rammer (20x14), a rival bike with a ram on the front
+  drawBike(g, p, p.enemy, { trim: p.groundTop });
+  g.fillStyle(toColor(p.groundTop)).fillRect(17, 3, 3, 6).fillRect(19, 2, 1, 8);
+  g.generateTexture(tex(theme, 'rammer'), 20, 14).clear();
+
+  // ---- Racing boss (26x20): the champion, a big bike with a crown
+  g.fillStyle(toColor(p.groundDark)).fillCircle(5, 15, 5).fillCircle(21, 15, 5);
+  g.fillStyle(toColor(p.text)).fillRect(4, 14, 2, 2).fillRect(20, 14, 2, 2);
+  g.fillStyle(toColor(p.enemy)).fillRect(5, 10, 16, 3).fillRect(9, 3, 6, 8).fillRect(15, 6, 5, 2).fillRect(19, 7, 2, 4);
+  g.fillStyle(toColor(p.coin)).fillTriangle(9, 3, 10, 0, 12, 3).fillTriangle(12, 3, 14, 0, 15, 3).fillRect(5, 10, 16, 1);
+  eyes(p.sky, 13, 5);
+  g.generateTexture(tex(theme, 'rboss'), 26, 20).clear();
 
   // ---- Brawler: jumper (12x13), a crouched body on a spring (stages 4-5)
   g.fillStyle(toColor(p.enemy)).fillRect(1, 1, 10, 8);

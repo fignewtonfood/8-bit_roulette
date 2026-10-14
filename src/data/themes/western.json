@@ -36,7 +36,8 @@
         "names": {
           "double-jump": "SPUR JUMP",
           "spread-shot": "SCATTERGUN",
-          "power-fists": "BRASS KNUCKLES"
+          "power-fists": "BRASS KNUCKLES",
+          "nitro": "GIDDY-UP"
         }
       },
       "boss": {
@@ -80,7 +81,8 @@
         "names": {
           "double-jump": "RODEO JUMP",
           "spread-shot": "GATLING SPREAD",
-          "power-fists": "IRON KNUCKLES"
+          "power-fists": "IRON KNUCKLES",
+          "nitro": "GOLD FEVER"
         }
       },
       "boss": {

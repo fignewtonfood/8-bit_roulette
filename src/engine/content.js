@@ -25,7 +25,7 @@ const ON_FAIL = ['consolation', 'partial'];
 // Objective twists change how a stage is won (see twists/collector.json).
 export const OBJECTIVES = ['collect', 'kill'];
 // The power-ups each genre's scene knows how to play (genres.json "powerUp").
-export const GENRE_POWER_UPS = { platformer: ['double-jump'], shmup: ['spread-shot'], brawler: ['power-fists'] };
+export const GENRE_POWER_UPS = { platformer: ['double-jump'], shmup: ['spread-shot'], brawler: ['power-fists'], racer: ['nitro'] };
 // Theme levels (themes/<id>.json "levels"). Every genre plays every hazard
 // kind (src/ui/hazards.js) and every perk (src/ui/perks.js).
 //   float   drifts toward you through walls, then fades

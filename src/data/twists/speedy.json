@@ -3,11 +3,12 @@
   "name": "Speedy",
   "short": "SPEEDY",
   "description": "You and every enemy move faster.",
-  "_help": "runScale: your speed on the ground (platformer, brawler). shipScale: your ship (shmup). enemyScale: every enemy, and enemy shots in the shmup (brawler enemies also recover faster, but wind-ups stay readable). Jumps are never changed: in the air you move at normal speed. levels: settings for level 2 and 3, picked at the machine.",
+  "_help": "runScale: your speed on the ground (platformer, brawler). shipScale: your ship (shmup). Racer: runScale is your speed on the ground, enemyScale every rival. enemyScale: every enemy, and enemy shots in the shmup (brawler enemies also recover faster, but wind-ups stay readable). Jumps are never changed: in the air you move at normal speed. levels: settings for level 2 and 3, picked at the machine.",
   "genres": {
     "platformer": { "runScale": 1.3, "enemyScale": 1.3 },
     "shmup": { "shipScale": 1.3, "enemyScale": 1.3 },
-    "brawler": { "runScale": 1.3, "enemyScale": 1.3 }
+    "brawler": { "runScale": 1.3, "enemyScale": 1.3 },
+    "racer": { "runScale": 1.25, "enemyScale": 1.25 }
   },
   "levels": [
     {
@@ -16,7 +17,8 @@
       "genres": {
         "platformer": { "runScale": 1.45, "enemyScale": 1.5 },
         "shmup": { "shipScale": 1.45, "enemyScale": 1.5 },
-        "brawler": { "runScale": 1.45, "enemyScale": 1.5 }
+        "brawler": { "runScale": 1.45, "enemyScale": 1.5 },
+        "racer": { "runScale": 1.35, "enemyScale": 1.4 }
       }
     },
     {
@@ -25,7 +27,8 @@
       "genres": {
         "platformer": { "runScale": 1.6, "enemyScale": 1.75 },
         "shmup": { "shipScale": 1.6, "enemyScale": 1.75 },
-        "brawler": { "runScale": 1.6, "enemyScale": 1.75 }
+        "brawler": { "runScale": 1.6, "enemyScale": 1.75 },
+        "racer": { "runScale": 1.45, "enemyScale": 1.55 }
       }
     }
   ]

@@ -3,11 +3,12 @@
   "name": "Slippery",
   "short": "SLIPPERY",
   "description": "Ice everywhere. Slow to start and stop.",
-  "_help": "Grip is how fast you reach the speed you're pushing for, per second (higher = less slippery). Platformer: groundGrip on the ground, airGrip in the air. Shmup: shipGrip while you're steering, shipStop when you let go (low = you keep sliding). Brawler: groundGrip/airGrip like the platformer, enemyGrip for enemies walking, knockbackGrip for how fast a punched enemy stops sliding (normal is 8; low = they slide off ledges).",
+  "_help": "Grip is how fast you reach the speed you're pushing for, per second (higher = less slippery). Platformer: groundGrip on the ground, airGrip in the air. Shmup: shipGrip while you're steering, shipStop when you let go (low = you keep sliding). Racer: grip multiplies how fast you speed up and brake (low = wheels spin and you skid toward the edge). Brawler: groundGrip/airGrip like the platformer, enemyGrip for enemies walking, knockbackGrip for how fast a punched enemy stops sliding (normal is 8; low = they slide off ledges).",
   "genres": {
     "platformer": { "groundGrip": 2.5, "airGrip": 6 },
     "shmup": { "shipGrip": 8, "shipStop": 1.2 },
-    "brawler": { "groundGrip": 2.5, "airGrip": 6, "enemyGrip": 2, "knockbackGrip": 1.2 }
+    "brawler": { "groundGrip": 2.5, "airGrip": 6, "enemyGrip": 2, "knockbackGrip": 1.2 },
+    "racer": { "grip": 0.4 }
   },
   "levels": [
     {
@@ -16,7 +17,8 @@
       "genres": {
         "platformer": { "groundGrip": 1.8, "airGrip": 4.5 },
         "shmup": { "shipGrip": 6, "shipStop": 0.8 },
-        "brawler": { "groundGrip": 1.8, "airGrip": 4.5, "enemyGrip": 1.5, "knockbackGrip": 0.8 }
+        "brawler": { "groundGrip": 1.8, "airGrip": 4.5, "enemyGrip": 1.5, "knockbackGrip": 0.8 },
+        "racer": { "grip": 0.3 }
       }
     },
     {
@@ -25,7 +27,8 @@
       "genres": {
         "platformer": { "groundGrip": 1.2, "airGrip": 3.5 },
         "shmup": { "shipGrip": 4.5, "shipStop": 0.5 },
-        "brawler": { "groundGrip": 1.2, "airGrip": 3.5, "enemyGrip": 1.0, "knockbackGrip": 0.5 }
+        "brawler": { "groundGrip": 1.2, "airGrip": 3.5, "enemyGrip": 1.0, "knockbackGrip": 0.5 },
+        "racer": { "grip": 0.22 }
       }
     }
   ]

@@ -1,4 +1,4 @@
-// HUD bits for genre levels, shared by the three genre scenes: the boss's
+// HUD bits for genre levels, shared by the genre scenes: the boss's
 // health bar and the power-up names.
 
 import { pixelText } from './font.js';
@@ -8,6 +8,7 @@ export const POWER_NAMES = {
   'double-jump': 'DOUBLE JUMP',
   'spread-shot': 'SPREAD SHOT',
   'power-fists': 'POWER FISTS',
+  nitro: 'NITRO',
 };
 
 // The power-up you're holding, on the third HUD line (left), or nothing.

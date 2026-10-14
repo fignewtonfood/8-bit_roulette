@@ -3,11 +3,12 @@
   "name": "Darkness",
   "short": "DARKNESS",
   "description": "You can only see what's close.",
-  "_help": "lightRadius in pixels. darkness: 1 = pitch black, 0 = no effect. glow: things drawn on top of the dark so they stay visible (platformer: coins, flag, spikes, enemies; shmup: coins, enemyShots, enemies; brawler: coins, flag, rocks, windups, enemies). Brawler \"windups\": an enemy about to attack lights up, so every hit can be seen coming.",
+  "_help": "lightRadius in pixels. darkness: 1 = pitch black, 0 = no effect. glow: things drawn on top of the dark so they stay visible (platformer: coins, flag, spikes, enemies; shmup: coins, enemyShots, enemies; brawler: coins, flag, rocks, windups, enemies; racer: coins, flag, windups, enemies). Brawler \"windups\": an enemy about to attack lights up, so every hit can be seen coming. Racer: beam is how far your headlight reaches ahead of the bike (the light around you is lightRadius).",
   "genres": {
     "platformer": { "lightRadius": 56, "darkness": 0.94, "glow": ["coins", "flag"] },
     "shmup": { "lightRadius": 68, "darkness": 0.9, "glow": ["coins", "enemyShots"] },
-    "brawler": { "lightRadius": 64, "darkness": 0.92, "glow": ["coins", "flag", "rocks", "windups"] }
+    "brawler": { "lightRadius": 64, "darkness": 0.92, "glow": ["coins", "flag", "rocks", "windups"] },
+    "racer": { "lightRadius": 40, "beam": 110, "darkness": 0.93, "glow": ["coins", "flag", "windups"] }
   },
   "levels": [
     {
@@ -16,7 +17,8 @@
       "genres": {
         "platformer": { "lightRadius": 46, "darkness": 0.96 },
         "shmup": { "lightRadius": 54, "darkness": 0.94 },
-        "brawler": { "lightRadius": 52, "darkness": 0.95 }
+        "brawler": { "lightRadius": 52, "darkness": 0.95 },
+        "racer": { "lightRadius": 34, "beam": 88, "darkness": 0.95 }
       }
     },
     {
@@ -25,7 +27,8 @@
       "genres": {
         "platformer": { "lightRadius": 38, "darkness": 0.98 },
         "shmup": { "lightRadius": 44, "darkness": 0.97 },
-        "brawler": { "lightRadius": 42, "darkness": 0.97 }
+        "brawler": { "lightRadius": 42, "darkness": 0.97 },
+        "racer": { "lightRadius": 28, "beam": 68, "darkness": 0.97 }
       }
     }
   ]

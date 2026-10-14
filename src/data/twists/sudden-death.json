@@ -10,7 +10,8 @@
   "genres": {
     "platformer": {},
     "shmup": {},
-    "brawler": {}
+    "brawler": {},
+    "racer": {}
   },
   "levels": [
     {

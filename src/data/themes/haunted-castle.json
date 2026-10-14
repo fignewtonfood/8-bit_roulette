@@ -36,7 +36,8 @@
         "names": {
           "double-jump": "SPIRIT JUMP",
           "spread-shot": "WISP SHOT",
-          "power-fists": "GRAVE FISTS"
+          "power-fists": "GRAVE FISTS",
+          "nitro": "SPECTRAL NITRO"
         }
       },
       "boss": {
@@ -80,7 +81,8 @@
         "names": {
           "double-jump": "WRAITH JUMP",
           "spread-shot": "BONE SHOT",
-          "power-fists": "TOMB FISTS"
+          "power-fists": "TOMB FISTS",
+          "nitro": "WRAITH NITRO"
         }
       },
       "boss": {

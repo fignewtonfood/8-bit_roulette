@@ -3,7 +3,7 @@
 Walk around the hub, bet on a game length, pull the slot machine, clear the stages, get paid in tokens, and spend them in
 the shop. As you keep playing, story logs turn up at the terminal, the hub
 changes, and every so often the machine glitches. Progress is saved in the
-browser. Three genres so far: platformer, shoot-'em-up and brawler.
+browser. Four genres so far: platformer, shoot-'em-up, brawler and racing.
 
 ## Run it
 
@@ -30,6 +30,17 @@ Open the address Vite prints (usually http://localhost:5173).
   hits make a combo (the third launches); attacking in the air is a kick, and
   hitting an enemy that's in the air pops it back up. Each life has 3 hearts.
   Walking into an arena with enemies locks the screen until they're all down
+- **Racing:** Right is gas, Left brakes, Up or Space jumps, Z or X kicks
+  (both sides at once). Riding off the top of a ramp launches you; jumping on
+  a ramp or right at its lip launches you higher. In the air, Down leans
+  forward and Left leans back (holding Right for gas is safe: the bike levels
+  itself). Land matching the ground's angle: close is a clean landing (a
+  little speed), a bit off is rough (you lose speed and wobble), way off is a
+  crash. Crashes (bad landings, spikes, pits, theme hazards, a rammer, the
+  champion's kick or cones) cost a life and put you back on safe ground a
+  little way behind. A rival's kick only knocks your speed down. Mud (~)
+  halves your top speed, boost pads (=) shoot you forward. Beat the clock to
+  the chequered flag: if it runs out you lose a life and get 20 more seconds
 - The browser console lists the reels and the chunks/waves used for every stage
 
 ### Testing shortcuts (add to the URL)
@@ -37,7 +48,7 @@ Open the address Vite prints (usually http://localhost:5173).
 Practice runs pay no tokens and don't touch your save:
 
 - `?seed=12345` replays a run exactly (same reels, same stages)
-- `?genre=shmup` (or `brawler`), `?theme=neon-space`, `?twist=darkness` force a reel; mix them freely
+- `?genre=shmup` (or `brawler`, `racer`), `?theme=neon-space`, `?twist=darkness` force a reel; mix them freely
 - `?length=medium` plays more stages (`short`, `medium`, `long`)
 - `?genrelevel=3` plays the genre at level 2 or 3, e.g. `?genre=brawler&genrelevel=3`
   for the boss (also `?twistlevel=2` and `?themelevel=3`)
@@ -61,10 +72,11 @@ Save tools:
 ## Check everything
 
 ```
-npm run check          # all seven below
+npm run check          # all eight below
 npm run check:chunks   # 10,000 platformer stages (every twist)
 npm run check:shmup    # 10,000 shmup stages (every twist)
 npm run check:brawl    # 10,000 brawler stages (every twist) + arena layout rules
+npm run check:race     # 22,000 race stages + a test rider through every piece and stage
 npm run check:engine   # data files + 10,000 spins
 npm run check:loop     # bets, payouts, shop, save file + a progression estimate
 npm run check:story    # story unlocks, glitches, hub changes + which run each log arrives on
@@ -93,8 +105,21 @@ npm run check:levels   # every genre and theme at levels 1-3: new pieces, power-
   B brute (lowercase = optional). `{ reinforce: `...` }` adds a second wave
   that arrives when one enemy from the first is left. `npm run check:brawl`
   flags enemies with nothing to stand on and arenas with no safe respawn spot.
+- **Race tracks:** draw pieces in `src/gen/tracks.js`, 20 tiles wide. Ground
+  is one solid shape (`#`), with `/` and `\` for ramps (45 degrees, one tile
+  per column). `^` spikes, `~` mud, `=` boost pad, `C` coin, `R` rival (`r`
+  optional), `M` rammer (level 2 pieces only). The first and last 4 columns
+  stay flat on row 12 so pieces always join, and a jump at the end of one
+  piece never lands in a pit at the start of the next. Types: `rest` (no
+  rivals, nothing to jump), `jump`, `race` (needs a rival). The file's notes
+  say how far a hop and a ramp throw you. `npm run check:race` rides a test
+  bot through every piece with every twist at every level (worst wind and
+  gravity) and names any piece it can't clear, with the twist and level, so
+  you know what to change (or which twist to keep away with `notTwists`). It
+  also checks every coin can be collected at some speed and hop (under
+  Collector a missed coin costs a life), then builds and rides whole stages.
 - **Twist-only chunks, waves and arenas:** add `{ twists: ['slippery'] }` after a
-  chunk's, wave's or arena's art (in `src/gen/chunks.js` / `waves.js` / `arenas.js`) and it only
+  chunk's, wave's, arena's or track piece's art (in `src/gen/chunks.js` / `waves.js` / `arenas.js` / `tracks.js`) and it only
   shows up when that twist lands, twice as often as a normal one.
   `{ notTwists: ['darkness'] }` is the opposite: it shows up with every twist
   except those, at its normal rate. A piece can have one or the other.
@@ -140,8 +165,10 @@ npm run check:levels   # every genre and theme at levels 1-3: new pieces, power-
 - **Genre levels:** picked at the machine like twist levels, from
   `levels` in `genres.json`. Each level keeps what the one below gave.
   Level 2 brings the genre's new enemy (platformer hoppers, shmup splitters,
-  brawler shield guards), its power-up (double jump, spread shot, power
-  fists; spread shot is 3 streams at twice the normal bullets per second) and pays x1.25. One enemy in the first half of each stage carries
+  brawler shield guards, racing rammers), its power-up (double jump, spread shot, power
+  fists, nitro; spread shot is 3 streams at twice the normal bullets per
+  second; nitro is a higher top speed, boost pads that last twice as long and
+  kicks that hit the champion twice as hard) and pays x1.25. One enemy in the first half of each stage carries
   the power-up (a sparkle bobs over it) and drops it when beaten. It always
   appears on the nearest safe floor, even if the carrier went down mid-air,
   on spikes or in a pit (`src/engine/powerDrop.js`). From stage 4 it starts
@@ -158,6 +185,24 @@ npm run check:levels   # every genre and theme at levels 1-3: new pieces, power-
   stages add. Boss rooms are `BOSS_ROOMS` in `chunks.js` and `BOSS_ARENAS`
   in `arenas.js`; the bosses' feel knobs are at the top of each scene.
   `npm run check:levels` builds every genre at every level and checks it.
+- **Racing levels:** rammers (`M`) wait until you pass, rev up (they glow),
+  then charge from behind faster than you can ride: jump over them or kick
+  them. The nitro is carried by a rival (a sparkle bobs over it) and drops on
+  the track ahead when you kick it off; from stage 4 it runs off along the
+  track and can fall in a pit. Level 3's boss is the champion in a boss loop
+  (`BOSS_TRACKS` in `tracks.js`): riding in locks the screen and the track
+  joins up (off the right edge, back on the left) until you've kicked it off
+  (10 hits, 15 at the end of a Long run). It drops cones behind it (jump
+  them), kicks when it's beside you (a crash: brake or jump), and calls in
+  the theme's hazard. The clock stops during the fight. Riders still out
+  there leave the track when the loop locks.
+- **Racing rivals and the clock:** rivals start riding when you get close,
+  never faster than 85% of your top speed (so you always catch them, even
+  in Mud), jump what's in their way like you would, and kick when they're
+  side by side (they glow first). Slow ones sometimes wipe out on their own.
+  The clock (`timeLimit` in `raceRide.js`) is the track's length at 60% of
+  top speed plus 12 s, longer in Mud. The feel knobs are `RIDE` at the top
+  of `src/engine/raceRide.js` and the top of `RaceScene.js`.
 - **Shmup difficulty by stage:** every stage is harder than the one before,
   and stage 5 is about twice stage 1. Later stages bring more waves (the
   budget), squeeze them closer together (`SHMUP_TEMPO` in `buildShmup.js`)
@@ -183,13 +228,23 @@ npm run check:levels   # every genre and theme at levels 1-3: new pieces, power-
   `npm run check:shmup` measures what every slowed shmup stage asks of the
   ship (dodging aimed shots, crossing between gaps in bat walls) and fails
   if it's more than 60% of the ship's speed.
-- **Windy** (platformer, brawler): `wind` makes you that much faster with the
+- **Windy** (platformer, brawler, racer): `wind` makes you that much faster with the
   wind and slower against it, on the ground and in the air (so jumps go
-  further or shorter; never higher or lower). It swaps every `windEvery`
+  further or shorter; never higher or lower). Racing always rides right,
+  so the wind is behind you or in your face; rivals feel it too. It swaps every `windEvery`
   seconds; the HUD shows the direction and blinks before a swap.
-- **Gravity** (shmup): `pull` drags the ship toward the on-screen arrow at
+- **Gravity** (shmup, racer): `pull` drags the ship toward the on-screen arrow at
   the same strength every level, always weaker than the ship.
   `shiftEvery` is how often it changes direction (0 = never, level 1).
+  Racing: `pull` is a share of gravity and the arrow only points down
+  (heavier: lower, shorter jumps; always down at level 1) or up (floatier).
+- **Racing and the other twists:** Low Gravity makes hops and ramp launches
+  higher, longer and floatier; Slippery's `grip` slows how fast you speed
+  up and brake; Speedy and Mud's `runScale` is your ground speed only (in the
+  air you keep normal speed, so jumps don't change); Darkness adds a
+  headlight (`beam`) ahead of the light around you; Collector: a coin you
+  ride past costs a life; Killer: a rival that falls off the back of the
+  screen, or crosses the finish before you, costs a life.
 - **Stage difficulty:** each stage has a difficulty budget (in the
   generators: `STAGE_BUDGETS`, `SHMUP_BUDGETS`, `BRAWL_BUDGETS`). Later
   stages get more pieces (`src/gen/pacing.js`: stage 5 has four more than
@@ -255,6 +310,9 @@ log arrives on.
 | `src/gen/waves.js` | Hand-drawn shmup waves |
 | `src/gen/arenas.js` | Hand-drawn brawler arenas (one screen each) |
 | `src/gen/buildBrawl.js` | Seed → brawler stage: arenas, budget, reinforcements |
+| `src/gen/tracks.js` | Hand-drawn race track pieces and boss loops (add new ones here) |
+| `src/gen/buildRace.js` | Seed → race stage: pieces, budget, rivals, safe respawn spots |
+| `src/engine/raceRide.js` | The bike: speed, ramps, jumps, landings; the rivals' riding; the clock |
 | `src/gen/buildStage.js` | Seed → stage: pacing, difficulty budget, mirroring |
 | `src/gen/rng.js` | Seeded random numbers |
 | `src/art/placeholder.js` | Draws placeholder sprites from the palette |
@@ -266,4 +324,6 @@ log arrives on.
 | `src/scenes/StageScene.js` | Platformer: player, enemies, the feel knobs |
 | `src/scenes/ShmupScene.js` | Shoot-'em-up: ship, enemies, the feel knobs |
 | `src/scenes/BrawlScene.js` | Brawler: combo, enemy behaviour, arena locks, the feel knobs |
+| `src/scenes/RaceScene.js` | Racing: rivals, kicks, the clock, the boss loop, the feel knobs |
+| `src/art/racePlaceholder.js` | Racing sprites: track tiles, bikes, mud, boost pads, the finish flag |
 | `src/scenes/ResultScene.js` | Between-stage and payout screens |

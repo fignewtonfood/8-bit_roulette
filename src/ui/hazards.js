@@ -19,6 +19,11 @@
 //   player  the player sprite
 //   hurt    (hazard) => void, called when one touches you
 //   ground  the tilemap layer (side mode: what rolls and falls land on)
+//   groundY (x) => the ground's height at world x, or null over a pit. For a
+//           track with no tilemap (the racer): rolls, bounces and falls land
+//           on it instead of on `ground`.
+//   lead    s: aim zaps where the player will be that long from now (the
+//           racer, where you're always moving); 0 = where you are now
 
 import Phaser from 'phaser';
 import { GLOW_DEPTH } from '../engine/darkness.js';
@@ -80,7 +85,7 @@ function makeHazardTextures(scene, theme) {
   g.destroy();
 }
 
-export function addHazards(scene, { theme, seed, stage, mode, player, hurt, ground }) {
+export function addHazards(scene, { theme, seed, stage, mode, player, hurt, ground, groundY = null, lead = 0 }) {
   const hz = theme.hazard;
   if (!hz) return { update() {}, clear() {}, on: false };
   makeHazardTextures(scene, theme);
@@ -158,7 +163,8 @@ export function addHazards(scene, { theme, seed, stage, mode, player, hurt, grou
     if (kind === 'zap') {
       const top = side ? v.top : 0;
       const height = side ? v.height : scene.scale.height;
-      const x = Phaser.Math.Clamp(px + (r() * 2 - 1) * ZAP_SPREAD, (side ? v.left : 0) + 8, (side ? v.right : scene.scale.width) - 8);
+      const ahead = side ? (player.body?.velocity.x || 0) * lead : 0;
+      const x = Phaser.Math.Clamp(px + ahead + (r() * 2 - 1) * ZAP_SPREAD, (side ? v.left : 0) + 8, (side ? v.right : scene.scale.width) - 8);
       const line = warn(x, top + height / 2, ZAP_WARN, () => {
         const h = add('zap', x, top + height / 2);
         h.setScale(1, height / 16);
@@ -225,9 +231,26 @@ export function addHazards(scene, { theme, seed, stage, mode, player, hurt, grou
     }
   }
 
+  // A track with no tilemap: land on groundY instead (and turn at walls).
+  function landOnTrack(h) {
+    if (!groundY || !h.active || !h.body?.enable || !h.body.allowGravity || h.fading) return;
+    const half = h.displayHeight / 2;
+    const gy = groundY(h.x);
+    if (h.dir) {
+      const ahead = groundY(h.x + h.dir * (h.displayWidth / 2 + 1));
+      if (ahead !== null && gy !== null && gy - ahead > 9) h.dir = -h.dir; // a wall ahead (ramps are fine)
+    }
+    if (gy === null || h.body.velocity.y < 0 || h.y + half < gy) return;
+    h.y = gy - half;
+    if (h.kind === 'fall') return land(h);
+    h.setVelocityY(-(h.kind === 'bounce' ? BOUNCE_UP : ROLL_HOP));
+  }
+
   // Move what's out there, every frame.
   function step(h, dt) {
     h.age += dt;
+    landOnTrack(h);
+    if (!h.active) return;
     const v = view();
     const W = scene.scale.width;
     const H = scene.scale.height;

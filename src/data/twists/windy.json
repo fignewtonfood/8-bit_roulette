@@ -3,10 +3,11 @@
   "name": "Windy",
   "short": "WINDY",
   "description": "The wind helps one way, then the other.",
-  "_help": "Platformer and brawler only. wind: how much faster you move with the wind and slower against it (0.25 = 25%), on the ground and in the air, so jumps go further with it and shorter against it; jump height never changes. windEvery: seconds between swaps (the HUD blinks for the last second). The wind starts blowing left. levels: settings for level 2 and 3, picked at the machine.",
+  "_help": "Platformer, brawler and racer (in the racer you always ride right, so the wind is behind you or in your face). wind: how much faster you move with the wind and slower against it (0.25 = 25%), on the ground and in the air, so jumps go further with it and shorter against it; jump height never changes. windEvery: seconds between swaps (the HUD blinks for the last second). The wind starts blowing left. levels: settings for level 2 and 3, picked at the machine.",
   "genres": {
     "platformer": { "wind": 0.25, "windEvery": 6 },
-    "brawler": { "wind": 0.25, "windEvery": 6 }
+    "brawler": { "wind": 0.25, "windEvery": 6 },
+    "racer": { "wind": 0.2, "windEvery": 6 }
   },
   "levels": [
     {
@@ -14,7 +15,8 @@
       "payout": 1.25,
       "genres": {
         "platformer": { "wind": 0.35, "windEvery": 4.5 },
-        "brawler": { "wind": 0.35, "windEvery": 4.5 }
+        "brawler": { "wind": 0.35, "windEvery": 4.5 },
+        "racer": { "wind": 0.28, "windEvery": 4.5 }
       }
     },
     {
@@ -22,7 +24,8 @@
       "payout": 1.5,
       "genres": {
         "platformer": { "wind": 0.45, "windEvery": 3 },
-        "brawler": { "wind": 0.45, "windEvery": 3 }
+        "brawler": { "wind": 0.45, "windEvery": 3 },
+        "racer": { "wind": 0.35, "windEvery": 3 }
       }
     }
   ]

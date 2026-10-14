@@ -36,7 +36,8 @@
         "names": {
           "double-jump": "PTERO JUMP",
           "spread-shot": "SLING SPREAD",
-          "power-fists": "STONE FISTS"
+          "power-fists": "STONE FISTS",
+          "nitro": "STAMPEDE"
         }
       },
       "boss": {
@@ -80,7 +81,8 @@
         "names": {
           "double-jump": "MAMMOTH JUMP",
           "spread-shot": "HAIL SPREAD",
-          "power-fists": "TUSK FISTS"
+          "power-fists": "TUSK FISTS",
+          "nitro": "MAMMOTH RUSH"
         }
       },
       "boss": {
