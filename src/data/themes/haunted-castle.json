@@ -18,5 +18,76 @@
     "enemy": "Bat",
     "coin": "Soul shard",
     "hudCoin": "SHARDS"
-  }
+  },
+  "_help": "levels: what level 2 and 3 add, picked at the machine like genre and twist levels; each keeps what the one below gave. hazard: kind (float, zap, roll, fall, bounce), name, every (seconds between). power: themes the genre's power-up (names per power-up, color) and adds a perk (slow, magnet, speed, shield, life) of size amount. boss: themes the genre's boss (name, color, accent); it calls in the hazard during the fight. variant (level 3): plays as its own theme, with its own id, name, short, palette and names. Power-ups and bosses only appear at genre level 2 and 3.",
+  "levels": [
+    {
+      "description": "Ghosts, a chilling power-up, a boss. x1.25",
+      "payout": 1.25,
+      "hazard": {
+        "kind": "float",
+        "name": "Ghost",
+        "every": 7
+      },
+      "power": {
+        "perk": "slow",
+        "amount": 0.8,
+        "color": "#b8f0ff",
+        "names": {
+          "double-jump": "SPIRIT JUMP",
+          "spread-shot": "WISP SHOT",
+          "power-fists": "GRAVE FISTS"
+        }
+      },
+      "boss": {
+        "name": "COUNT GRIM",
+        "color": "#7a2a8c",
+        "accent": "#e8d8a0"
+      }
+    },
+    {
+      "description": "The Crypt: more ghosts, colder. x1.5",
+      "payout": 1.5,
+      "variant": {
+        "id": "haunted-crypt",
+        "name": "Haunted Crypt",
+        "short": "CRYPT",
+        "palette": {
+          "sky": "#0a1410",
+          "ground": "#3e5a44",
+          "groundDark": "#22342a",
+          "groundTop": "#8ab88a",
+          "player": "#f0e6c8",
+          "enemy": "#9ad04a",
+          "spike": "#d8d8c8",
+          "coin": "#f0f0e0",
+          "flag": "#d05a8a",
+          "text": "#e0f0e0"
+        },
+        "names": {
+          "enemy": "Zombie",
+          "coin": "Bone",
+          "hudCoin": "BONES"
+        }
+      },
+      "hazard": {
+        "name": "Wraith",
+        "every": 4.5
+      },
+      "power": {
+        "amount": 0.65,
+        "color": "#9affc8",
+        "names": {
+          "double-jump": "WRAITH JUMP",
+          "spread-shot": "BONE SHOT",
+          "power-fists": "TOMB FISTS"
+        }
+      },
+      "boss": {
+        "name": "LICH LORD",
+        "color": "#3a8a5a",
+        "accent": "#d05a8a"
+      }
+    }
+  ]
 }

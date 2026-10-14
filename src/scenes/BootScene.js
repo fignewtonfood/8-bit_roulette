@@ -14,7 +14,8 @@ import { withStoryUnlocked } from '../engine/story.js';
 //   ?seed=12345               practice: replay a run exactly (same reels, same stages)
 //   ?genre=shmup              practice: force a reel; also ?theme=neon-space, ?twist=darkness
 //   ?length=medium            practice: how many stages (short, medium, long)
-//   ?genrelevel=3             practice: play the genre at level 2 or 3 (also ?twistlevel=2)
+//   ?genrelevel=3             practice: play the genre at level 2 or 3 (also ?twistlevel=2,
+//                             ?themelevel=3)
 //   ?spin                     practice slot machine; forced reels stay locked,
 //                             every length is open, spin again freely
 // Practice runs pay no tokens. Mix them freely: ?genre=platformer&twist=low-gravity&seed=7
@@ -80,7 +81,7 @@ export default class BootScene extends Phaser.Scene {
       this.scene.start('Spin', { locks, practice: true });
       return;
     }
-    const levelParam = params.has('genrelevel') || params.has('twistlevel');
+    const levelParam = params.has('themelevel') || params.has('genrelevel') || params.has('twistlevel');
     if (!hasSeed && !Object.keys(locks).length && !lengthId && !levelParam) {
       this.scene.start('Hub');
       return;
@@ -88,7 +89,7 @@ export default class BootScene extends Phaser.Scene {
 
     const result = spin(content, hasSeed ? Number(seedParam) : randomSeed(), locks);
     result.levels = {};
-    for (const reel of ['genre', 'twist']) {
+    for (const reel of ['theme', 'genre', 'twist']) {
       const lv = Math.floor(Number(params.get(`${reel}level`)));
       if (lv >= 1) result.levels[reel] = Math.min(lv, 1 + content.economy.levels.length);
     }

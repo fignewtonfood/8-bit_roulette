@@ -14,7 +14,7 @@
 // ---------- Upgrades ----------
 
 import { addPlays } from './progress.js';
-import { twistAt, genreAt, stageRules } from './content.js';
+import { twistAt, genreAt, themeAt, stageRules } from './content.js';
 
 export const levelOf = (save, upgradeId) => save.upgrades[upgradeId] || 0;
 
@@ -76,7 +76,7 @@ export function makeRun(content, save, spinResult, lengthId, { practice = false 
     theme: spinResult.theme,
     genre: spinResult.genre,
     twist: spinResult.twist,
-    levels: { genre: 1, twist: 1, ...(spinResult.levels || {}) }, // the level picked at the machine for each reel
+    levels: { theme: 1, genre: 1, twist: 1, ...(spinResult.levels || {}) }, // the level picked at the machine for each reel
     glitch: !!spinResult.glitch,
     length: len.id,
     stages: len.stages,
@@ -101,6 +101,9 @@ export function afterStage(run, { cleared, coins = 0, livesLeft = 0 }) {
 }
 
 export const runWon = (run) => run.cleared >= run.stages;
+
+// The run's theme at the level picked for it (a level 3 theme is its variant).
+export const runTheme = (content, run) => themeAt(content, run.theme, run.levels?.theme);
 
 // On a 5-stage (Long) run at genre level 3, a boss also ends this stage.
 // It's the same boss a Medium run ends on; the stage 5 boss is tougher.
@@ -134,6 +137,11 @@ export function payout(content, save, run) {
     const base = run.cleared * eco.stageTokens;
     const stagePay = Math.floor(base * run.multiplier);
     lines.push([`${run.cleared} STAGE${run.cleared === 1 ? '' : 'S'} x${run.multiplier}`, stagePay]);
+    // A theme level pays extra on a win: shown as its own line.
+    const theme = runTheme(content, run);
+    if (theme && theme.payout !== 1) {
+      lines.push([`${theme.short || theme.name.toUpperCase()} LV${theme.level} x${theme.payout}`, Math.floor(stagePay * theme.payout) - stagePay]);
+    }
     // A genre level pays extra on a win: shown as its own line.
     const genre = genreAt(content, run.genre, run.levels?.genre);
     if (genre && genre.payout !== 1) {

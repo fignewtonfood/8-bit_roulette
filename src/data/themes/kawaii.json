@@ -18,5 +18,76 @@
     "enemy": "Grumpy cloud",
     "coin": "Star candy",
     "hudCoin": "CANDY"
-  }
+  },
+  "_help": "levels: what level 2 and 3 add, picked at the machine like genre and twist levels; each keeps what the one below gave. hazard: kind (float, zap, roll, fall, bounce), name, every (seconds between). power: themes the genre's power-up (names per power-up, color) and adds a perk (slow, magnet, speed, shield, life) of size amount. boss: themes the genre's boss (name, color, accent); it calls in the hazard during the fight. variant (level 3): plays as its own theme, with its own id, name, short, palette and names. Power-ups and bosses only appear at genre level 2 and 3.",
+  "levels": [
+    {
+      "description": "Gumballs, an extra life, a boss. x1.25",
+      "payout": 1.25,
+      "hazard": {
+        "kind": "bounce",
+        "name": "Gumball",
+        "every": 6
+      },
+      "power": {
+        "perk": "life",
+        "amount": 1,
+        "color": "#e2457c",
+        "names": {
+          "double-jump": "BUNNY HOP",
+          "spread-shot": "STAR SPREAD",
+          "power-fists": "KITTY PAWS"
+        }
+      },
+      "boss": {
+        "name": "BIG GRUMP",
+        "color": "#6a6a8a",
+        "accent": "#ffd9ec"
+      }
+    },
+    {
+      "description": "Candy Clouds: more gumballs. x1.5",
+      "payout": 1.5,
+      "variant": {
+        "id": "candy-clouds",
+        "name": "Candy Clouds",
+        "short": "CANDY",
+        "palette": {
+          "sky": "#d9f2ff",
+          "ground": "#f0a0c8",
+          "groundDark": "#c870a0",
+          "groundTop": "#fff4a8",
+          "player": "#4a2a6a",
+          "enemy": "#8a4ad8",
+          "spike": "#d83a5a",
+          "coin": "#1a9a6a",
+          "flag": "#e87a1a",
+          "text": "#4a2a6a"
+        },
+        "names": {
+          "enemy": "Sour gummy",
+          "coin": "Sugar star",
+          "hudCoin": "SUGAR"
+        }
+      },
+      "hazard": {
+        "name": "Jawbreaker",
+        "every": 4
+      },
+      "power": {
+        "amount": 2,
+        "color": "#8a4ad8",
+        "names": {
+          "double-jump": "CLOUD HOP",
+          "spread-shot": "CANDY SPREAD",
+          "power-fists": "MOCHI PUNCH"
+        }
+      },
+      "boss": {
+        "name": "QUEEN SOUR",
+        "color": "#8a4ad8",
+        "accent": "#fff4a8"
+      }
+    }
+  ]
 }

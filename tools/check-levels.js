@@ -8,7 +8,9 @@
 //   - level 3 puts a boss at the end of the run's last stage, and only there
 //   - budgets, Collector / Killer minimums and seeds still hold
 //   - level 1 stages are exactly what they were before genre levels existed
-// Also checks the payouts and titles that genre levels change.
+// Also checks the payouts and titles that genre levels change, and theme
+// levels: what each level adds, the variant, payouts, titles and how often
+// the hazard comes.
 // Run with: npm run check:levels
 
 import { buildStage } from '../src/gen/buildStage.js';
@@ -18,7 +20,8 @@ import { CHUNKS } from '../src/gen/chunks.js';
 import { WAVES } from '../src/gen/waves.js';
 import { ARENAS } from '../src/gen/arenas.js';
 import { loadContent } from './load-content.js';
-import { genreAt, genreMaxLevel, stageRules, SCREEN_CHARS } from '../src/engine/content.js';
+import { genreAt, genreMaxLevel, themeAt, themeMaxLevel, stageRules, SCREEN_CHARS, POWER_NAME_CHARS, BOSS_NAME_CHARS } from '../src/engine/content.js';
+import { hazardCount } from '../src/engine/hazardTiming.js';
 import { makeRun, payout, stageSetup } from '../src/engine/run.js';
 import { runTitle } from '../src/engine/spin.js';
 import { safeSpot, awayFromPit, isPit } from '../src/engine/powerDrop.js';
@@ -214,14 +217,67 @@ const lost = { ...makeRun(content, save, { ...reels, levels: { genre: 3 } }, 'sh
 expect(!payout(content, save, lost).lines.some(([label]) => label.includes('LV')), 'a lost run should get no genre level bonus');
 expect(makeRun(content, save, reels, 'short').levels.genre === 1, 'a run without picked levels should play the genre at level 1');
 
-// Titles: every combo, with both levels at 3, fits one screen line.
+// Titles: every combo, at every mix of levels, fits one screen line.
 for (const theme of Object.keys(content.themes)) for (const genre of Object.keys(content.genres)) for (const twist of Object.keys(content.twists)) {
-  const title = runTitle(content, { theme, genre, twist, levels: { genre: 3, twist: 3 } });
-  expect(title.length <= SCREEN_CHARS, `title too long (${title.length}): "${title}"`);
+  for (const levels of [{ genre: 3, twist: 3 }, { theme: 3, genre: 3, twist: 3 }, { theme: 2, genre: 3, twist: 3 }, { theme: 3 }]) {
+    const title = runTitle(content, { theme, genre, twist, levels });
+    expect(title.length <= SCREEN_CHARS, `title too long (${title.length}): "${title}"`);
+  }
+}
+
+// Theme levels: level 2 adds the hazard, the perk and the themed boss; level
+// 3 keeps all three, is the variant, and is harder and stronger.
+const STRONGER = { slow: (a, b) => b < a, magnet: (a, b) => b > a, speed: (a, b) => b > a, shield: (a, b) => b > a, life: (a, b) => b > a };
+const hazardRows = [];
+for (const id of Object.keys(content.themes)) {
+  const t1 = themeAt(content, id, 1);
+  expect(t1.payout === 1 && !t1.hazard && !t1.power && !t1.boss && t1.id === id, `${id}: level 1 should be the theme as it was`);
+  if (themeMaxLevel(content, id) < 3) continue; // (the glitch theme has no levels)
+  const t2 = themeAt(content, id, 2);
+  const t3 = themeAt(content, id, 3);
+  expect(t2.hazard?.kind && t2.power?.perk && t2.boss?.name && t2.payout > 1 && t2.id === id, `${id}: level 2 should add a hazard, a perk, a boss and a payout bonus`);
+  expect(t3.id !== id && t3.baseId === id && t3.name !== t1.name, `${id}: level 3 should play as its variant`);
+  expect(t3.hazard.kind === t2.hazard.kind && t3.hazard.every < t2.hazard.every, `${id}: level 3 should keep the hazard and bring it more often`);
+  expect(t3.power.perk === t2.power.perk && STRONGER[t2.power.perk](t2.power.amount, t3.power.amount), `${id}: level 3 should keep the perk and make it stronger`);
+  expect(t3.boss.name && t3.boss.name !== t2.boss.name, `${id}: level 3's boss should have the variant's own name`);
+  expect(t3.payout > t2.payout, `${id}: level 3 should pay more than level 2`);
+  expect(themeAt(content, id, 9).level === 3, `${id}: asking for a level above 3 should give level 3`);
+  for (const t of [t2, t3]) {
+    for (const name of Object.values(t.power.names)) expect(name.length <= POWER_NAME_CHARS, `${id}: power name "${name}" is too long`);
+    expect(t.boss.name.length <= BOSS_NAME_CHARS, `${id}: boss name "${t.boss.name}" is too long`);
+  }
+  // How many hazards a 60-second stage gets, on average, at each level and stage.
+  const avg = (t, stage, boss) => {
+    let n = 0;
+    for (let seed = 1; seed <= 200; seed++) n += hazardCount(t.hazard, seed, stage, 60, boss);
+    return n / 200;
+  };
+  const row = { id, lv2: avg(t2, 1), lv3: avg(t3, 1), lv3s5: avg(t3, 5), boss: avg(t3, 5, true) };
+  expect(row.lv3 > row.lv2 && row.lv3s5 > row.lv3 && row.boss > row.lv3s5, `${id}: hazards should come more often at level 3, on later stages and in a boss fight`);
+  expect(hazardCount(t2.hazard, 1, 1, 3.9) === 0, `${id}: no hazard in the first seconds of a stage`);
+  hazardRows.push(row);
+}
+
+// Payouts: a theme level adds its own line (the variant's short name at level 3).
+{
+  const tReels = { seed: 1, theme: 'western', genre: 'shmup', twist: 'classic' };
+  const tWon = (lv) => ({ ...makeRun(content, save, { ...tReels, levels: { theme: lv } }, 'short'), cleared: 1 });
+  const base = payout(content, save, tWon(1));
+  const lv2 = payout(content, save, tWon(2));
+  const lv3 = payout(content, save, tWon(3));
+  expect(!base.lines.some(([label]) => label.includes('LV')), 'a level 1 theme should add no payout line');
+  expect(lv2.lines.some(([label]) => label === 'WESTERN LV2 x1.25') && lv2.total > base.total, 'a level 2 theme should add a "WESTERN LV2 x1.25" line');
+  expect(lv3.lines.some(([label]) => label === 'GOLDRUSH LV3 x1.5') && lv3.total > lv2.total, 'a level 3 theme should add a "GOLDRUSH LV3 x1.5" line');
+  const tLost = { ...makeRun(content, save, { ...tReels, levels: { theme: 3 } }, 'short'), cleared: 0, lives: 0 };
+  expect(!payout(content, save, tLost).lines.some(([label]) => label.includes('LV')), 'a lost run should get no theme level bonus');
+  expect(makeRun(content, save, tReels, 'short').levels.theme === 1, 'a run without picked levels should play the theme at level 1');
 }
 
 console.log(`Built ${built} stages: every genre at levels 1-3, every twist it supports, ${SEEDS} seeds, 3-stage runs.`);
 console.log('\nAt level 2, how many stages have the new enemy in them (more level 2 pieces raise this):');
 for (const [genre, [n, of]] of Object.entries(meets)) console.log(`  ${genre.padEnd(11)} ${GENRES[genre].newKind.padEnd(9)} ${Math.round((100 * n) / of)}%`);
+console.log('\nTheme hazards in a 60 s stage (average of 200 seeds):');
+console.log('  theme            LV2 st1  LV3 st1  LV3 st5  LV3 boss');
+for (const r of hazardRows) console.log(`  ${r.id.padEnd(16)} ${r.lv2.toFixed(1).padStart(7)}  ${r.lv3.toFixed(1).padStart(7)}  ${r.lv3s5.toFixed(1).padStart(7)}  ${r.boss.toFixed(1).padStart(8)}`);
 console.log(problems.length ? `\n${problems.length} problem(s):\n  ${[...new Set(problems)].slice(0, 25).join('\n  ')}` : 'No problems found.');
 process.exit(problems.length ? 1 : 0);

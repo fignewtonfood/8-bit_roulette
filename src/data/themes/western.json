@@ -18,5 +18,76 @@
     "enemy": "Vulture",
     "coin": "Gold nugget",
     "hudCoin": "GOLD"
-  }
+  },
+  "_help": "levels: what level 2 and 3 add, picked at the machine like genre and twist levels; each keeps what the one below gave. hazard: kind (float, zap, roll, fall, bounce), name, every (seconds between). power: themes the genre's power-up (names per power-up, color) and adds a perk (slow, magnet, speed, shield, life) of size amount. boss: themes the genre's boss (name, color, accent); it calls in the hazard during the fight. variant (level 3): plays as its own theme, with its own id, name, short, palette and names. Power-ups and bosses only appear at genre level 2 and 3.",
+  "levels": [
+    {
+      "description": "Tumbleweeds, a speed-up, a boss. x1.25",
+      "payout": 1.25,
+      "hazard": {
+        "kind": "roll",
+        "name": "Tumbleweed",
+        "every": 6
+      },
+      "power": {
+        "perk": "speed",
+        "amount": 1.2,
+        "color": "#c0392b",
+        "names": {
+          "double-jump": "SPUR JUMP",
+          "spread-shot": "SCATTERGUN",
+          "power-fists": "BRASS KNUCKLES"
+        }
+      },
+      "boss": {
+        "name": "THE OUTLAW",
+        "color": "#2b1d14",
+        "accent": "#fff06a"
+      }
+    },
+    {
+      "description": "Gold Rush: more weeds, faster. x1.5",
+      "payout": 1.5,
+      "variant": {
+        "id": "gold-rush",
+        "name": "Gold Rush",
+        "short": "GOLDRUSH",
+        "palette": {
+          "sky": "#3a2a4a",
+          "ground": "#7a4a2a",
+          "groundDark": "#4a2a14",
+          "groundTop": "#e8c048",
+          "player": "#fff0d0",
+          "enemy": "#d84a3a",
+          "spike": "#9ab0b8",
+          "coin": "#ffd23a",
+          "flag": "#5ad0e8",
+          "text": "#fff0d0"
+        },
+        "names": {
+          "enemy": "Bandit",
+          "coin": "Gold bar",
+          "hudCoin": "BARS"
+        }
+      },
+      "hazard": {
+        "name": "Tumbleweed",
+        "every": 4
+      },
+      "power": {
+        "amount": 1.35,
+        "color": "#ffd23a",
+        "names": {
+          "double-jump": "RODEO JUMP",
+          "spread-shot": "GATLING SPREAD",
+          "power-fists": "IRON KNUCKLES"
+        }
+      },
+      "boss": {
+        "name": "GOLD BARON",
+        "color": "#ffd23a",
+        "accent": "#d84a3a"
+      }
+    }
+  ]
 }

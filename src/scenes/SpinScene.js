@@ -7,7 +7,7 @@ import { getSave, session } from '../engine/profile.js';
 import { lengthOptions, makeRun } from '../engine/run.js';
 import { glitchNext } from '../engine/story.js';
 import { levelOfEntry } from '../engine/progress.js';
-import { twistAt, twistMaxLevel, genreAt, genreMaxLevel } from '../engine/content.js';
+import { twistAt, twistMaxLevel, genreAt, genreMaxLevel, themeAt, themeMaxLevel } from '../engine/content.js';
 import { C, hex, onPress } from '../ui/machine.js';
 import { pixelText } from '../ui/font.js';
 
@@ -23,10 +23,10 @@ import { pixelText } from '../ui/font.js';
 // scrambles and lands on a theme that isn't on the strip.
 //
 // Levels: what lands isn't a choice, but the level you play it at is. If the
-// genre or twist that lands has reached level 2 or 3 (progress.js) and has
-// settings for it ("levels" in genres.json or the twist file), Left/Right
-// picks its level before you play. If both can level, Up/Down switches
-// between them. Practice mode offers every level.
+// theme, genre or twist that lands has reached level 2 or 3 (progress.js)
+// and has settings for it ("levels" in its theme file, genres.json or its
+// twist file), Left/Right picks its level before you play. If more than one
+// can level, Up/Down switches between them. Practice mode offers every level.
 
 const REELS = ['theme', 'genre', 'twist'];
 const LABELS = { theme: 'THEME', genre: 'GENRE', twist: 'TWIST' };
@@ -89,6 +89,7 @@ export default class SpinScene extends Phaser.Scene {
     this.seedText = pixelText(this, W - 4, 220, '', { color: C.faint }).setOrigin(1, 1);
     // One level picker under each reel that can have levels.
     this.levelTexts = {
+      theme: text(this.reels[REELS.indexOf('theme')].x, 124, '', 8, C.gold),
       genre: text(this.reels[REELS.indexOf('genre')].x, 124, '', 8, C.gold),
       twist: text(this.reels[REELS.indexOf('twist')].x, 124, '', 8, C.gold),
     };
@@ -145,23 +146,24 @@ export default class SpinScene extends Phaser.Scene {
   play() {
     const len = this.lengths[this.bet];
     session.lastLength = len.id;
-    const levels = { genre: this.picked.genre || 1, twist: this.picked.twist || 1 };
+    const levels = { theme: this.picked.theme || 1, genre: this.picked.genre || 1, twist: this.picked.twist || 1 };
     startRun(this, makeRun(content, getSave(), { ...this.result, levels }, len.id, { practice: this.practice }));
   }
 
   // ---------- The level ----------
 
-  // The highest level you can play the landed genre or twist at.
+  // The highest level you can play the landed theme, genre or twist at.
   levelCap(reel) {
     const id = this.result[reel];
-    const most = reel === 'genre' ? genreMaxLevel(content, id) : twistMaxLevel(content, id);
+    const most = { theme: themeMaxLevel, genre: genreMaxLevel, twist: twistMaxLevel }[reel](content, id);
     const reached = this.practice ? Infinity : levelOfEntry(content, getSave(), reel, id);
     return Math.min(reached, most);
   }
 
-  // The reels whose level can be picked this spin (genre first).
+  // The reels whose level can be picked this spin, left to right. A glitched
+  // theme has no levels.
   pickers() {
-    return ['genre', 'twist'].filter((reel) => this.levelCap(reel) > 1);
+    return REELS.filter((reel) => this.levelCap(reel) > 1);
   }
 
   switchPicker() {
@@ -181,8 +183,8 @@ export default class SpinScene extends Phaser.Scene {
 
   showLevel() {
     const run = this.result;
-    const levels = { genre: this.picked.genre, twist: this.picked.twist };
-    for (const reel of ['genre', 'twist']) {
+    const levels = { theme: this.picked.theme, genre: this.picked.genre, twist: this.picked.twist };
+    for (const reel of REELS) {
       const cap = this.levelCap(reel);
       const lv = levels[reel];
       const on = reel === this.active;
@@ -192,6 +194,10 @@ export default class SpinScene extends Phaser.Scene {
     // The description is the one for whatever you're picking: the genre's
     // level, or the twist (at its level), which is also the default.
     let about = twistAt(content, run.twist, levels.twist).description;
+    if (this.active === 'theme') {
+      const t = themeAt(content, run.theme, levels.theme);
+      about = levels.theme > 1 ? content.themes[run.theme].levels[levels.theme - 2].description : `Plain ${t.name}: no hazard.`;
+    }
     if (this.active === 'genre') {
       const g = genreAt(content, run.genre, levels.genre);
       about = levels.genre > 1 ? g.levels[levels.genre - 2].description : g.description;
@@ -289,7 +295,7 @@ export default class SpinScene extends Phaser.Scene {
     // Start on the levels you picked last time for this genre and twist (this
     // visit), within what you've reached. The twist's picker starts active.
     this.picked = {};
-    for (const reel of ['genre', 'twist']) {
+    for (const reel of REELS) {
       this.picked[reel] = Math.min(session.levelPicks?.[`${reel}:${run[reel]}`] || 1, this.levelCap(reel));
     }
     const pickers = this.pickers();

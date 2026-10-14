@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { buildStage } from '../gen/buildStage.js';
 import { content } from '../data/index.js';
 import { twistSettings, objectiveOf } from '../engine/content.js';
-import { stageSetup } from '../engine/run.js';
+import { stageSetup, runTheme } from '../engine/run.js';
 import { describeRun } from '../engine/spin.js';
 import { addDarkness, GLOW_DEPTH } from '../engine/darkness.js';
 import { endStage } from '../engine/startRun.js';
@@ -13,8 +13,10 @@ import { addGlitchFx } from '../ui/glitch.js';
 import { addObjectiveHint, leftMessage, LOCKED_ALPHA } from '../ui/objective.js';
 import { makePlaceholderTextures, tex } from '../art/placeholder.js';
 import { makeLevelTextures } from '../art/levelPlaceholder.js';
-import { addBossBar, addPowerLabel, addSparkle, stepRunner, bounce, POWER_NAMES } from '../ui/levelHud.js';
+import { addBossBar, addPowerLabel, addSparkle, stepRunner, bounce } from '../ui/levelHud.js';
 import { safeSpot, awayFromPit } from '../engine/powerDrop.js';
+import { addHazards } from '../ui/hazards.js';
+import { powerName, bossName, perkWords, speedPerk, slowPerk, magnetPerk, shieldPerk, lifePerk, pullCoins, themedKeys } from '../ui/perks.js';
 
 const TILE = 16;
 
@@ -43,6 +45,7 @@ const BOSS_HURT_TIME = 0.9;   // s it can't be stomped again after a stomp
 // A dropped power-up hops out of its carrier; from stage 4 it runs from you.
 const DROP_POP = 200;         // px/s upward when it drops
 const DROP_FLEE_SPEED = 70;   // px/s (you run at 110)
+const SHIELD_SAFE = 1.0;      // s you flicker (and can't be hurt) after a shield takes a hit
 // Starting lives come from economy.json (plus Extra Life upgrades) and carry
 // over from stage to stage.
 
@@ -55,8 +58,9 @@ export default class StageScene extends Phaser.Scene {
   init(data) {
     this.run = data.run;
     this.seed = data.run.seed;
-    this.theme = content.themes[data.run.theme];
+    this.theme = runTheme(content, data.run); // at its level: a level 3 theme is its variant
     this.mods = twistSettings(content, data.run.twist, 'platformer', data.run.levels?.twist); // the twist's settings
+    this.baseEnemyScale = this.mods.enemyScale; // a slow perk changes it while held
     this.objective = objectiveOf(content, data.run.twist); // Collector / Killer, or null
     this.lives = data.run.lives;
     this.coinsCollected = 0;
@@ -68,6 +72,8 @@ export default class StageScene extends Phaser.Scene {
     this.power = null;    // the power-up you're holding (genre level 2+)
     this.airJumps = 0;
     this.boss = null;
+    this.shield = 0;      // hits a themed power-up's shield perk will still take
+    this.safe = 0;        // s left of flicker after the shield took one
   }
 
   create() {
@@ -76,6 +82,7 @@ export default class StageScene extends Phaser.Scene {
     const t = (name) => tex(theme, name);
     makePlaceholderTextures(this, theme);
     makeLevelTextures(this, theme);
+    this.keys = themedKeys(this, theme); // theme level 2+: the power-up and boss in theme colours
 
     const level = buildStage(this.setup);
     this.level = level;
@@ -132,7 +139,7 @@ export default class StageScene extends Phaser.Scene {
     // Boss (genre level 3, the run's last stage): waits in its room.
     this.bossGroup = this.physics.add.group();
     if (level.boss) {
-      const key = t('pboss');
+      const key = this.keys.boss('pboss');
       const b = this.bossGroup.create(level.boss.x * TILE + 8, (level.boss.y + 1) * TILE - 12, key);
       b.setDepth(GLOW_DEPTH); // always lit, even in the dark
       b.hp = BOSS_HP;
@@ -164,6 +171,12 @@ export default class StageScene extends Phaser.Scene {
     this.physics.add.overlap(this.player, this.enemies, (_p, enemy) => this.touchEnemy(enemy));
     this.physics.add.overlap(this.player, this.flag, () => this.reachFlag());
 
+    // Theme level 2+: the theme's hazard (always lit, even in the dark).
+    this.hazards = addHazards(this, {
+      theme, seed: this.seed, stage: this.run.stage, mode: 'side',
+      player: this.player, ground: this.layer, hurt: () => this.die(),
+    });
+
     // Twist: Darkness. Anything listed under "glow" stays visible in the dark.
     this.darkness = null; // the scene object is reused between runs, so reset it
     if (mods.lightRadius) {
@@ -188,9 +201,9 @@ export default class StageScene extends Phaser.Scene {
     this.hud = pixelText(this, 4, 4, '', { color: theme.palette.text })
       .setScrollFactor(0)
       .setDepth(10);
-    this.powerLabel = addPowerLabel(this, theme.palette.text);
+    this.powerLabel = addPowerLabel(this, theme.palette.text, (power) => powerName(theme, power));
     this.hint = addObjectiveHint(this, theme.palette.text);
-    this.bossBar = addBossBar(this, theme.palette.text);
+    this.bossBar = addBossBar(this, theme.palette.text, bossName(theme));
     this.hintCooldown = 0;
     this.refreshObjective();
     this.updateHud();
@@ -207,7 +220,8 @@ export default class StageScene extends Phaser.Scene {
     const left = this.cursors.left.isDown;
     const right = this.cursors.right.isDown;
     // Twists Speedy and Mud change your ground speed only, never your jumps.
-    const speed = runSpeed(RUN_SPEED, this.mods, body.blocked.down);
+    // A themed speed perk is ground speed too, so every jump stays the same.
+    const speed = runSpeed(RUN_SPEED, this.mods, body.blocked.down) * (body.blocked.down ? speedPerk(this.theme, !!this.power) : 1);
     let runTarget = left === right ? 0 : left ? -speed : speed;
     // Twist Windy: faster with the wind, slower against it, in the air too.
     if (this.wind) runTarget *= windScale(this.mods, this.wind.dir, Math.sign(runTarget));
@@ -244,11 +258,19 @@ export default class StageScene extends Phaser.Scene {
       p.setVelocityY(-this.jumpVelocity * SHORT_HOP);
     }
 
-    // Fell into a pit
-    if (p.y > this.level.heightTiles * TILE + 16) this.die();
+    // Fell into a pit (a shield doesn't help here)
+    if (p.y > this.level.heightTiles * TILE + 16) this.die(true);
+
+    // Flicker after a shield took a hit
+    if (this.safe > 0) {
+      this.safe -= dt;
+      p.setAlpha(this.safe > 0 && Math.floor(this.safe * 10) % 2 ? 0.3 : 1);
+    }
 
     this.updateEnemies(dt);
     this.updateBoss(dt);
+    pullCoins(this.coins, p.x, p.y, magnetPerk(this.theme, !!this.power), dt);
+    this.hazards.update(dt, this.boss?.active && this.boss.state !== 'wait' ? this.boss : null);
     this.updateDrop();
     this.sparkle.update(this.time.now);
     this.darkness?.update(p);
@@ -292,7 +314,7 @@ export default class StageScene extends Phaser.Scene {
     const spot = safeSpot(this.level.solid, spikes, Math.floor(x / TILE), Math.floor(y / TILE));
     this.sparkle.stop();
     if (!spot) return;
-    const d = this.physics.add.sprite(spot.x * TILE + 8, (spot.y + 1) * TILE - 6, tex(this.theme, `power-${kind}`)).setDepth(GLOW_DEPTH);
+    const d = this.physics.add.sprite(spot.x * TILE + 8, (spot.y + 1) * TILE - 6, this.keys.power(`power-${kind}`)).setDepth(GLOW_DEPTH);
     d.kind = kind;
     d.setVelocityY(-DROP_POP);
     d.setCollideWorldBounds(true); // the world has no floor, so pits still take it
@@ -312,7 +334,7 @@ export default class StageScene extends Phaser.Scene {
     if (d.y > this.level.heightTiles * TILE + 16) {
       d.destroy();
       this.powerUp = null;
-      this.hint.show(`${POWER_NAMES[d.kind]} LOST`);
+      this.hint.show(`${powerName(this.theme, d.kind)} LOST`);
       return;
     }
     const col = Math.floor(d.x / TILE);
@@ -334,10 +356,22 @@ export default class StageScene extends Phaser.Scene {
     this.power = this.powerUp.kind;
     this.powerUp.destroy();
     this.powerUp = null;
-    this.player.setTexture(tex(this.theme, `player-${this.power}`));
-    this.hint.show(`${POWER_NAMES[this.power]}!`);
+    this.player.setTexture(this.keys.power(`player-${this.power}`));
+    // Theme level 2+: the perk on top.
+    this.shield = shieldPerk(this.theme);
+    this.lives += lifePerk(this.theme);
+    this.setSlow(slowPerk(this.theme, true));
+    const perk = perkWords(this.theme);
+    this.hint.show(`${powerName(this.theme, this.power)}!${perk ? ` ${perk}` : ''}`);
     this.cameras.main.flash(120, 255, 255, 255);
     this.updateHud();
+  }
+
+  // Slow perk: enemies (and the boss) move at this share of their speed.
+  setSlow(share) {
+    const base = this.baseEnemyScale ?? 1;
+    if (share === 1 && this.baseEnemyScale === undefined) delete this.mods.enemyScale;
+    else this.mods.enemyScale = base * share;
   }
 
   // Losing a life loses the power-up.
@@ -345,6 +379,8 @@ export default class StageScene extends Phaser.Scene {
     if (!this.power) return;
     this.power = null;
     this.airJumps = 0;
+    this.shield = 0;
+    this.setSlow(1);
     this.player.setTexture(tex(this.theme, 'player'));
     this.updateHud();
   }
@@ -498,9 +534,21 @@ export default class StageScene extends Phaser.Scene {
     }
   }
 
-  die() {
+  // pit: fell in a pit (a shield can't save you from that).
+  die(pit = false) {
     if (this.dying || this.finished) return;
+    if (!pit && this.safe > 0) return;
+    if (!pit && this.shield > 0) {
+      // Themed shield perk: this hit costs nothing.
+      this.shield--;
+      this.safe = SHIELD_SAFE;
+      this.hint.show(this.shield ? `SHIELD: ${this.shield} LEFT` : 'SHIELD BROKEN');
+      this.cameras.main.shake(100, 0.006);
+      this.updateHud();
+      return;
+    }
     this.dying = true;
+    this.hazards.clear();
     this.lives--;
     this.losePower();
     this.updateHud();
@@ -514,6 +562,8 @@ export default class StageScene extends Phaser.Scene {
         return;
       }
       this.player.clearTint();
+      this.player.setAlpha(1);
+      this.safe = 0;
       this.player.enableBody(true, this.spawnPoint.x, this.spawnPoint.y, true, true);
       // The boss steps back to where it started, so you don't land on it.
       if (this.bossAlive() && this.boss.state !== 'wait') {
@@ -549,6 +599,6 @@ export default class StageScene extends Phaser.Scene {
     this.hud.setText(
       `LIVES ${this.lives}${gap}${this.theme.names.hudCoin} ${this.coinsCollected}/${this.level.coins.length}${foes}${gap}STAGE ${this.run.stage}/${this.run.stages}`,
     );
-    this.powerLabel?.set(this.power);
+    this.powerLabel?.set(this.power, this.shield ? `SHIELD ${this.shield}` : '');
   }
 }

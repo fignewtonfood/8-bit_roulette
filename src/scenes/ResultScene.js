@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { content } from '../data/index.js';
 import { runTitle } from '../engine/spin.js';
 import { startRun } from '../engine/startRun.js';
-import { makeRun } from '../engine/run.js';
+import { makeRun, runTheme } from '../engine/run.js';
 import { shortName } from '../engine/progress.js';
 import { getSave } from '../engine/profile.js';
 import { randomSeed } from '../gen/rng.js';
@@ -22,7 +22,7 @@ export default class ResultScene extends Phaser.Scene {
   create(d) {
     const cx = this.scale.width / 2;
     const run = d.run;
-    const theme = content.themes[run.theme];
+    const theme = runTheme(content, run); // a level 3 theme is its variant
     const p = theme.palette;
     this.cameras.main.setBackgroundColor(p.sky);
     const text = (y, s, size, color, originY = 0.5) =>

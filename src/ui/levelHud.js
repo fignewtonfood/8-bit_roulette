@@ -11,18 +11,21 @@ export const POWER_NAMES = {
 };
 
 // The power-up you're holding, on the third HUD line (left), or nothing.
-export function addPowerLabel(scene, color) {
+// nameOf(power) gives its name (a theme can rename it, see perks.js);
+// extra is shown after it (a shield's hits left).
+export function addPowerLabel(scene, color, nameOf = (power) => POWER_NAMES[power]) {
   const text = pixelText(scene, 4, 24, '', { color }).setScrollFactor(0).setDepth(10);
-  return { set: (power) => text.setText(power ? POWER_NAMES[power] : '') };
+  return { set: (power, extra = '') => text.setText(power ? `${nameOf(power)}${extra ? `  ${extra}` : ''}` : '') };
 }
 
 // "BOSS ■■■■□□" on the second HUD line, hidden until the fight starts.
-export function addBossBar(scene, color) {
+// A theme can name the boss ("THE OUTLAW ■■■□").
+export function addBossBar(scene, color, name = 'BOSS') {
   const text = pixelText(scene, 4, 14, '', { color }).setScrollFactor(0).setDepth(10).setVisible(false);
   return {
     show(hp, maxHp) {
       const left = Math.max(0, hp);
-      text.setText(`BOSS ${'■'.repeat(left)}${'□'.repeat(Math.max(0, maxHp - left))}`).setVisible(true);
+      text.setText(`${name} ${'■'.repeat(left)}${'□'.repeat(Math.max(0, maxHp - left))}`).setVisible(true);
     },
     hide() {
       text.setVisible(false);

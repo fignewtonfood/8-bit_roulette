@@ -18,5 +18,76 @@
     "enemy": "Drone",
     "coin": "Data shard",
     "hudCoin": "DATA"
-  }
+  },
+  "_help": "levels: what level 2 and 3 add, picked at the machine like genre and twist levels; each keeps what the one below gave. hazard: kind (float, zap, roll, fall, bounce), name, every (seconds between). power: themes the genre's power-up (names per power-up, color) and adds a perk (slow, magnet, speed, shield, life) of size amount. boss: themes the genre's boss (name, color, accent); it calls in the hazard during the fight. variant (level 3): plays as its own theme, with its own id, name, short, palette and names. Power-ups and bosses only appear at genre level 2 and 3.",
+  "levels": [
+    {
+      "description": "Laser gates, a magnet, a boss. x1.25",
+      "payout": 1.25,
+      "hazard": {
+        "kind": "zap",
+        "name": "Laser",
+        "every": 6
+      },
+      "power": {
+        "perk": "magnet",
+        "amount": 56,
+        "color": "#36e2ff",
+        "names": {
+          "double-jump": "THRUSTER JUMP",
+          "spread-shot": "PLASMA SPREAD",
+          "power-fists": "ION FISTS"
+        }
+      },
+      "boss": {
+        "name": "MAINFRAME",
+        "color": "#ffa032",
+        "accent": "#36e2ff"
+      }
+    },
+    {
+      "description": "The Nebula: lasers galore. x1.5",
+      "payout": 1.5,
+      "variant": {
+        "id": "neon-nebula",
+        "name": "Neon Nebula",
+        "short": "NEBULA",
+        "palette": {
+          "sky": "#160628",
+          "ground": "#4a1a6a",
+          "groundDark": "#2a0c40",
+          "groundTop": "#ff5ad8",
+          "player": "#fff4ff",
+          "enemy": "#5affc8",
+          "spike": "#ff8a3a",
+          "coin": "#ffe24a",
+          "flag": "#5ab4ff",
+          "text": "#f4e0ff"
+        },
+        "names": {
+          "enemy": "Probe",
+          "coin": "Star dust",
+          "hudCoin": "DUST"
+        }
+      },
+      "hazard": {
+        "name": "Plasma beam",
+        "every": 4
+      },
+      "power": {
+        "amount": 96,
+        "color": "#ff5ad8",
+        "names": {
+          "double-jump": "WARP JUMP",
+          "spread-shot": "NOVA SPREAD",
+          "power-fists": "QUASAR FISTS"
+        }
+      },
+      "boss": {
+        "name": "STAR EATER",
+        "color": "#ff5ad8",
+        "accent": "#ffe24a"
+      }
+    }
+  ]
 }

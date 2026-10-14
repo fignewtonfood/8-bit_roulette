@@ -26,6 +26,29 @@ const ON_FAIL = ['consolation', 'partial'];
 export const OBJECTIVES = ['collect', 'kill'];
 // The power-ups each genre's scene knows how to play (genres.json "powerUp").
 export const GENRE_POWER_UPS = { platformer: ['double-jump'], shmup: ['spread-shot'], brawler: ['power-fists'] };
+// Theme levels (themes/<id>.json "levels"). Every genre plays every hazard
+// kind (src/ui/hazards.js) and every perk (src/ui/perks.js).
+//   float   drifts toward you through walls, then fades
+//   zap     a warning line, then a beam straight down
+//   roll    rolls along the floor (crosses the screen in the shmup)
+//   fall    a warning mark, then it drops from above
+//   bounce  bounces across the screen
+export const HAZARD_KINDS = ['float', 'zap', 'roll', 'fall', 'bounce'];
+//   slow    enemies move slower (amount = speed, 0.8 = 80%)
+//   magnet  coins fly to you (amount = reach in px)
+//   speed   you run / fly faster (amount = speed, 1.2 = 120%)
+//   shield  the next hits cost nothing (amount = hits)
+//   life    extra lives when you pick it up (amount = lives)
+export const PERKS = {
+  slow: (n) => n > 0 && n < 1,
+  magnet: (n) => n >= 16 && n <= 200,
+  speed: (n) => n > 1 && n <= 1.6,
+  shield: (n) => Number.isInteger(n) && n >= 1 && n <= 3,
+  life: (n) => Number.isInteger(n) && n >= 1 && n <= 3,
+};
+// The longest power-up or boss name, so it fits its HUD line.
+export const POWER_NAME_CHARS = 16;
+export const BOSS_NAME_CHARS = 14;
 
 export function assembleContent({ reels, genres, themes, twists, compatibility, economy, shop, story }) {
   const errors = [];
@@ -74,6 +97,8 @@ export function assembleContent({ reels, genres, themes, twists, compatibility, 
   }
 
   // Themes
+  const variantIds = new Set();
+  const variantShorts = [];
   for (const [id, t] of Object.entries(themes)) {
     const file = `themes/${id}.json`;
     if (t.id !== id) fail(`${file}: "id" should be "${id}" (it's "${t.id}").`);
@@ -82,6 +107,62 @@ export function assembleContent({ reels, genres, themes, twists, compatibility, 
     }
     for (const k of NAME_KEYS) if (!t.names?.[k]) fail(`${file}: names.${k} is missing.`);
     for (const g of t.genres || []) if (!genreMap[g]) fail(`${file}: unknown genre "${g}" in "genres".`);
+    if (t.levels !== undefined) checkThemeLevels(t, file);
+  }
+
+  // Theme levels. Level 2 brings the theme's hazard, power-up perk and boss;
+  // level 3 is the variant (its own palette and names). Each level keeps what
+  // the one below gave, so the hazard, perk and boss come from level 2 and
+  // level 3 only changes numbers and names.
+  function checkThemeLevels(t, file) {
+    const levels = t.levels;
+    if (!Array.isArray(levels) || !levels.length) return fail(`${file}: "levels" should be a list, one entry per level from level 2.`);
+    if (levels.length > maxLevels) fail(`${file}: "levels" has ${levels.length} entries but economy.json only has ${maxLevels} level(s) above 1.`);
+    levels.forEach((lv, i) => {
+      const at = `${file}: level ${i + 2}`;
+      const first = i === 0;
+      if (!(typeof lv.payout === 'number' && lv.payout > 0)) fail(`${at}: "payout" should be a number above 0.`);
+      if (!lv.description) fail(`${at} needs a "description" (shown at the machine).`);
+      tooLongLater.push([`${at} description`, lv.description || '']);
+      const hz = lv.hazard;
+      if (first && !hz) fail(`${at} needs a "hazard".`);
+      if (hz) {
+        if ((first || hz.kind !== undefined) && !HAZARD_KINDS.includes(hz.kind)) fail(`${at}: hazard "kind" should be one of ${HAZARD_KINDS.join(', ')}.`);
+        if (!hz.name && first) fail(`${at}: hazard needs a "name".`);
+        if (hz.every !== undefined && !(typeof hz.every === 'number' && hz.every >= 2)) fail(`${at}: hazard "every" should be at least 2 (seconds between hazards).`);
+        if (first && hz.every === undefined) fail(`${at}: hazard needs "every" (seconds between hazards).`);
+      }
+      const pw = lv.power;
+      if (first && !pw) fail(`${at} needs a "power".`);
+      if (pw) {
+        const perk = pw.perk ?? levels[0].power?.perk;
+        if ((first || pw.perk !== undefined) && !PERKS[pw.perk]) fail(`${at}: power "perk" should be one of ${Object.keys(PERKS).join(', ')}.`);
+        else if (pw.amount !== undefined && PERKS[perk] && !PERKS[perk](pw.amount)) fail(`${at}: power "amount" ${pw.amount} doesn't fit the ${perk} perk (see PERKS in content.js).`);
+        if (first && pw.amount === undefined) fail(`${at}: power needs an "amount".`);
+        if (pw.color !== undefined && !/^#[0-9a-f]{6}$/i.test(pw.color)) fail(`${at}: power "color" should be a colour like "#a0b0c0".`);
+        for (const [kind, name] of Object.entries(pw.names || {})) {
+          if (!Object.values(GENRE_POWER_UPS).flat().includes(kind)) fail(`${at}: power names has unknown power-up "${kind}".`);
+          if (String(name).length > POWER_NAME_CHARS) fail(`${at}: power name "${name}" is longer than ${POWER_NAME_CHARS} characters.`);
+        }
+        if (first) for (const kind of Object.values(GENRE_POWER_UPS).flat()) if (!pw.names?.[kind]) fail(`${at}: power names needs "${kind}".`);
+      }
+      const boss = lv.boss;
+      if (first && !boss) fail(`${at} needs a "boss".`);
+      if (boss) {
+        if (first && !boss.name) fail(`${at}: boss needs a "name".`);
+        if (boss.name && String(boss.name).length > BOSS_NAME_CHARS) fail(`${at}: boss name "${boss.name}" is longer than ${BOSS_NAME_CHARS} characters.`);
+        for (const k of ['color', 'accent']) if (boss[k] !== undefined && !/^#[0-9a-f]{6}$/i.test(boss[k])) fail(`${at}: boss "${k}" should be a colour like "#a0b0c0".`);
+      }
+      const v = lv.variant;
+      if (v) {
+        if (!v.id || themes[v.id] || variantIds.has(v.id)) fail(`${at}: variant needs an "id" no other theme or variant uses.`);
+        variantIds.add(v.id);
+        if (!v.name || !v.short) fail(`${at}: variant needs a "name" and a "short".`);
+        variantShorts.push(v.short || v.name || '');
+        for (const k of PALETTE_KEYS) if (!/^#[0-9a-f]{6}$/i.test(v.palette?.[k] || '')) fail(`${at}: variant palette.${k} should be a colour like "#a0b0c0".`);
+        for (const k of NAME_KEYS) if (!v.names?.[k]) fail(`${at}: variant names.${k} is missing.`);
+      }
+    });
   }
 
   // Twists
@@ -129,12 +210,13 @@ export function assembleContent({ reels, genres, themes, twists, compatibility, 
   for (const [id, tw] of Object.entries(twists)) tooLong(`twists/${id}.json: description`, tw.description || '');
   for (const [where, s] of tooLongLater) tooLong(where, s);
   const longest = (map) => Math.max(...Object.values(map).map((x) => (x.short || x.name || '').length));
-  // + 6 for the separators, + 4 each for a genre and a twist level (" LV3").
-  // The title uses the theme's name, or its short name when that's too long
-  // (see runTitle in spin.js), so the short name must always fit.
-  const themeShort = Math.max(...Object.values(themes).map((t) => (t.short || t.name).length));
-  const titleLen = themeShort + longest(genreMap) + longest(twists) + 14;
-  if (titleLen > SCREEN_CHARS) fail(`The longest theme short + genre short + twist short, with both levels, is ${titleLen} characters; it must fit in ${SCREEN_CHARS}. Shorten a "short".`);
+  // + 6 for the separators, + 4 each for a theme, a genre and a twist level
+  // (" LV3"). The title uses the theme's name, or its short name when that's
+  // too long (see runTitle in spin.js), so the short name must always fit.
+  // A level 3 theme shows its variant's short name.
+  const themeShort = Math.max(...Object.values(themes).map((t) => (t.short || t.name).length), ...variantShorts.map((s) => s.length));
+  const titleLen = themeShort + longest(genreMap) + longest(twists) + 18;
+  if (titleLen > SCREEN_CHARS) fail(`The longest theme short + genre short + twist short, with all three levels, is ${titleLen} characters; it must fit in ${SCREEN_CHARS}. Shorten a "short".`);
 
   // Shop upgrades
   const upgrades = {};
@@ -274,6 +356,30 @@ export function genreAt(content, genreId, level = 1) {
   (g.levels || []).slice(0, Math.max(0, level - 1)).forEach((lv, i) => Object.assign(out, lv, { level: i + 2 }));
   return out;
 }
+
+// A theme as played at a level. Level 1 is the theme as written. Level 2 adds
+// its hazard, power-up perk and boss; level 3 adds its entry on top (more
+// hazards, a bigger perk) and plays as the variant: the variant's id, name,
+// short, palette and names replace the theme's. baseId is always the theme
+// on the reel (plays count toward it).
+// { ...theme, level, payout, hazard, power, boss, baseId }
+export function themeAt(content, themeId, level = 1) {
+  const t = content.themes[themeId];
+  if (!t) return t;
+  const out = { ...t, level: 1, payout: 1, hazard: null, power: null, boss: null, baseId: themeId };
+  (t.levels || []).slice(0, Math.max(0, level - 1)).forEach((lv, i) => {
+    out.level = i + 2;
+    out.payout = lv.payout;
+    if (lv.hazard) out.hazard = { ...out.hazard, ...lv.hazard };
+    if (lv.power) out.power = { ...out.power, ...lv.power, names: { ...out.power?.names, ...lv.power.names } };
+    if (lv.boss) out.boss = { ...out.boss, ...lv.boss };
+    if (lv.variant) Object.assign(out, lv.variant);
+  });
+  return out;
+}
+
+// The highest level a theme has settings for (1 if it has no "levels").
+export const themeMaxLevel = (content, themeId) => 1 + (content.themes[themeId]?.levels?.length || 0);
 
 // The highest level a genre has settings for (1 if it has no "levels").
 export const genreMaxLevel = (content, genreId) => 1 + (content.genres[genreId]?.levels?.length || 0);

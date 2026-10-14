@@ -40,7 +40,7 @@ Practice runs pay no tokens and don't touch your save:
 - `?genre=shmup` (or `brawler`), `?theme=neon-space`, `?twist=darkness` force a reel; mix them freely
 - `?length=medium` plays more stages (`short`, `medium`, `long`)
 - `?genrelevel=3` plays the genre at level 2 or 3, e.g. `?genre=brawler&genrelevel=3`
-  for the boss (also `?twistlevel=2`)
+  for the boss (also `?twistlevel=2` and `?themelevel=3`)
 - `?spin` opens a practice machine: every length open, free re-spins, forced reels stay locked
 - `?debug` shows hitboxes
 - `?zoom=3` forces the size: each game pixel becomes 3x3 screen pixels (normally it picks the biggest whole number that fits the window)
@@ -68,7 +68,7 @@ npm run check:brawl    # 10,000 brawler stages (every twist) + arena layout rule
 npm run check:engine   # data files + 10,000 spins
 npm run check:loop     # bets, payouts, shop, save file + a progression estimate
 npm run check:story    # story unlocks, glitches, hub changes + which run each log arrives on
-npm run check:levels   # every genre at levels 1-3: new pieces, power-ups, bosses, payouts
+npm run check:levels   # every genre and theme at levels 1-3: new pieces, power-ups, bosses, hazards, payouts
 ```
 
 ## Adding content (no code needed)
@@ -113,7 +113,30 @@ npm run check:levels   # every genre at levels 1-3: new pieces, power-ups, bosse
   `description`, `payout`, `budgetScale` and (Collector/Killer) `minimum`.
   Classic has none. `budgetScale` multiplies each stage's difficulty budget:
   Sudden Death is 0.85 at level 1, 1.15 at level 2 and 1.4 at level 3.
-  Theme levels are tracked but don't change play yet.
+- **Theme levels:** picked at the machine like the others (Up/Down
+  switches between theme, genre and twist when more than one can level),
+  from `levels` in each theme file. Level 2 brings the theme's hazard, a
+  perk on the genre's power-up and a themed boss, and pays x1.25. Level 3
+  plays as the theme's variant (Haunted Crypt, Neon Nebula, Gold Rush, Ice
+  Age, Candy Clouds: own palette and names), brings the hazard more often,
+  makes the perk stronger, renames the power-up and boss again, and pays
+  x1.5. The genre still decides whether a stage has a power-up (genre
+  level 2) or a boss (genre level 3); the theme decides what they're called,
+  what colour they are and what extra they do. The glitch theme has no
+  levels.
+  - Hazards (`src/ui/hazards.js`, timing in `src/engine/hazardTiming.js`):
+    one kind per theme, in every genre, never beatable, always lit in the
+    dark. `float` (ghosts drift at you through walls), `zap` (a warning
+    line, then a beam), `roll` (rolls in from the side you're facing),
+    `fall` (a warning mark, then it drops; platforms stop it), `bounce`
+    (bounces toward you). `every` is the average seconds between them;
+    they come a bit quicker each stage, never in the first 4 seconds,
+    never more than 3 at once, and a themed boss calls them in about twice
+    as often (it flashes when it does). A lost life clears them.
+  - Perks (`src/ui/perks.js`): `slow` (enemies slower), `magnet` (coins fly
+    to you), `speed` (faster on the ground / ship), `shield` (the next hits
+    cost nothing; not pits), `life` (extra lives on pickup). All but
+    `life` end when the power-up does.
 - **Genre levels:** picked at the machine like twist levels, from
   `levels` in `genres.json`. Each level keeps what the one below gave.
   Level 2 brings the genre's new enemy (platformer hoppers, shmup splitters,
@@ -237,6 +260,9 @@ log arrives on.
 | `src/art/placeholder.js` | Draws placeholder sprites from the palette |
 | `src/art/levelPlaceholder.js` | Sprites for genre levels: new enemies, power-ups, bosses |
 | `src/ui/levelHud.js` | The boss health bar and power-up label |
+| `src/ui/hazards.js` | Theme hazards in every genre (theme level 2+) |
+| `src/ui/perks.js` | Themed power-up names, perks and boss looks |
+| `src/engine/hazardTiming.js` | When theme hazards come |
 | `src/scenes/StageScene.js` | Platformer: player, enemies, the feel knobs |
 | `src/scenes/ShmupScene.js` | Shoot-'em-up: ship, enemies, the feel knobs |
 | `src/scenes/BrawlScene.js` | Brawler: combo, enemy behaviour, arena locks, the feel knobs |

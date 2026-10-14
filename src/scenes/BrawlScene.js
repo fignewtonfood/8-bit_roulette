@@ -3,7 +3,7 @@ import { buildBrawl } from '../gen/buildBrawl.js';
 import { ARENA_W } from '../gen/arenas.js';
 import { content } from '../data/index.js';
 import { twistSettings, objectiveOf } from '../engine/content.js';
-import { stageSetup } from '../engine/run.js';
+import { stageSetup, runTheme } from '../engine/run.js';
 import { describeRun } from '../engine/spin.js';
 import { addDarkness, GLOW_DEPTH } from '../engine/darkness.js';
 import { endStage } from '../engine/startRun.js';
@@ -15,8 +15,10 @@ import { addObjectiveHint, leftMessage, LOCKED_ALPHA } from '../ui/objective.js'
 import { makePlaceholderTextures, tex } from '../art/placeholder.js';
 import { makeBrawlTextures } from '../art/brawlPlaceholder.js';
 import { makeLevelTextures } from '../art/levelPlaceholder.js';
-import { addBossBar, addPowerLabel, addSparkle, stepRunner, bounce, POWER_NAMES } from '../ui/levelHud.js';
+import { addBossBar, addPowerLabel, addSparkle, stepRunner, bounce } from '../ui/levelHud.js';
 import { safeSpot, awayFromPit } from '../engine/powerDrop.js';
+import { addHazards } from '../ui/hazards.js';
+import { powerName, bossName, perkWords, speedPerk, slowPerk, magnetPerk, shieldPerk, lifePerk, pullCoins, themedKeys } from '../ui/perks.js';
 
 // The brawler: walk right through a row of one-screen arenas. Reaching the
 // middle of an arena with enemies locks the screen until they're all down.
@@ -92,8 +94,11 @@ export default class BrawlScene extends Phaser.Scene {
   init(data) {
     this.run = data.run;
     this.seed = data.run.seed;
-    this.theme = content.themes[data.run.theme];
+    this.theme = runTheme(content, data.run); // at its level: a level 3 theme is its variant
     this.mods = twistSettings(content, data.run.twist, 'brawler', data.run.levels?.twist); // the twist's settings
+    this.baseEnemyScale = this.mods.enemyScale; // a slow perk changes it while held
+    this.shield = 0;      // hits a themed power-up's shield perk will still take
+    this.bossEnemy = null;
     // Collector (Killer isn't offered here: beating every enemy is already the rule)
     this.objective = objectiveOf(content, data.run.twist);
     this.lives = data.run.lives;
@@ -125,6 +130,7 @@ export default class BrawlScene extends Phaser.Scene {
     makePlaceholderTextures(this, theme);
     makeBrawlTextures(this, theme);
     makeLevelTextures(this, theme);
+    this.keys = themedKeys(this, theme); // theme level 2+: the power-up and boss in theme colours
 
     const level = buildBrawl(this.setup);
     this.level = level;
@@ -226,8 +232,15 @@ export default class BrawlScene extends Phaser.Scene {
       .setDepth(10)
       .setVisible(false);
     this.hint = addObjectiveHint(this, theme.palette.text);
-    this.bossBar = addBossBar(this, theme.palette.text);
-    this.powerLabel = addPowerLabel(this, theme.palette.text);
+    this.bossBar = addBossBar(this, theme.palette.text, bossName(theme));
+    this.powerLabel = addPowerLabel(this, theme.palette.text, (power) => powerName(theme, power));
+
+    // Theme level 2+: the theme's hazard (always lit, even in the dark).
+    this.hazards = addHazards(this, {
+      theme, seed: this.seed, stage: this.run.stage, mode: 'side',
+      player: this.player, ground: this.layer,
+      hurt: (h) => this.hurt(1, Math.sign(this.player.x - h.x) || -this.facing),
+    });
     this.hintCooldown = 0;
     this.refreshObjective();
     this.updateHud();
@@ -253,6 +266,11 @@ export default class BrawlScene extends Phaser.Scene {
     this.updateArena(dt);
     this.updateDrop();
     this.sparkle.update(this.time.now);
+    if (!this.dying) {
+      pullCoins(this.coins, this.player.x, this.player.y, magnetPerk(this.theme, !!this.power), dt);
+      const boss = this.bossEnemy?.active && this.bossEnemy.state !== 'dead' ? this.bossEnemy : null;
+      this.hazards.update(dt, boss);
+    }
 
     this.rocks.getChildren().slice().forEach((r) => r.y > this.worldH + 32 && r.destroy());
     // Shockwaves die at the arena's walls.
@@ -282,7 +300,8 @@ export default class BrawlScene extends Phaser.Scene {
     const left = this.cursors.left.isDown;
     const right = this.cursors.right.isDown;
     // Twists Speedy and Mud change your ground speed only, never your jumps.
-    const speed = runSpeed(RUN_SPEED, this.mods, grounded);
+    // A themed speed perk is ground speed too, so every jump stays the same.
+    const speed = runSpeed(RUN_SPEED, this.mods, grounded) * (grounded ? speedPerk(this.theme, !!this.power) : 1);
     let runTarget = left === right ? 0 : left ? -speed : speed;
     const punching = this.atk && !this.atk.def.air && grounded;
     if (punching) runTarget = 0;
@@ -379,6 +398,15 @@ export default class BrawlScene extends Phaser.Scene {
 
   hurt(damage, fromDir) {
     if (this.invulnerable > 0 || this.dying || this.finished) return;
+    if (this.shield > 0) {
+      // Themed shield perk: this hit costs nothing (no heart, no knockback).
+      this.shield--;
+      this.invulnerable = HURT_INVULNERABLE;
+      this.hint.show(this.shield ? `SHIELD: ${this.shield} LEFT` : 'SHIELD BROKEN');
+      this.cameras.main.shake(100, 0.006);
+      this.updateHud();
+      return;
+    }
     this.hp -= damage;
     this.atk = null;
     this.atkQueued = false;
@@ -409,8 +437,11 @@ export default class BrawlScene extends Phaser.Scene {
     // Losing a life loses the power-up (a hit that only costs a heart doesn't).
     if (this.power) {
       this.power = null;
+      this.shield = 0;
+      this.setSlow(1);
       this.player.setTexture(this.t('player'));
     }
+    this.hazards.clear();
     this.updateHud();
     this.dying = true;
     this.atk = null;
@@ -450,7 +481,7 @@ export default class BrawlScene extends Phaser.Scene {
     const spot = safeSpot(this.level.solid, this.spikeTiles, col, row, lo, hi);
     this.sparkle.stop();
     if (!spot) return;
-    const d = this.physics.add.sprite(spot.x * TILE + 8, (spot.y + 1) * TILE - 6, this.t(`power-${kind}`)).setDepth(GLOW_DEPTH);
+    const d = this.physics.add.sprite(spot.x * TILE + 8, (spot.y + 1) * TILE - 6, this.keys.power(`power-${kind}`)).setDepth(GLOW_DEPTH);
     d.kind = kind;
     d.setCollideWorldBounds(true); // the arena walls; there's no floor, so pits still take it
     d.setVelocityY(-DROP_POP);
@@ -477,7 +508,7 @@ export default class BrawlScene extends Phaser.Scene {
     if (d.y > this.worldH + 16) {
       d.destroy();
       this.powerUp = null;
-      this.hint.show(`${POWER_NAMES[d.kind]} LOST`);
+      this.hint.show(`${powerName(this.theme, d.kind)} LOST`);
       return;
     }
     const lane = this.physics.world.bounds;
@@ -497,10 +528,23 @@ export default class BrawlScene extends Phaser.Scene {
     this.power = this.powerUp.kind;
     this.powerUp.destroy();
     this.powerUp = null;
-    this.player.setTexture(this.t(`player-${this.power}`));
-    this.hint.show(`${POWER_NAMES[this.power]}!`);
+    this.player.setTexture(this.keys.power(`player-${this.power}`));
+    // Theme level 2+: the perk on top.
+    this.shield = shieldPerk(this.theme);
+    this.lives += lifePerk(this.theme);
+    this.setSlow(slowPerk(this.theme, true));
+    const perk = perkWords(this.theme);
+    this.hint.show(`${powerName(this.theme, this.power)}!${perk ? ` ${perk}` : ''}`);
     this.cameras.main.flash(120, 255, 255, 255);
     this.updateHud();
+  }
+
+  // Slow perk: enemies that come in from now on (and the boss's shockwaves,
+  // the fleeing power-up) move at this share of their speed.
+  setSlow(share) {
+    const base = this.baseEnemyScale ?? 1;
+    if (share === 1 && this.baseEnemyScale === undefined) delete this.mods.enemyScale;
+    else this.mods.enemyScale = base * share;
   }
 
   collectCoin(coin) {
@@ -592,7 +636,7 @@ export default class BrawlScene extends Phaser.Scene {
     const fast = enemyScale(this.mods);
     const base = ENEMY[kind];
     const def = { ...base, speed: base.speed * fast, chargeSpeed: base.chargeSpeed && base.chargeSpeed * fast, cooldown: base.cooldown / fast };
-    const key = this.t(def.texture);
+    const key = def.boss ? this.keys.boss(def.texture) : this.t(def.texture); // a themed boss (theme level 2+)
     const h = this.textures.getFrame(key).height;
     const e = this.enemies.create(x * TILE + 8, (y + 1) * TILE - h / 2, key); // feet on the tile below
     e.setCollideWorldBounds(true);
@@ -613,6 +657,7 @@ export default class BrawlScene extends Phaser.Scene {
     e.moves = 0;
     if (this.glow.has('enemies')) e.setDepth(GLOW_DEPTH);
     if (def.boss) {
+      this.bossEnemy = e;
       e.setDepth(GLOW_DEPTH); // always lit, even in the dark
       this.bossBar.show(10, 10);
       this.cameras.main.shake(200, 0.006);
@@ -961,6 +1006,6 @@ export default class BrawlScene extends Phaser.Scene {
     this.hud.setText(
       `LIVES ${this.lives}  HP ${hearts}  ${this.theme.names.hudCoin} ${this.coinsCollected}/${this.level.coins.length}  STAGE ${this.run.stage}/${this.run.stages}`,
     );
-    this.powerLabel?.set(this.power);
+    this.powerLabel?.set(this.power, this.shield ? `SHIELD ${this.shield}` : '');
   }
 }

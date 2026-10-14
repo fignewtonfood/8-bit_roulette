@@ -18,5 +18,76 @@
     "enemy": "Raptor",
     "coin": "Amber",
     "hudCoin": "AMBER"
-  }
+  },
+  "_help": "levels: what level 2 and 3 add, picked at the machine like genre and twist levels; each keeps what the one below gave. hazard: kind (float, zap, roll, fall, bounce), name, every (seconds between). power: themes the genre's power-up (names per power-up, color) and adds a perk (slow, magnet, speed, shield, life) of size amount. boss: themes the genre's boss (name, color, accent); it calls in the hazard during the fight. variant (level 3): plays as its own theme, with its own id, name, short, palette and names. Power-ups and bosses only appear at genre level 2 and 3.",
+  "levels": [
+    {
+      "description": "Falling rocks, a shield, a boss. x1.25",
+      "payout": 1.25,
+      "hazard": {
+        "kind": "fall",
+        "name": "Falling rock",
+        "every": 5
+      },
+      "power": {
+        "perk": "shield",
+        "amount": 1,
+        "color": "#5fa84a",
+        "names": {
+          "double-jump": "PTERO JUMP",
+          "spread-shot": "SLING SPREAD",
+          "power-fists": "STONE FISTS"
+        }
+      },
+      "boss": {
+        "name": "TYRANT REX",
+        "color": "#2f6b2a",
+        "accent": "#f2ead8"
+      }
+    },
+    {
+      "description": "Ice Age: more rocks, thicker hide. x1.5",
+      "payout": 1.5,
+      "variant": {
+        "id": "ice-age",
+        "name": "Ice Age",
+        "short": "ICEAGE",
+        "palette": {
+          "sky": "#c8e4f0",
+          "ground": "#6a8aa8",
+          "groundDark": "#4a6a88",
+          "groundTop": "#f4fbff",
+          "player": "#3a2a5a",
+          "enemy": "#a8642e",
+          "spike": "#2a4a6a",
+          "coin": "#2a8ad8",
+          "flag": "#d84a3a",
+          "text": "#1a2a3a"
+        },
+        "names": {
+          "enemy": "Sabertooth",
+          "coin": "Ice gem",
+          "hudCoin": "GEMS"
+        }
+      },
+      "hazard": {
+        "name": "Icicle",
+        "every": 3.5
+      },
+      "power": {
+        "amount": 2,
+        "color": "#2a8ad8",
+        "names": {
+          "double-jump": "MAMMOTH JUMP",
+          "spread-shot": "HAIL SPREAD",
+          "power-fists": "TUSK FISTS"
+        }
+      },
+      "boss": {
+        "name": "MAMMOTH KING",
+        "color": "#7a4a2a",
+        "accent": "#f4fbff"
+      }
+    }
+  ]
 }

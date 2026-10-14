@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { buildShmup, stagePace } from '../gen/buildShmup.js';
 import { content } from '../data/index.js';
 import { twistSettings, objectiveOf } from '../engine/content.js';
-import { stageSetup } from '../engine/run.js';
+import { stageSetup, runTheme } from '../engine/run.js';
 import { describeRun } from '../engine/spin.js';
 import { addDarkness, GLOW_DEPTH } from '../engine/darkness.js';
 import { endStage } from '../engine/startRun.js';
@@ -14,7 +14,9 @@ import { addObjectiveHint } from '../ui/objective.js';
 import { makePlaceholderTextures, tex } from '../art/placeholder.js';
 import { makeShmupTextures } from '../art/shmupPlaceholder.js';
 import { makeLevelTextures } from '../art/levelPlaceholder.js';
-import { addBossBar, addPowerLabel, addSparkle, POWER_NAMES, FLEE_FROM_STAGE } from '../ui/levelHud.js';
+import { addBossBar, addPowerLabel, addSparkle, FLEE_FROM_STAGE } from '../ui/levelHud.js';
+import { addHazards } from '../ui/hazards.js';
+import { powerName, bossName, perkWords, speedPerk, slowPerk, magnetPerk, shieldPerk, lifePerk, pullCoins, themedKeys } from '../ui/perks.js';
 
 const LANE = 16;
 
@@ -80,7 +82,7 @@ export default class ShmupScene extends Phaser.Scene {
   init(data) {
     this.run = data.run;
     this.seed = data.run.seed;
-    this.theme = content.themes[data.run.theme];
+    this.theme = runTheme(content, data.run); // at its level: a level 3 theme is its variant
     this.mods = twistSettings(content, data.run.twist, 'shmup', data.run.levels?.twist); // the twist's settings
     this.objective = objectiveOf(content, data.run.twist); // Collector / Killer, or null
     this.lives = data.run.lives;
@@ -94,6 +96,8 @@ export default class ShmupScene extends Phaser.Scene {
     // Enemies fly, dive and shoot faster on later stages (SHMUP_PACE in
     // buildShmup.js), and faster again with Speedy.
     this.pace = enemyScale(this.mods) * stagePace(data.run.stage);
+    this.basePace = this.pace; // a slow perk lowers it while held
+    this.shield = 0;           // hits a themed power-up's shield perk will still take
     this.power = null;
     this.boss = null;
     this.bossDown = false;
@@ -106,6 +110,7 @@ export default class ShmupScene extends Phaser.Scene {
     makeShmupTextures(this, theme);
     makeLevelTextures(this, theme);
     this.t = (name) => tex(theme, name);
+    this.keys = themedKeys(this, theme); // theme level 2+: the power-up and boss in theme colours
 
     const level = buildShmup(this.setup);
     this.level = level;
@@ -170,8 +175,14 @@ export default class ShmupScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(10);
     this.hint = addObjectiveHint(this, theme.palette.text);
-    this.bossBar = addBossBar(this, theme.palette.text);
-    this.powerLabel = addPowerLabel(this, theme.palette.text);
+    this.bossBar = addBossBar(this, theme.palette.text, bossName(theme));
+    this.powerLabel = addPowerLabel(this, theme.palette.text, (power) => powerName(theme, power));
+
+    // Theme level 2+: the theme's hazard (always lit, even in the dark).
+    this.hazards = addHazards(this, {
+      theme, seed: this.seed, stage: this.run.stage, mode: 'shmup',
+      player: this.player, hurt: () => this.hurt(),
+    });
     this.updateHud();
   }
 
@@ -195,7 +206,7 @@ export default class ShmupScene extends Phaser.Scene {
     const dx = (c.right.isDown ? 1 : 0) - (c.left.isDown ? 1 : 0);
     const dy = (c.down.isDown ? 1 : 0) - (c.up.isDown ? 1 : 0);
     const len = Math.hypot(dx, dy) || 1;
-    const shipSpeed = SHIP_SPEED * (this.mods.shipScale ?? 1); // twists Speedy and Mud
+    const shipSpeed = SHIP_SPEED * (this.mods.shipScale ?? 1) * speedPerk(this.theme, !!this.power); // twists Speedy and Mud, a speed perk
     // Twist Gravity: the pull is added to where you steer. It's weaker than
     // the ship, so you can always fly against it.
     const [gx, gy] = this.gravity ? this.gravity.vector() : [0, 0];
@@ -247,6 +258,8 @@ export default class ShmupScene extends Phaser.Scene {
     this.updateEnemies(dt);
     this.updateBoss(dt);
     this.updateDrop();
+    pullCoins(this.coins, this.player.x, this.player.y, magnetPerk(this.theme, !!this.power), dt);
+    this.hazards.update(dt, this.boss?.active ? this.boss : null);
     this.sparkle.update(this.time.now);
     this.darkness?.update(this.player);
     this.gravity?.update(dt);
@@ -364,7 +377,7 @@ export default class ShmupScene extends Phaser.Scene {
   // The carrier was shot down: the power-up drifts down from where it was.
   // From stage 4 it shoots off away from you instead (see updateDrop).
   dropPower(x, y) {
-    const p = this.powerUps.create(x, y, this.t(`power-${this.level.powerUp.kind}`)).setDepth(GLOW_DEPTH);
+    const p = this.powerUps.create(x, y, this.keys.power(`power-${this.level.powerUp.kind}`)).setDepth(GLOW_DEPTH);
     p.power = this.level.powerUp.kind;
     this.sparkle.stop();
     const run = POWER_RUN[Math.min(this.run.stage, 5)];
@@ -415,8 +428,13 @@ export default class ShmupScene extends Phaser.Scene {
     if (!p.active) return;
     this.power = p.power;
     p.destroy();
-    this.player.setTexture(this.t(`ship-${this.power}`));
-    this.hint.show(`${POWER_NAMES[this.power]}!`);
+    this.player.setTexture(this.keys.power(`ship-${this.power}`));
+    // Theme level 2+: the perk on top.
+    this.shield = shieldPerk(this.theme);
+    this.lives += lifePerk(this.theme);
+    this.pace = this.basePace * slowPerk(this.theme, true);
+    const perk = perkWords(this.theme);
+    this.hint.show(`${powerName(this.theme, this.power)}!${perk ? ` ${perk}` : ''}`);
     this.cameras.main.flash(120, 255, 255, 255);
     this.updateHud();
   }
@@ -428,7 +446,7 @@ export default class ShmupScene extends Phaser.Scene {
     if (at === null || this.bossDown) return;
     if (!this.boss) {
       if (this.elapsed < at) return;
-      const b = this.bosses.create(this.scale.width / 2, -14, this.t('sboss')).setDepth(GLOW_DEPTH); // always lit
+      const b = this.bosses.create(this.scale.width / 2, -14, this.keys.boss('sboss')).setDepth(GLOW_DEPTH); // always lit
       b.boost = bossBoost(this.run.stage); // tougher on stages 3 and 5
       b.maxHp = (this.run.stage >= 5 ? BOSS_HP_STAGE5 : BOSS_HP) * b.boost.hp;
       b.hp = b.maxHp;
@@ -515,10 +533,21 @@ export default class ShmupScene extends Phaser.Scene {
 
   hurt() {
     if (this.invulnerable > 0 || this.finished) return;
+    if (this.shield > 0) {
+      // Themed shield perk: this hit costs nothing.
+      this.shield--;
+      this.invulnerable = INVULNERABLE_TIME;
+      this.hint.show(this.shield ? `SHIELD: ${this.shield} LEFT` : 'SHIELD BROKEN');
+      this.cameras.main.shake(100, 0.006);
+      this.updateHud();
+      return;
+    }
     this.lives--;
     // Every hit costs the ship a life, and losing a life loses the power-up.
     if (this.power) {
       this.power = null;
+      this.shield = 0;
+      this.pace = this.basePace;
       this.player.setTexture(this.t('ship'));
     }
     this.updateHud();
@@ -560,6 +589,6 @@ export default class ShmupScene extends Phaser.Scene {
 
   updateHud() {
     this.hud.setText(`LIVES ${this.lives}   ${this.theme.names.hudCoin} ${this.coinsCollected}/${this.level.coins}   STAGE ${this.run.stage}/${this.run.stages}`);
-    this.powerLabel?.set(this.power);
+    this.powerLabel?.set(this.power, this.shield ? `SHIELD ${this.shield}` : '');
   }
 }
