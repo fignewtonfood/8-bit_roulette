@@ -22,7 +22,7 @@ import { pacingFor } from '../src/gen/pacing.js';
 import { loadContent } from './load-content.js';
 import { stageRules, twistMaxLevel, twistSettings } from '../src/engine/content.js';
 import { windScale } from '../src/engine/speed.js';
-import { RIDE, TILE, newRider, stepRider, botInput, touchesSpikes, respawnColumn, timeLimit } from '../src/engine/raceRide.js';
+import { RIDE, TILE, newRider, stepRider, botInput, touchesSpikes, respawnColumn, respawnRider, RESPAWN_SPEED, timeLimit } from '../src/engine/raceRide.js';
 
 const GENRE = 'racer';
 const SEEDS = 400;  // per twist, structure checks
@@ -97,8 +97,7 @@ function ride(level, mods, { worst = false, maxTime = 400 } = {}) {
       else sinceProgress = 1;
       furthest = Math.max(furthest, r.x);
       if (sinceProgress >= STUCK) return { finished: false, time: t, crashes, stuckAt: Math.floor(r.x / TILE), crashAt };
-      const col = respawnColumn(level, r.x);
-      r = newRider(col * TILE + 8, level.cols[col].row * TILE);
+      r = respawnRider(level, r.x);
     }
   }
   return { finished: false, time: t, crashes, stuckAt: Math.floor(r.x / TILE), timedOut: true, crashAt };
@@ -226,6 +225,26 @@ for (const twist of twists) for (let seed = 1; seed <= SEEDS; seed++) {
   }
 }
 
+// The boss loop: 3-5 pieces (5 on stage 5), the copy of its start after it,
+// no coins or rivals in either, safe ground to come back to in it, and its
+// end joins its start (both flat on the ground row).
+for (const twist of twists) for (let seed = 1; seed <= 100; seed++) for (const stage of [3, 5]) {
+  const lvl = buildRace({ seed, stage, twist, ...stageRules(content, twist), genreLevel: 3, boss: true, powerUp: 'nitro' });
+  const loop = lvl.bossLoop;
+  const tag = `${twist} seed ${seed} stage ${stage} boss loop`;
+  if (!loop) { problems.push(`${tag}: missing`); continue; }
+  const want = stage >= 5 ? [5, 5] : [3, 4];
+  if (loop.pieces < want[0] || loop.pieces > want[1]) problems.push(`${tag}: ${loop.pieces} pieces, wants ${want.join('-')}`);
+  const end = loop.x0 + loop.w + 20;
+  if (lvl.coins.some((c) => c.x >= loop.x0 && c.x < end)) problems.push(`${tag}: coins in the loop`);
+  if (lvl.rivals.some((r) => r.x >= loop.x0 && r.x < end)) problems.push(`${tag}: rivals in the loop`);
+  if (!loop.safe.length) problems.push(`${tag}: nowhere safe to come back to`);
+  for (let i = 0; i < 20; i++) {
+    if (JSON.stringify(lvl.cols[loop.x0 + i]) !== JSON.stringify(lvl.cols[loop.x0 + loop.w + i])) problems.push(`${tag}: the copy after the loop doesn't match its start (column ${i})`);
+  }
+  if (!lvl.boss || lvl.boss.x < loop.x0 || lvl.boss.x >= loop.x0 + 20) problems.push(`${tag}: the champion isn't in the loop's first piece`);
+}
+
 // Collector / Killer at every level: each level's minimum must always be met.
 for (const twist of twists) {
   for (let lv = 2; lv <= twistMaxLevel(content, twist); lv++) {
@@ -235,6 +254,34 @@ for (const twist of twists) {
       const lvl = buildRace({ seed, stage, twist, ...min });
       if (lvl.coins.length < min.minCoins) problems.push(`${twist} level ${lv} seed ${seed} stage ${stage}: ${lvl.coins.length} coins, needs ${min.minCoins}`);
       if (lvl.rivals.length < min.minEnemies) problems.push(`${twist} level ${lv} seed ${seed} stage ${stage}: ${lvl.rivals.length} rivals, needs ${min.minEnemies}`);
+    }
+  }
+}
+
+// ---------- 3b. Coming back after a crash ----------
+// From every 4th safe column (and the boss loop's), at the speed you come
+// back at, the test rider must get past the next RESPAWN_RIDE columns
+// without crashing, with every twist at every level (worst wind and gravity).
+const RESPAWN_RIDE = 24;
+let respawnRides = 0;
+for (const twist of twists) for (let lv = 1; lv <= twistMaxLevel(content, twist); lv++) {
+  const mods = twistSettings(content, twist, GENRE, lv);
+  for (let seed = 1; seed <= 3; seed++) {
+    const lvl = buildRace({ seed, stage: 5, twist, ...stageRules(content, twist, lv), genreLevel: 3, boss: true });
+    const ctx = ctxFor(lvl, mods);
+    Object.assign(ctx, conditions(mods, 0, true));
+    const cols = [...lvl.safe.filter((_, i) => i % 4 === 0), ...lvl.bossLoop.safe.filter((_, i) => i % 4 === 0)];
+    for (const col of cols) {
+      const r = newRider(col * TILE + 8, lvl.cols[col].row * TILE);
+      r.speed = RIDE.top * RESPAWN_SPEED;
+      respawnRides++;
+      for (let t = 0; t < 20 && r.x < (col + RESPAWN_RIDE) * TILE && r.x < lvl.flag.x * TILE; t += DT) {
+        const ev = stepRider(r, botInput(r, ctx, { target: RIDE.top * 2 }), DT, ctx);
+        if (ev.includes('crash') || ev.includes('fell') || touchesSpikes(r, ctx)) {
+          problems.push(`${twist} level ${lv}, seed ${seed}: coming back on column ${col}, the test rider crashed at column ${Math.floor(r.x / TILE)} (${lvl.pieces.find((p) => col >= p.x0 && col < p.x0 + p.width)?.id})`);
+          break;
+        }
+      }
     }
   }
 }
@@ -271,6 +318,7 @@ for (const twist of twists) {
 const avg = (xs) => (xs.reduce((a, b) => a + b, 0) / xs.length).toFixed(1);
 console.log(`Rode every piece alone with every twist at every level (${soloRides} rides, worst wind and gravity).`);
 console.log(`Checked every coin can be collected (${coinRides} test rides).`);
+console.log(`Rode on from ${respawnRides} places a crashed rider comes back to (every twist and level).`);
 console.log(`Built ${stagesBuilt} race stages: ${SEEDS} seeds x 5 stages for each twist (${twists.join(', ')}).`);
 console.log(`Rode ${stageRides} whole stages (${RIDES} seeds x 5 stages x genre levels 1 and 3, every twist level).`);
 console.log(problems.length ? `\n${problems.length} problem(s):\n  ${[...new Set(problems)].slice(0, 30).join('\n  ')}` : 'No problems found.');

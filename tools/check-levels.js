@@ -92,8 +92,11 @@ const GENRES = {
       const carriers = lvl.rivals.filter((r) => r.carrier);
       return !!lvl.powerUp && carriers.length === 1 && (carriers[0].x < lvl.flag.x / 2 || carriers[0] === lvl.rivals[0]);
     },
-    // The boss loop sits just before the exit, with the champion in it.
-    hasBoss: (lvl) => !!lvl.bossLoop && lvl.pieces[lvl.pieces.length - 2].type === 'boss' && lvl.boss.x >= lvl.bossLoop.x0 && lvl.boss.x < lvl.bossLoop.x0 + lvl.bossLoop.w,
+    // The boss loop (3-5 pieces, then the copy of its start) sits just
+    // before the exit, with the champion in its first piece.
+    hasBoss: (lvl) => !!lvl.bossLoop && lvl.pieces[lvl.pieces.length - 2].type === 'seam'
+      && lvl.bossLoop.pieces >= 3 && lvl.bossLoop.pieces <= 5
+      && lvl.boss.x >= lvl.bossLoop.x0 && lvl.boss.x < lvl.bossLoop.x0 + 20,
     coins: (lvl) => lvl.coins.length,
     foes: (lvl) => lvl.rivals.length,
   },

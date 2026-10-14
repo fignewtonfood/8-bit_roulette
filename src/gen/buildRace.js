@@ -4,7 +4,7 @@
 // (twists, notTwists, minLevel). Pieces are never mirrored: races go right.
 // No Phaser in here, so it can be tested with Node (npm run check:race).
 
-import { TRACKS, BOSS_TRACKS, TRACK_H, GROUND_ROW, RIVAL_KINDS, columnOf } from './tracks.js';
+import { TRACKS, BOSS_TRACKS, LOOP_PIECES, LOOP_MAX_DIFFICULTY, TRACK_H, GROUND_ROW, RIVAL_KINDS, columnOf } from './tracks.js';
 import { fitsTwist, fitsLevel } from './chunks.js';
 import { tagWeight, carrierIn } from './buildStage.js';
 import { makeRng } from './rng.js';
@@ -39,7 +39,10 @@ const SLOT_RULES = {
 // genreLevel: racing's level picked at the machine (pieces tagged with a
 // higher minLevel are left out; at level 2+ some extra rivals are rammers).
 // powerUp: one rival in the first half of the stage carries it (carrier: true).
-// boss: true puts a boss loop just before the exit.
+// boss: true puts the boss loop just before the exit: a starting piece
+// (BOSS_TRACKS) and 2-4 more pieces (5 pieces in all on stage 5, 3 or 4
+// before that), then a copy of the starting piece, so the loop's end runs
+// seamlessly into what looks like its start. No coins or rivals in the loop.
 export function buildRace({ seed, stage = 1, twist = null, minCoins = 0, minEnemies = 0, budgetScale = 1, genreLevel = 1, powerUp = null, boss = false }) {
   const rng = makeRng(seed * 37 + stage + 5000);
   const usable = TRACKS.filter((t) => fitsTwist(t, twist) && fitsLevel(t, genreLevel));
@@ -68,7 +71,19 @@ export function buildRace({ seed, stage = 1, twist = null, minCoins = 0, minEnem
   const sequence = [pickOne('start'), ...picks, pickOne('exit')];
   // The boss loop goes just before the exit, with its own random numbers so
   // the rest of the stage is the same with or without it.
-  if (boss) sequence.splice(sequence.length - 1, 0, BOSS_TRACKS[makeRng(seed * 37 + stage + 4321).int(0, BOSS_TRACKS.length - 1)]);
+  const loopPieces = new Set();
+  let seamPiece = null;
+  if (boss) {
+    const brng = makeRng(seed * 37 + stage + 4321);
+    const count = stage >= 5 ? LOOP_PIECES.max : brng.int(LOOP_PIECES.min, LOOP_PIECES.max - 1);
+    const first = BOSS_TRACKS[brng.int(0, BOSS_TRACKS.length - 1)];
+    const options = usable.filter((t) => (t.type === 'jump' || t.type === 'rest') && t.difficulty <= LOOP_MAX_DIFFICULTY);
+    // Copies, so a piece also used earlier in the stage isn't mistaken for a loop piece.
+    const loop = [first, ...brng.shuffle(options).slice(0, count - 1)].map((t) => ({ ...t }));
+    loop.forEach((t) => loopPieces.add(t));
+    seamPiece = { ...first };
+    sequence.splice(sequence.length - 1, 0, ...loop, seamPiece);
+  }
 
   const widthTiles = sequence.reduce((sum, t) => sum + t.width, 0);
   const level = {
@@ -91,7 +106,7 @@ export function buildRace({ seed, stage = 1, twist = null, minCoins = 0, minEnem
     pieces: [],    // [{ id, x0, width, type }]
     names: [],
     safe: [],      // columns a crashed rider can come back on (sorted)
-    bossLoop: null, // { x0, w, safe } in tiles, when there's a boss
+    bossLoop: null, // { x0, w, pieces, safe: [columns] } in tiles, when there's a boss
     boss: null,    // { x, y } where the boss starts
     powerUp: null, // { kind } or null; the rival carrying it has carrier: true
   };
@@ -104,7 +119,8 @@ export function buildRace({ seed, stage = 1, twist = null, minCoins = 0, minEnem
 
   let x0 = 0;
   for (const t of sequence) {
-    level.pieces.push({ id: t.id, x0, width: t.width, type: t.type });
+    const inBoss = loopPieces.has(t) || t === seamPiece;
+    level.pieces.push({ id: t.id, x0, width: t.width, type: t === seamPiece ? 'seam' : t.type, loop: loopPieces.has(t) || undefined });
     level.names.push(t.id);
     t.rows.forEach((row, y) => {
       level.grid[y] += row.replace(/[^#/\\]/g, '.');
@@ -113,16 +129,20 @@ export function buildRace({ seed, stage = 1, twist = null, minCoins = 0, minEnem
         if (ch === '^') level.spikes.push(pos);
         else if (ch === '~') level.mud.push(pos);
         else if (ch === '=') level.boosts.push(pos);
-        else if (ch === 'C') level.coins.push(pos);
+        else if (ch === 'C' && !inBoss) level.coins.push(pos);
         else if (ch === 'P') level.playerStart = pos;
         else if (ch === 'F') level.flag = pos;
-        else if (ch === 'K') level.boss = pos;
+        else if (ch === 'K' && t !== seamPiece) level.boss = pos;
         else if (RIVAL_KINDS[ch]) level.rivals.push({ ...pos, kind: RIVAL_KINDS[ch], pace: pace() });
         else if (RIVAL_KINDS[ch.toUpperCase()]) optional.push({ ...pos, kind: RIVAL_KINDS[ch.toUpperCase()] });
       });
     });
     level.cols.push(...t.cols);
-    if (t.type === 'boss') level.bossLoop = { x0, w: t.width, safe: x0 + 2 };
+    if (loopPieces.has(t)) {
+      if (!level.bossLoop) level.bossLoop = { x0, w: 0, pieces: 0, safe: [] };
+      level.bossLoop.w += t.width;
+      level.bossLoop.pieces++;
+    }
     x0 += t.width;
   }
 
@@ -139,6 +159,8 @@ export function buildRace({ seed, stage = 1, twist = null, minCoins = 0, minEnem
   const spikeCols = new Set(level.spikes.map((p) => p.x));
   const flatAt = (x, row = GROUND_ROW) => level.cols[x]?.kind === 'flat' && level.cols[x].row === row;
   const inLoop = (x) => level.bossLoop && x >= level.bossLoop.x0 && x < level.bossLoop.x0 + level.bossLoop.w;
+  // The loop and the copy of its start after it: no rivals or extra coins.
+  const inBossArea = (x) => level.bossLoop && x >= level.bossLoop.x0 && x < level.bossLoop.x0 + level.bossLoop.w + BOSS_TRACKS[0].width;
   const startPiece = level.pieces[0];
   const finishX = level.flag.x;
   const taken = () => new Set(level.rivals.map((r) => r.x));
@@ -147,7 +169,7 @@ export function buildRace({ seed, stage = 1, twist = null, minCoins = 0, minEnem
     const used = taken();
     const out = [];
     for (let x = from; x < to; x++) {
-      if (inLoop(x) || !flatAt(x) || !flatAt(x - 1) || !flatAt(x + 1)) continue;
+      if (inBossArea(x) || !flatAt(x) || !flatAt(x - 1) || !flatAt(x + 1)) continue;
       if ([x - 1, x, x + 1].some((c) => hazard.has(c) || used.has(c))) continue;
       out.push({ x, y: GROUND_ROW - 1 });
     }
@@ -220,9 +242,10 @@ export function buildRace({ seed, stage = 1, twist = null, minCoins = 0, minEnem
     return true;
   };
   for (let x = 1; x < finishX; x++) {
-    if (inLoop(x) || level.cols[x].kind !== 'flat') continue;
+    if (level.cols[x].kind !== 'flat') continue;
     if ([x - 1, x, x + 1].some((c) => hazard.has(c)) || !clearAhead(x)) continue;
-    level.safe.push(x);
+    // The loop keeps its own (the copy of its start after it shows what's ahead).
+    (inLoop(x) ? level.bossLoop.safe : level.safe).push(x);
   }
   if (!level.safe.includes(level.playerStart.x)) level.safe.unshift(level.playerStart.x);
   level.safe.sort((a, b) => a - b);

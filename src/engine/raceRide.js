@@ -13,7 +13,8 @@
 //   - Riding off the top of a ramp launches you. Jump (Space/Up) hops.
 //     Jumping on a ramp, or just after leaving its lip, launches higher.
 //   - In the air, Down leans forward (nose down) and Left leans back (nose
-//     up); with neither held the bike slowly levels out. Land matching the
+//     up); with neither held the bike keeps the angle it left the ground at
+//     (straight off a ramp: nose up 45 degrees). Land matching the
 //     ground's angle: close is a clean landing (a little speed), a bit off is
 //     rough (you lose speed and wobble), way off is a crash.
 //   - Riding into a wall (ground more than a few pixels higher) stops you dead.
@@ -36,12 +37,12 @@ export const RIDE = {
   lipWindow: 0.15,   // s after leaving a ramp when jump still adds to it
   lipBonus: 1.3,     // a jump on a ramp or at its lip launches this much harder
   lean: 240,         // °/s while leaning
-  autoLevel: 110,    // °/s back toward level with nothing held
+  autoLevel: 0,      // °/s back toward level with nothing held (0 = it never levels itself)
   maxLean: 75,
-  clean: 15,         // land within this many ° of the ground: clean
-  rough: 40,         // within this: rough landing; more: crash
-  roughSpeed: 0.55,  // a rough landing keeps this share of your speed
-  wobble: 0.35,      // s with no control after a rough landing or a kick
+  clean: 12,         // land within this many ° of the ground: clean
+  rough: 30,         // within this: rough landing; more: crash
+  roughSpeed: 0.5,   // a rough landing keeps this share of your speed
+  wobble: 0.5,       // s with no control after a rough landing or a kick
   cleanBonus: 15,    // px/s for a clean landing after a real jump
   cleanAir: 0.35,    // s in the air that counts as a real jump
   step: 3,           // px of rise the wheels roll over; more is a wall
@@ -159,15 +160,8 @@ export function stepRider(r, input, dt, ctx) {
           return ev;
         }
       }
-      if (!next) {
-        r.x = nx;
-        r.air = true;
-        r.airT = 0;
-        r.vy = 0;
-        r.hopping = false;
-        ev.push('launch');
-      } else if (here && here.kind === 'up' && next.kind !== 'up') {
-        // Over the lip of a ramp: launched.
+      if (here && here.kind === 'up' && (!next || next.kind !== 'up')) {
+        // Over the lip of a ramp (onto anything, a pit included): launched.
         r.y = ctx.cols[here.col].row * TILE;
         r.x = nx;
         r.air = true;
@@ -176,6 +170,14 @@ export function stepRider(r, input, dt, ctx) {
         r.angle = -45;
         r.lipT = RIDE.lipWindow;
         r.lipped = false;
+        r.hopping = false;
+        ev.push('launch');
+      } else if (!next) {
+        // The ground ends: ride off into the air.
+        r.x = nx;
+        r.air = true;
+        r.airT = 0;
+        r.vy = 0;
         r.hopping = false;
         ev.push('launch');
       } else if (next.y > r.y + RIDE.cliff + Math.max(0, next.slope) * vx * dt + 1) {
@@ -199,7 +201,7 @@ export function stepRider(r, input, dt, ctx) {
   r.airT += dt;
   if (control) {
     if (input.lean) r.angle = Math.max(-RIDE.maxLean, Math.min(RIDE.maxLean, r.angle + input.lean * RIDE.lean * dt));
-    else r.angle = approach(r.angle, 0, RIDE.autoLevel * dt);
+    else if (RIDE.autoLevel) r.angle = approach(r.angle, 0, RIDE.autoLevel * dt);
   }
   if (r.hopping && !input.jumpHeld && r.vy < -RIDE.hop * jumpScale * RIDE.shortHop) r.vy = -RIDE.hop * jumpScale * RIDE.shortHop;
   if (control && input.jump && r.lipT > 0 && !r.lipped) {
@@ -320,6 +322,17 @@ function badLanding(land, ctx) {
   return false;
 }
 
+// Riding on up the ramp a rider is on and off its top, with no jump: does
+// it come down somewhere safe?
+function plainLaunchLands(r, ctx) {
+  let c = Math.floor(r.x / TILE);
+  while (ctx.cols[c + 1]?.kind === 'up') c++;
+  const vx = r.speed * (ctx.groundMul ?? 1);
+  const launched = { ...r, x: (c + 1) * TILE, y: ctx.cols[c].row * TILE, vy: -vx * RIDE.rampKick * (ctx.mods?.jumpScale ?? 1), air: true };
+  const land = predictLanding(launched, ctx);
+  return !!land && !land.spiked && !badLanding(land, ctx);
+}
+
 // How a rider the game controls rides: rivals, and the check tool's test
 // rider. It settles at `target` speed, jumps pits, spikes and walls at the
 // last moment, and leans to match the ground it's about to land on.
@@ -339,6 +352,9 @@ export function botInput(r, ctx, { target = RIDE.top } = {}) {
         trigger = vx * t + 8;
       }
       if (threat.at <= trigger) input.jump = true;
+      // On a ramp, only jump (a lip launch, much bigger) if riding off the
+      // top would come down short: a big launch can overshoot the landing.
+      if (input.jump && surface(ctx.cols, r.x, sp)?.slope < 0 && plainLaunchLands(r, ctx)) input.jump = false;
       if (r.speed < 40) input.gas = true; // never stall in front of a jump
     }
   } else {
@@ -356,7 +372,6 @@ export function botInput(r, ctx, { target = RIDE.top } = {}) {
     const want = land ? land.slope * 45 : 0;
     const d = want - r.angle;
     input.lean = Math.abs(d) < 4 ? 0 : Math.sign(d);
-    if (want === 0 && Math.abs(d) < 30) input.lean = 0; // auto-level handles flat landings
   }
   return input;
 }
@@ -371,6 +386,17 @@ export function timeLimit(level, groundMul = 1) {
   return Math.ceil(px / (RIDE.top * TIME_SHARE * Math.min(1, groundMul)) + TIME_BUFFER);
 }
 
+// A crashed rider comes back already moving (at this share of top speed),
+// so the run-up to the next jump never depends on how quickly the twist
+// lets you speed up (Slippery, Mud).
+export const RESPAWN_SPEED = 0.8;
+export function respawnRider(level, px, inLoop = false) {
+  const col = respawnColumn(level, px, inLoop);
+  const r = newRider(col * TILE + 8, level.cols[col].row * TILE);
+  r.speed = RIDE.top * RESPAWN_SPEED;
+  return r;
+}
+
 // Where a crashed rider comes back: the last safe column at least `back`
 // tiles behind where the crash happened (level.safe is sorted). Safe
 // columns have a clear run-up ahead (see buildRace.js), so you always get
@@ -379,7 +405,11 @@ export function timeLimit(level, groundMul = 1) {
 export const RESPAWN_BACK = 3;
 export function respawnColumn(level, px, inLoop = false, back = RESPAWN_BACK) {
   const col = Math.floor(px / TILE);
-  if (inLoop && level.bossLoop) return level.bossLoop.safe;
+  if (inLoop && level.bossLoop) {
+    // Behind you in the loop, or (near its start) round the back of it.
+    const safe = level.bossLoop.safe;
+    return [...safe].reverse().find((c) => c <= col - back) ?? safe[safe.length - 1];
+  }
   let best = level.safe[0];
   for (const c of level.safe) {
     if (c <= col - back) best = c;

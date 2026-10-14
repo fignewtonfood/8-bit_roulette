@@ -7,7 +7,7 @@ import { describeRun } from '../engine/spin.js';
 import { addDarkness, GLOW_DEPTH } from '../engine/darkness.js';
 import { endStage } from '../engine/startRun.js';
 import { enemyScale, windScale } from '../engine/speed.js';
-import { RIDE, TILE, surface, newRider, stepRider, botInput, touchesSpikes, respawnColumn, timeLimit } from '../engine/raceRide.js';
+import { RIDE, TILE, surface, newRider, stepRider, botInput, touchesSpikes, respawnColumn, respawnRider, timeLimit } from '../engine/raceRide.js';
 import { addWind } from '../ui/wind.js';
 import { addGravity } from '../ui/gravityArrow.js';
 import { pixelText } from '../ui/font.js';
@@ -61,14 +61,33 @@ const RIVAL = {
   // than you can ride for `charge` s. Touching it while it charges is a
   // crash, unless you're above it (jump it). Then it rides like a rider.
   rammer: { texture: 'rammer', reach: 16, windup: 0.7, cooldown: 1.8, charge: 1.6, chargePace: 1.3, after: 0.7 },
-  // The champion (genre level 3), in the boss loop. Rides around with you,
-  // drops cones behind it when it's ahead, kicks when it's beside you (a
-  // crash), and is knocked down only by kicks.
-  boss: { texture: 'rboss', hp: 10, reach: 20, windup: 0.6, cooldown: 1.4, dropEvery: 2.6, cone: 5 },
+  // The champion (genre level 3), in the boss loop: see BOSS below.
+  boss: { texture: 'rboss', hp: 10, reach: 22, cone: 6 },
 };
-const BOSS_STAGE5_HP = 1.5;     // the champion at the end of a Long run is this much tougher
-const BOSS_PACE = [0.85, 1.12]; // its speed swings between these shares of your top speed
-const BOSS_DASH = 1.0;          // s it speeds off after you land a kick
+// The champion's pattern, round and round the loop:
+//   1. chase   it pulls up beside you (faster than you can ride)
+//   2. windup  it glows, matching your speed; then kicks. Still beside you
+//              and on the ground: a crash (jump, or brake away from it)
+//   3. surge   it speeds off ahead...
+//   4. drop    ...and drops a strip of cones behind it, side by side
+//              (crash: hop the whole strip, like spikes)
+//   then back to 1. Stage 5's also revs up behind you (it glows) and rams:
+//   touching it while it rams is a crash unless you're above it. It rams
+//   after every kicksPerRam kick attempts, so there's always a kick coming.
+// It can only be hurt while it glows (winding up its kick, or revving to
+// ram): a kick then (Z or X, beside you) costs it a hit; it reels for a
+// moment, then surges off and drops cones. Kicks at any other time clank off. normal: the run's last stage
+// before stage 5 (a Medium run's stage 3, a Long run's stage 3);
+// final: stage 5.
+const BOSS = {
+  normal: { hp: 6, chase: 1.25, windup: 0.55, cooldown: 1.0, cones: 2, surge: 1.4, ram: false },
+  final: { hp: 8, chase: 1.35, windup: 0.42, cooldown: 0.7, cones: 3, surge: 1.5, ram: true, rev: 0.6, ramTime: 1.1, ramPace: 1.5, ramEvery: 4, kicksPerRam: 2 },
+};
+const BOSS_TOP = 1.6;           // the champion's top speed, as a share of yours
+const CONE_RUNUP = 6;           // clear flat columns a cone strip needs before it
+const RAM_BACK = 48;            // px behind you the champion revs up (on screen)
+const BOSS_STUN = 0.3;          // s it reels after a kick
+const BOSS_TIME = [30, 10];     // s added to the clock when the loop locks: base + per piece
 
 const overlaps = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 
@@ -193,6 +212,7 @@ export default class RaceScene extends Phaser.Scene {
     this.hint = addObjectiveHint(this, color);
     this.bossBar = addBossBar(this, color, bossName(theme));
     this.powerLabel = addPowerLabel(this, color, (power) => powerName(theme, power));
+    this.bossWarn = pixelText(this, 4, 0, '!', { color: theme.palette.coin }).setScrollFactor(0, 1).setDepth(10).setVisible(false);
     this.banner = pixelText(this, this.scale.width / 2, 90, 'READY', { color, align: 'center' }).setOrigin(0.5).setScrollFactor(0).setDepth(10);
 
     // Theme level 2+: the theme's hazard (always lit, even in the dark).
@@ -289,7 +309,11 @@ export default class RaceScene extends Phaser.Scene {
       lean: down === left ? 0 : down ? 1 : -1,
     };
     const events = stepRider(r, input, dt, this.playerCtx);
-    if (this.loopLocked) this.wrap(r);
+    if (this.loopLocked) {
+      // The camera jumps with you, so the wrap can't be seen.
+      const moved = this.wrap(r);
+      if (moved) this.cameras.main.scrollX += moved;
+    }
 
     for (const ev of events) {
       if (ev === 'crash') return this.crash('WIPEOUT!');
@@ -323,13 +347,22 @@ export default class RaceScene extends Phaser.Scene {
     this.player.setTint(r.wobble > 0 ? 0xffb0b0 : 0xffffff);
   }
 
-  // In the boss loop the track joins up: off the right edge, back on the left.
+  // In the boss loop the track joins up: off its end, back to its start
+  // (the copy of its first piece after the end looks the same, so the
+  // jump doesn't show). Returns how far it moved the rider.
   wrap(r) {
     const loop = this.level.bossLoop;
     const x0 = loop.x0 * TILE;
-    const x1 = x0 + loop.w * TILE;
-    if (r.x >= x1) r.x -= loop.w * TILE;
-    else if (r.x < x0) r.x += loop.w * TILE;
+    const w = loop.w * TILE;
+    if (r.x >= x0 + w) {
+      r.x -= w;
+      return -w;
+    }
+    if (r.x < x0) {
+      r.x += w;
+      return w;
+    }
+    return 0;
   }
 
   // Signed distance from a to b inside the loop (shortest way round).
@@ -374,7 +407,8 @@ export default class RaceScene extends Phaser.Scene {
         const dx = this.loopDx(r.x, c.r.x);
         if (Math.abs(dx) <= KICK.reach + 6 && Math.abs(c.r.y - r.y) < 16) {
           k.hit.add(c);
-          this.hitChampion(c);
+          if (c.state === 'windup' || c.state === 'rev') this.hitChampion(c);
+          else this.clank(c);
         }
       }
     }
@@ -411,10 +445,12 @@ export default class RaceScene extends Phaser.Scene {
     this.time.delayedCall(750, () => {
       if (this.finished) return;
       if (this.lives <= 0) return this.finish(false);
-      const col = respawnColumn(this.level, this.rider.x, this.loopLocked);
-      this.rider = newRider(col * TILE + 8, this.level.cols[col].row * TILE);
-      // Back in the loop: no cones where you start or just ahead.
-      this.cones.filter((c) => c.col >= col - 1 && c.col <= col + 6).forEach((c) => this.removeCone(c));
+      this.rider = respawnRider(this.level, this.rider.x, this.loopLocked);
+      const col = Math.floor(this.rider.x / TILE);
+      // Back in the loop: no cones where you start or just ahead, and the
+      // camera cuts straight there (it may be round the back of the loop).
+      this.cones.filter((c) => c.col >= col - 1 && c.col <= col + 10).forEach((c) => this.removeCone(c));
+      if (this.loopLocked) this.cameras.main.scrollX = this.rider.x + CAM_AHEAD - this.scale.width / 2;
       this.tweens.killTweensOf(this.player);
       this.player.setAlpha(1);
       this.invulnerable = RESPAWN_INVULNERABLE;
@@ -472,7 +508,7 @@ export default class RaceScene extends Phaser.Scene {
   }
 
   updateClock(dt) {
-    if (this.loopLocked || this.dying) return; // the boss fight isn't on the clock
+    if (this.dying) return; // the boss fight is on the clock too (it adds BOSS_TIME when it starts)
     this.timeLeft -= dt;
     if (this.timeLeft <= 0) {
       this.timeLeft += TIME_UP_REFILL;
@@ -619,8 +655,6 @@ export default class RaceScene extends Phaser.Scene {
   lockLoop() {
     const loop = this.level.bossLoop;
     this.loopLocked = true;
-    this.cameras.main.stopFollow();
-    this.cameras.main.setScroll(loop.x0 * TILE, 0);
     // Rivals still out there leave the track: it's the champion's race now.
     for (const rv of this.rivals) {
       if (rv.out) continue;
@@ -629,13 +663,19 @@ export default class RaceScene extends Phaser.Scene {
       rv.sprite.destroy();
     }
     const b = this.level.boss;
-    const def = RIVAL.boss;
-    const sprite = this.add.image(b.x * TILE + 8, (b.y + 1) * TILE, this.keys.boss(def.texture)).setOrigin(0.5, 1).setDepth(GLOW_DEPTH);
-    const hp = this.run.stage >= 5 ? Math.round(def.hp * BOSS_STAGE5_HP) : def.hp;
-    this.champion = { sprite, def, hp, maxHp: hp, out: false, state: 'ride', timer: 0, cool: 1.5, drop: def.dropEvery, hurtCool: 0, dash: 0, t: 0, r: newRider(sprite.x, sprite.y) };
-    this.champion.r.speed = this.yourTop * 0.9;
+    const pattern = this.run.stage >= 5 ? BOSS.final : BOSS.normal;
+    const sprite = this.add.image(b.x * TILE + 8, (b.y + 1) * TILE, this.keys.boss(RIVAL.boss.texture)).setOrigin(0.5, 1).setDepth(GLOW_DEPTH);
+    this.champion = {
+      sprite, pattern, hp: pattern.hp, maxHp: pattern.hp, out: false,
+      state: 'chase', timer: 0, cool: 1.2, ramCool: pattern.ramEvery || 0, hurtCool: 0, toDrop: 0, flash: 0,
+      r: newRider(sprite.x, sprite.y),
+    };
+    this.champion.r.speed = this.yourTop * 0.6;
+    const bonus = BOSS_TIME[0] + BOSS_TIME[1] * loop.pieces;
+    this.timeLeft += bonus;
     this.bossBar.show(10, 10);
-    this.showHint(`${bossName(this.theme)}!`, true);
+    this.showHint(`${bossName(this.theme)}! +${bonus} S`, true);
+    this.time.delayedCall(1600, () => this.loopLocked && this.showHint('KICK IT WHILE IT GLOWS', true));
     this.cameras.main.shake(200, 0.006);
     this.updateHud(true);
   }
@@ -645,95 +685,181 @@ export default class RaceScene extends Phaser.Scene {
     if (!c || c.out) return;
     const p = this.rider;
     const r = c.r;
-    c.t += dt;
+    const P = c.pattern;
     c.cool -= dt;
-    c.drop -= dt;
+    c.ramCool -= dt;
     c.hurtCool -= dt;
-    c.dash -= dt;
+    c.timer -= dt;
     const dx = this.loopDx(r.x, p.x); // > 0: you're ahead of it
-    const [lo, hi] = BOSS_PACE;
-    let target = this.yourTop * this.slow * (lo + (hi - lo) * (0.5 + 0.5 * Math.sin(c.t * 1.6)));
-    if (c.dash > 0) target = this.yourTop * 1.35;
+    const top = this.yourTop * this.slow;
+    const beside = Math.abs(dx) < RIVAL.boss.reach && Math.abs(p.y - r.y) < 16;
+    let target = top;
 
-    if (c.state === 'ride') {
-      if (Math.abs(dx) < c.def.reach && !r.air && c.cool <= 0 && !this.dying) {
-        c.state = 'windup';
-        c.timer = c.def.windup;
-      }
-      // Ahead of you: drop a cone behind it.
-      if (dx < -24 && c.drop <= 0 && !r.air) {
-        this.dropCone(r.x - 14);
-        c.drop = c.def.dropEvery / (this.run.stage >= 5 ? 1.3 : 1);
+    if (c.state === 'stun') {
+      target = top * 0.5;
+      if (c.timer <= 0) this.bossState(c, 'surge', P.surge);
+    } else if (c.state === 'chase') {
+      // Pull up beside you: faster when you're ahead, easing off when it's ahead.
+      const ramTurn = P.ram && c.ramReady && c.ramCool <= 0;
+      if (ramTurn) {
+        // Stage 5, a ram turn: drop back behind you, then rev and charge.
+        // (close enough to stay on screen: you see it glow)
+        target = dx < RAM_BACK ? top * 0.45 : p.speed;
+        if (dx >= RAM_BACK && dx < 200 && !r.air) {
+          c.ramReady = false;
+          c.kicks = 0;
+          this.bossState(c, 'rev', P.rev);
+        }
+      } else {
+        target = dx > 12 ? top * P.chase : dx < -12 ? top * 0.7 : p.speed;
+        if (beside && !r.air && !p.air && c.cool <= 0 && !this.dying) this.bossState(c, 'windup', P.windup);
       }
     } else if (c.state === 'windup') {
-      target *= 0.9;
-      c.timer -= dt;
+      target = p.speed; // stays beside you while it glows
       if (c.timer <= 0) {
-        if (Math.abs(this.loopDx(r.x, p.x)) < c.def.reach + 4 && !p.air) this.crash('KNOCKED OFF!');
-        c.state = 'ride';
-        c.cool = c.def.cooldown;
+        if (beside && !p.air && !this.dying) this.crash('KNOCKED OFF!');
+        c.kicks = (c.kicks || 0) + 1;
+        if (c.kicks >= (P.kicksPerRam || 1)) c.ramReady = true; // its next move can be a ram (stage 5)
+        this.bossState(c, 'surge', P.surge);
+      }
+    } else if (c.state === 'surge') {
+      target = top * 1.45;
+      if (dx < -56 || c.timer <= 0) {
+        c.toDrop = P.cones;
+        this.bossState(c, 'drop', 0);
+      }
+    } else if (c.state === 'drop') {
+      target = top * 1.1;
+      // Waits for flat ground behind it, then drops the whole strip at once.
+      const back = Math.floor((r.x - 14) / TILE);
+      const flat = [...Array(c.toDrop).keys()].every((i) => this.coneSpot(back - i));
+      if (flat && !r.air) {
+        for (let i = 0; i < c.toDrop; i++) this.dropCone((back - i) * TILE + 8);
+        c.toDrop = 0;
+      }
+      if (c.toDrop <= 0 || dx > 0) {
+        c.cool = P.cooldown;
+        this.bossState(c, 'chase', 0);
+      }
+    } else if (c.state === 'rev') {
+      target = p.speed * 0.9; // holds back while it glows
+      if (c.timer <= 0) this.bossState(c, 'ram', P.ramTime);
+    } else if (c.state === 'ram') {
+      target = top * P.ramPace;
+      if (!this.dying && Math.abs(dx) < 12 && p.y > r.y - 10) this.crash('RAMMED!');
+      if (c.timer <= 0 || dx < -40) {
+        c.ramCool = P.ramEvery;
+        this.bossState(c, 'surge', P.surge * 0.5);
       }
     }
-    // It hops its own cones on the next lap, like spikes.
-    const ctx = this.cones.length ? { ...this.rivalCtx, spikes: this.coneSpikes() } : this.rivalCtx;
+
+    // It hops its own cones on the next lap, like spikes, and can outrun you.
+    const ctx = { ...this.rivalCtx, topMul: BOSS_TOP * (this.yourTop / RIDE.top), spikes: this.cones.length ? this.coneSpikes() : this.track.spikes };
     const input = botInput(r, ctx, { target });
-    stepRider(r, input, dt, this.rivalCtx);
+    if (c.state === 'stun') input.gas = false;
+    const ev = stepRider(r, input, dt, ctx);
+    if (ev.includes('fell') || ev.includes('crash') || r.y > this.worldH) this.bossRejoin(c);
     this.wrap(r);
-    c.sprite.setPosition(r.x, r.y).setAngle(r.angle);
+    // Drawn wherever round the loop is nearest to you.
+    c.sprite.setPosition(p.x + this.loopDx(p.x, r.x), r.y).setAngle(r.angle);
+    // Revving or ramming from off the left of the screen: a blinking "!" there.
+    const offLeft = c.sprite.x < this.cameras.main.worldView.left + 4;
+    const blink = Math.floor(this.time.now / 120) % 2 === 0;
+    this.bossWarn.setVisible((c.state === 'rev' || c.state === 'ram') && offLeft && blink).setY(r.y - 16);
+    const winding = c.state === 'windup' || c.state === 'rev' || c.state === 'ram';
+    c.clank = (c.clank || 0) - dt;
     if (c.flash > 0) {
       c.flash -= dt;
       c.sprite.setTintFill(0xffffff);
-    } else if (c.state === 'windup') c.sprite.setTint(Phaser.Display.Color.HexStringToColor(this.theme.palette.coin).color);
+    } else if (c.clank > 0) {
+      c.sprite.setTintFill(Phaser.Display.Color.HexStringToColor(this.theme.palette.groundTop).color);
+    } else if (winding && Math.floor(c.timer * 10) % 2 === 0) c.sprite.setTint(Phaser.Display.Color.HexStringToColor(this.theme.palette.coin).color);
     else c.sprite.clearTint();
+  }
+
+  // The champion never leaves the race: if it falls in a pit or comes down
+  // badly, it's back on the loop, round the far side from you.
+  bossRejoin(c) {
+    const loop = this.level.bossLoop;
+    const far = this.rider.x + (loop.w * TILE) / 2;
+    const col = respawnColumn(this.level, far, true);
+    c.r = newRider(col * TILE + 8, this.level.cols[col].row * TILE);
+    c.r.speed = this.yourTop * 0.8;
+    this.bossState(c, 'chase', 0);
+  }
+
+  // A kick while it isn't glowing: it shrugs it off.
+  clank(c) {
+    c.clank = 0.12;
+    this.cameras.main.shake(40, 0.002);
+  }
+
+  bossState(c, state, time) {
+    c.state = state;
+    c.timer = time;
   }
 
   hitChampion(c) {
     c.hp -= this.power === 'nitro' ? NITRO_HIT : 1;
     c.flash = 0.1;
     c.hurtCool = 0.5;
-    c.dash = BOSS_DASH;
-    c.state = 'ride';
-    c.cool = Math.max(c.cool, 0.8);
+    c.kicks = (c.kicks || 0) + 1;
+    if (c.kicks >= (c.pattern.kicksPerRam || 1)) c.ramReady = true;
+    this.bossState(c, 'stun', BOSS_STUN);
     this.bossBar.show(Math.ceil((Math.max(0, c.hp) / c.maxHp) * 10), 10);
     this.cameras.main.shake(60, 0.004);
     if (c.hp > 0) return;
     c.out = true;
+    this.bossWarn.setVisible(false);
     this.bossDone = true;
     this.loopLocked = false;
     this.bossBar.hide();
-    this.cones.forEach((cone) => cone.sprite.destroy());
-    this.cones = [];
+    [...this.cones].forEach((cone) => this.removeCone(cone));
     this.cameras.main.flash(250, 255, 255, 255);
     this.cameras.main.shake(300, 0.012);
     const s = c.sprite;
     this.tweens.add({ targets: s, y: s.y - 40, angle: 360, alpha: 0, duration: 800, onComplete: () => s.destroy() });
-    this.cameras.main.startFollow(this.player, true, 0.2, 1, -CAM_AHEAD, 0);
     this.showHint('THE WAY IS OPEN', true);
   }
 
-  // A cone fills one column, like spikes (riders read it the same way).
-  dropCone(x) {
+  // A cone fills one column, like spikes (riders read it the same way). One
+  // in the loop's first piece also shows on the copy of it after the loop.
+  // Can a cone go in this column (wrapped into the loop)? Flat, clear ground
+  // from CONE_RUNUP columns before it to 2 after (no pit, spikes, mud or step),
+  // so there's room to see it, hop it and land: never just past a jump's
+  // landing. And never on top of you.
+  coneSpot(col) {
     const loop = this.level.bossLoop;
-    let cx = x;
-    const w = loop.w * TILE;
-    if (cx < loop.x0 * TILE) cx += w;
-    const col = Math.floor(cx / TILE);
-    const s = surface(this.level.cols, col * TILE + 8);
-    if (!s || s.slope !== 0 || this.cones.some((c) => c.col === col)) return; // only on flat ground, one a column
-    if (Math.abs(this.loopDx(col * TILE + 8, this.rider.x)) < TILE * 2) return; // never on top of you
-    const sprite = this.add.image(col * TILE + 8, s.y, this.t('cone')).setOrigin(0.5, 1).setDepth(GLOW_DEPTH);
-    this.cones.push({ col, x: col * TILE + 8, y: s.y, sprite, life: RIVAL.boss.cone });
+    const c = col < loop.x0 ? col + loop.w : col;
+    const cols = this.track.cols;
+    const row = cols[c]?.row;
+    for (let x = c - CONE_RUNUP; x <= c + 2; x++) {
+      if (cols[x]?.kind !== 'flat' || cols[x].row !== row) return false;
+      if (this.track.spikes.has(x) || this.track.mud.has(x)) return false;
+    }
+    return Math.abs(this.loopDx(c * TILE + 8, this.rider.x)) >= TILE * 3;
   }
 
-  // The track's spikes plus the columns with a cone in them. Cones near the
-  // loop's start are also marked one lap on, so a rider about to wrap round
-  // sees them coming.
+  dropCone(x) {
+    const loop = this.level.bossLoop;
+    const w = loop.w * TILE;
+    const cx = x < loop.x0 * TILE ? x + w : x;
+    const col = Math.floor(cx / TILE);
+    const s = surface(this.level.cols, col * TILE + 8);
+    if (!s || !this.coneSpot(col) || this.cones.some((c) => c.col === col)) return;
+    const sprite = this.add.image(col * TILE + 8, s.y, this.t('cone')).setOrigin(0.5, 1).setDepth(GLOW_DEPTH);
+    const twin = col < loop.x0 + 20 ? this.add.image(col * TILE + 8 + w, s.y, this.t('cone')).setOrigin(0.5, 1).setDepth(GLOW_DEPTH) : null;
+    this.cones.push({ col, x: col * TILE + 8, y: s.y, sprite, twin, life: RIVAL.boss.cone });
+  }
+
+  // The track's spikes plus the columns with a cone in them (and their twins
+  // one lap on, so a rider about to come round sees them).
   coneSpikes() {
     const set = new Set(this.track.spikes);
     const loop = this.level.bossLoop;
     this.cones.forEach((c) => {
       set.add(c.col);
-      if (loop && c.col < loop.x0 + 8) set.add(c.col + loop.w);
+      if (loop && c.col < loop.x0 + 20) set.add(c.col + loop.w);
     });
     return set;
   }
@@ -742,14 +868,17 @@ export default class RaceScene extends Phaser.Scene {
     if (!this.cones.length) return;
     for (const cone of this.cones.slice()) {
       cone.life -= dt;
-      cone.sprite.setAlpha(cone.life < 1 && Math.floor(cone.life * 8) % 2 ? 0.3 : 1);
+      const a = cone.life < 1 && Math.floor(cone.life * 8) % 2 ? 0.3 : 1;
+      cone.sprite.setAlpha(a);
+      cone.twin?.setAlpha(a);
       if (cone.life <= 0) this.removeCone(cone);
     }
-    if (!this.dying && touchesSpikes(this.rider, { cols: this.track.cols, spikes: new Set(this.cones.map((c) => c.col)) })) this.crash('CRASHED!');
+    if (!this.dying && touchesSpikes(this.rider, { cols: this.track.cols, spikes: this.coneSpikes() }) && !touchesSpikes(this.rider, this.track)) this.crash('CRASHED!');
   }
 
   removeCone(cone) {
     cone.sprite.destroy();
+    cone.twin?.destroy();
     this.cones.splice(this.cones.indexOf(cone), 1);
   }
 
@@ -836,7 +965,7 @@ export default class RaceScene extends Phaser.Scene {
     const middle = this.objective === 'kill'
       ? `FOES ${this.rivals.filter((rv) => !rv.out).length}`
       : `${this.theme.names.hudCoin} ${this.coinsCollected}/${this.level.coins.length}`;
-    const text = `LIVES ${Math.max(0, this.lives)}  ${middle}  TIME ${this.loopLocked ? '--' : time}  STAGE ${this.run.stage}/${this.run.stages}`;
+    const text = `LIVES ${Math.max(0, this.lives)}  ${middle}  TIME ${time}  STAGE ${this.run.stage}/${this.run.stages}`;
     if (force || text !== this.lastHud) {
       this.hud.setText(text);
       this.lastHud = text;

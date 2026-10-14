@@ -1,7 +1,7 @@
 // Hand-built race track pieces. The generator strings these together into a
 // stage, left to right: you race to the flag at the far end.
 //
-// Every piece is 20 tiles wide and 14 tall (boss loops are 16: one screen).
+// Every piece is 20 tiles wide and 14 tall.
 // You only draw the bottom rows; missing rows at the top are filled with
 // empty space. Draw the ground as one solid shape: only the top of each
 // column matters, so no overhangs or floating platforms.
@@ -19,16 +19,15 @@
 //      the track first (Z or X). r = optional rival (only if the budget allows)
 //   M  rammer: waits until you pass, then charges from behind. Jump it or
 //      kick it. m = optional. Genre level 2+ pieces only; see minLevel below.
-//   K  the boss (boss loops only; see BOSS_TRACKS at the bottom)
+//   K  the champion (boss starting pieces only; see BOSS_TRACKS at the bottom)
 //   Spikes, mud, pads, rivals, P, F and K sit on flat ground (the row right
 //   above a '#' top). Coins go anywhere in the air.
 //
 // Rules (checked when the game loads, and by npm run check:race):
-//   - every row is exactly 20 characters (boss loops: 16)
+//   - every row is exactly 20 characters
 //   - the first 4 and last 4 columns are flat ground on row 12 with nothing
 //     to jump, so a jump at the end of one piece never lands in a pit at the
-//     start of the next. (Boss loops only need flat first and last columns,
-//     because the loop joins them.)
+//     start of the next (and the boss loop's end joins its start cleanly).
 //   - ramps join the ground smoothly (no wall right before or after one)
 //   - npm run check:race rides a test bot through every piece with every
 //     twist at every level, and fails if a piece can't be cleared.
@@ -46,7 +45,6 @@
 import { twistTags, checkDifficulty, checkLevelOnly } from './chunks.js';
 
 export const TRACK_W = 20;
-export const BOSS_TRACK_W = 16;
 export const TRACK_H = 14;
 export const GROUND_ROW = 12;
 export const EDGE = 4; // flat columns at each end of a piece
@@ -74,7 +72,7 @@ const rightY = (c) => (c.kind === 'pit' ? null : c.kind === 'down' ? (c.row + 1)
 
 function track(id, type, difficulty, art, tagOptions = {}) {
   const what = `Track "${id}"`;
-  const W = type === 'boss' ? BOSS_TRACK_W : TRACK_W;
+  const W = TRACK_W;
   const rows = art.trim().split('\n').map((line) => line.trim());
   if (rows.length > TRACK_H) throw new Error(`${what} has ${rows.length} rows; the max is ${TRACK_H}.`);
   while (rows.length < TRACK_H) rows.unshift('.'.repeat(W));
@@ -101,9 +99,9 @@ function track(id, type, difficulty, art, tagOptions = {}) {
     }
   });
   // The ends: flat ground on row 12, nothing to jump.
-  const edge = type === 'boss' ? [0, W - 1] : [...Array(EDGE).keys()].flatMap((i) => [i, W - 1 - i]);
+  const edge = [...Array(EDGE).keys()].flatMap((i) => [i, W - 1 - i]);
   for (const x of edge) {
-    if (cols[x].kind !== 'flat' || cols[x].row !== GROUND_ROW) throw new Error(`${what}: column ${x} must be flat ground on row ${GROUND_ROW} (the first and last ${type === 'boss' ? 'column' : `${EDGE} columns`} join other pieces).`);
+    if (cols[x].kind !== 'flat' || cols[x].row !== GROUND_ROW) throw new Error(`${what}: column ${x} must be flat ground on row ${GROUND_ROW} (the first and last ${EDGE} columns join other pieces).`);
     if (rows[GROUND_ROW - 1][x] === '^') throw new Error(`${what}: no spikes in column ${x} (the first and last ${EDGE} columns stay clear).`);
   }
   // Things that sit on the ground must sit on flat ground.
@@ -116,7 +114,7 @@ function track(id, type, difficulty, art, tagOptions = {}) {
   if (type !== 'start' && count('P')) throw new Error(`${what}: "P" only goes in start pieces.`);
   if (type === 'exit' && count('F') !== 1) throw new Error(`${what}: an exit piece needs exactly one F.`);
   if (type !== 'exit' && count('F')) throw new Error(`${what}: "F" only goes in exit pieces.`);
-  if (type === 'boss' && count('K') !== 1) throw new Error(`${what}: a boss loop needs exactly one K.`);
+  if (type === 'boss' && count('K') !== 1) throw new Error(`${what}: a boss starting piece needs exactly one K.`);
   if (type !== 'boss' && count('K')) throw new Error(`${what}: "K" (boss) only goes in BOSS_TRACKS.`);
   if (type === 'race' && !count('RM')) throw new Error(`${what}: a race piece needs at least one capital-letter rival (R or M).`);
   if (type !== 'race' && count('RrMm')) throw new Error(`${what}: only "race" pieces can have rivals (this one is "${type}").`);
@@ -442,19 +440,29 @@ export const TRACKS = [
 
 ];
 
-// Boss loops (genre level 3): one goes just before the exit on the run's last
-// stage (and stage 3 of a Long run). Riding in locks the screen and the loop
-// joins up: ride off the right edge and you come back on the left, lap after
-// lap, until the champion is knocked off. K marks where it starts.
+// The boss loop (genre level 3): on the run's last stage (and stage 3 of a
+// Long run) the track before the exit becomes a circuit of 3 to 5 pieces
+// (LOOP_PIECES): one of these starting pieces, where the champion waits at
+// K, then 2 to 4 pieces drawn from the jump and rest pieces above (the ones
+// with difficulty LOOP_MAX_DIFFICULTY or less; no rivals, no coins). Riding
+// in locks the loop: off its end you come back round to its start, lap after
+// lap, until the champion is knocked off. Starting pieces follow the same
+// rules as every piece, and have no rivals or coins.
+export const LOOP_PIECES = { min: 3, max: 5 };
+export const LOOP_MAX_DIFFICULTY = 2;
 export const BOSS_TRACKS = [
-  track('oval', 'boss', 0, raw`
-    ..........K.....
-    ################
-    ################`),
+  track('grid', 'boss', 0, raw`
+    .............K......
+    ####################
+    ####################`),
 
-  track('oval_hump', 'boss', 0, raw`
-    ...../##\...K...
-    ################
-    ################`),
+  track('grid_hump', 'boss', 0, raw`
+    ...../##\.....K.....
+    ####################
+    ####################`),
 
+  track('grid_pads', 'boss', 0, raw`
+    ....==.......K......
+    ####################
+    ####################`),
 ];

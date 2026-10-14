@@ -33,12 +33,15 @@ Open the address Vite prints (usually http://localhost:5173).
 - **Racing:** Right is gas, Left brakes, Up or Space jumps, Z or X kicks
   (both sides at once). Riding off the top of a ramp launches you; jumping on
   a ramp or right at its lip launches you higher. In the air, Down leans
-  forward and Left leans back (holding Right for gas is safe: the bike levels
-  itself). Land matching the ground's angle: close is a clean landing (a
-  little speed), a bit off is rough (you lose speed and wobble), way off is a
-  crash. Crashes (bad landings, spikes, pits, theme hazards, a rammer, the
-  champion's kick or cones) cost a life and put you back on safe ground a
-  little way behind. A rival's kick only knocks your speed down. Mud (~)
+  forward and Left leans back (Right is only gas, so you can hold it). The
+  bike keeps the angle it left the ground at: straight off a ramp it's nose
+  up 45 degrees, so you have to lean forward to land on flat ground. Land
+  within 12 degrees of the ground's angle for a clean landing (a little
+  speed), within 30 for a rough one (half your speed, and a wobble), more
+  is a crash. Crashes (bad landings, spikes, pits, theme hazards, a rammer,
+  the champion's kick, ram or cones) cost a life and put you back on safe
+  ground a little way behind, already moving at 80% of top speed (so the
+  next jump never needs a run-up). A rival's kick only knocks your speed down. Mud (~)
   halves your top speed, boost pads (=) shoot you forward. Beat the clock to
   the chequered flag: if it runs out you lose a life and get 20 more seconds
 - The browser console lists the reels and the chunks/waves used for every stage
@@ -189,13 +192,21 @@ npm run check:levels   # every genre and theme at levels 1-3: new pieces, power-
   then charge from behind faster than you can ride: jump over them or kick
   them. The nitro is carried by a rival (a sparkle bobs over it) and drops on
   the track ahead when you kick it off; from stage 4 it runs off along the
-  track and can fall in a pit. Level 3's boss is the champion in a boss loop
-  (`BOSS_TRACKS` in `tracks.js`): riding in locks the screen and the track
-  joins up (off the right edge, back on the left) until you've kicked it off
-  (10 hits, 15 at the end of a Long run). It drops cones behind it (jump
-  them), kicks when it's beside you (a crash: brake or jump), and calls in
-  the theme's hazard. The clock stops during the fight. Riders still out
-  there leave the track when the loop locks.
+  track and can fall in a pit. Level 3's boss is the champion, raced on a
+  boss loop: 3 or 4 track pieces (5 on stage 5) before the exit, starting
+  with one of `BOSS_TRACKS` in `tracks.js` and then jump and rest pieces of
+  difficulty 2 or less. Riding in locks the loop: ride off its end and
+  you're back at its start, lap after lap, until the champion is knocked
+  off. Its pattern (`BOSS` at the top of `RaceScene.js`): it pulls up beside
+  you, glows and kicks (a crash: jump or brake away), surges ahead and drops
+  a strip of cones behind it (a crash: hop the strip). Stage 5's also drops
+  back behind you, glows and rams (a crash unless you jump it; a blinking
+  "!" shows at the left edge if it's off screen) after every second kick.
+  It can only be hurt while it glows: kick it then (6 hits, 8 on stage 5;
+  nitro hits count double); other kicks clank off. It never leaves the race
+  (a fall puts it back round the loop). The clock keeps running, with 30 s
+  plus 10 s a loop piece added when the loop locks. Riders still out there
+  leave the track when the loop locks.
 - **Racing rivals and the clock:** rivals start riding when you get close,
   never faster than 85% of your top speed (so you always catch them, even
   in Mud), jump what's in their way like you would, and kick when they're
