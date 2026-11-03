@@ -57,12 +57,12 @@ export default class SpinScene extends Phaser.Scene {
     const text = (x, y, s, size, color) =>
       pixelText(this, x, y, s, { size: size / 8, color, align: 'center' }).setOrigin(0.5);
 
-    this.title = text(W / 2, 18, '8-BIT ROULETTE', 16, C.gold);
+    this.title = pixelText(this, 44, 10, '8-BIT ROULETTE', { size: 2, color: C.gold }).setOrigin(0, 0);
 
     // The machine itself, beside the title. Its little reels follow the real
     // ones below: they spin while a reel spins and stop when it lands, always
     // on cherry, star, heart. They're decoration; the text reels are the result.
-    this.machine = createMachine(this, 6, 0);
+    this.machine = createMachine(this, 8, 4);
     this.machine.reels.forEach((r, i) => r.setFrame(i));
     this.reelPhase = 0;
     this.time.addEvent({ delay: 80, loop: true, callback: () => (this.reelPhase ^= 1) });
@@ -71,15 +71,15 @@ export default class SpinScene extends Phaser.Scene {
 
     // Cabinet
     const g = this.add.graphics();
-    g.fillStyle(hex(C.cabinetDark)).fillRect(10, 40, W - 20, 104);
-    g.fillStyle(hex(C.cabinet)).fillRect(12, 42, W - 24, 100);
-    g.fillStyle(hex(C.gold)).fillRect(12, 42, W - 24, 2).fillRect(12, 140, W - 24, 2);
+    g.fillStyle(hex(C.cabinetDark)).fillRect(10, 48, W - 20, 96);
+    g.fillStyle(hex(C.cabinet)).fillRect(12, 50, W - 24, 92);
+    g.fillStyle(hex(C.gold)).fillRect(12, 50, W - 24, 2).fillRect(12, 140, W - 24, 2);
 
     // Reel windows
     this.reels = REELS.map((reel, i) => {
       const x = 50 + i * 78;
       const y = 92;
-      text(x, 56, LABELS[reel], 8, this.locks[reel] ? C.warn : C.gold);
+      text(x, 60, LABELS[reel], 8, this.locks[reel] ? C.warn : C.gold);
       const frame = this.add.rectangle(x, y, 70, 44, hex(C.window)).setStrokeStyle(2, hex(C.cabinetDark));
       const strip = content.reels[reel].map((e) => ({ id: e.id, label: this.label(reel, e.id) }));
       const lines = [-14, 0, 14].map((dy, j) => text(x, y + dy, '', j === 1 ? 10 : 8, j === 1 ? C.ink : C.faint));

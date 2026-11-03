@@ -54,7 +54,7 @@ expect(markRead(read, beats[0].id) === read, 'reading a log twice should change 
 
 // ---------- Hub ----------
 const hubAt = (n) => hubState(content, withStoryUnlocked(content, fresh, n));
-expect(!hubAt(1).scratches && !hubAt(1).stranger && !hubAt(1).watching, 'a new save should have a plain hub');
+expect(!hubAt(1).scratches && !hubAt(1).stranger, 'a new save should have a plain hub');
 const full = hubAt(beats.length);
 for (const b of beats.filter((x) => x.hub)) expect(full[b.hub], `the hub should show "${b.hub}" once ${b.id} is unlocked`);
 const lastSays = [...beats].reverse().find((b) => b.says);
@@ -143,4 +143,10 @@ for (const chance of [0.5, 0.75]) {
   }
 }
 
+
+// Legacy read IDs must not resurrect a retired story log or hub feature.
+const legacy = { ...all, story: { read: ['on-purpose'] } };
+if (unlockedBeats(content, legacy).some(b => b.id === 'on-purpose') ||
+    unreadBeats(content, legacy).some(b => b.id === 'on-purpose') ||
+    'watching' in hubState(content, legacy)) throw new Error('Retired story beat resurfaced');
 process.exit(problems.length ? 1 : 0);

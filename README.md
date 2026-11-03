@@ -282,8 +282,7 @@ Everything is in `src/data/story.json`:
   `wins`, `tokensEarned`, `glitches`, or `upgrade` to sell it in the shop)
   and a `log` of up to 9 lines, 31 characters each.
 - **Hub changes:** a beat's `hub` adds `scratches` (marks on the wall; their
-  text is `wall`), `stranger` (another player; their lines are `says`) or
-  `watching` (the machine's lights turn red). A later beat's `says` replaces
+  text is `wall`), `stranger` (another player; their lines are `says`). A later beat's `says` replaces
   the earlier lines.
 - **Glitches:** `first` is when the first glitch is forced; after that each
   spin has `chance` of glitching. The glitch theme is an ordinary theme file

@@ -14,11 +14,10 @@ import { createMachine } from '../ui/phaserMachine.js';
 // terminal. Walk up to one and press Up to use it.
 //
 // The room changes as the story unlocks (story.json): marks appear on the
-// wall and another player shows up. (The "watching" beat still unlocks, but
-// the Act I machine sprite has no watching look, so the hub doesn't change.)
+// wall and another player shows up.
 
 const FLOOR_Y = 192;
-const MACHINE_Y = FLOOR_Y - 38; // top of the 32x40 machine sprite; its base sits on the floor
+const MACHINE_Y = FLOOR_Y - 38 * 2; // 2x artwork; base contact stays on the floor
 const RUN_SPEED = 90;
 const JUMP_VELOCITY = 240;
 const REACH = 22; // how close (px) you need to stand to use a station
@@ -120,9 +119,9 @@ export default class HubScene extends Phaser.Scene {
     g.fillStyle(hex(C.window)).fillRect(22, 118, 36, 14);
     label(this, 40, 125, 'SHOP', 8, C.ink);
 
-    // The slot machine (Act I sprite), standing on the floor. It blinks now
-    // and then. The story's "watching" beat has no look here yet.
-    this.machine = createMachine(this, 112, MACHINE_Y);
+    // Larger pixels make the Machine the centerpiece without adding detail.
+    this.machine = createMachine(this, 96, MACHINE_Y);
+    this.machine.root.setScale(2);
     this.scheduleBlink();
 
     // Story terminal, with a NEW light when there's an unread log
@@ -188,7 +187,7 @@ export default class HubScene extends Phaser.Scene {
 
     const near = this.nearest();
     this.prompt.setVisible(!!near);
-    if (near) this.prompt.setText(`UP ${near.verb}`).setPosition(near.x, near.id === 'machine' ? MACHINE_Y - 8 : near.id === 'wall' ? 101 : 108);
+    if (near) this.prompt.setText(`UP ${near.verb}`).setPosition(near.x, near.id === 'machine' ? MACHINE_Y - 12 : near.id === 'wall' ? 101 : 108);
   }
 
   use() {
