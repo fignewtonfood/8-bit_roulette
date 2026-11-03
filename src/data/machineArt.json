@@ -1012,6 +1012,12 @@
           "frames": 3,
           "frameWidth": 256,
           "frameHeight": 224
+        },
+        "reel-shine": {
+          "file": "reel-shine.png",
+          "frames": 7,
+          "frameWidth": 256,
+          "frameHeight": 224
         }
       },
       "faceFrames": [
@@ -1036,6 +1042,7 @@
       "symbolFrames": null,
       "layerOrder": [
         "reel-bed",
+        "reel-shine",
         "game reel contents",
         "cabinet",
         "reel-finish",

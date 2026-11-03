@@ -7,8 +7,8 @@
 // and tells the machine what just happened with react(); the pictured
 // cherries and stars never mean anything.
 //
-// Layers, back to front: reel bed, game-owned reel content, cabinet, then
-// (Act III) reel finish, face, bulbs, (Act III) stage lights, broken bulb,
+// Layers, back to front: reel bed, (Act III slot machine) reel shine,
+// game-owned reel content, cabinet, then (Act III) reel finish, face, bulbs, (Act III) stage lights, broken bulb,
 // lever, and (Act III) stars and the face-screen glitch. The broken bulb never
 // lights, not even in a celebration, and nothing here repairs the wear.
 
@@ -67,6 +67,8 @@ export function createMachineArt(scene, kind, { centerX = 128, floorY = 192 } = 
   };
 
   layer('reel-bed');
+  // Act III's reflections sweep behind the reel text, never over it.
+  const reelShine = v.sheets['reel-shine'] ? layer('reel-shine') : null;
   const reelContent = scene.add.container(0, 0);
   root.add(reelContent);
   // The reel windows in screen pixels, for game text: [x, y, w, h].
@@ -173,6 +175,7 @@ export function createMachineArt(scene, kind, { centerX = 128, floorY = 192 } = 
       stageLights.setFrame(pose.stageLights);
       lever.setFrame(pose.lever);
       reelFinish.setFrame(pose.reelFinish);
+      reelShine?.setFrame(pose.reelFinish);
       stars.setFrame(pose.spectacle);
       glitch.setFrame(pose.glitch);
       // The hub machine hops a pixel or two; collision and prompts don't move.
