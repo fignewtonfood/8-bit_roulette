@@ -1,6 +1,6 @@
 {
   "version": 3,
-  "status": "Authored native-pixel art; Act III theatrical revision v2 added",
+  "status": "Authored native-pixel art; Act III spectacle pass v3 added",
   "gameCanvas": {
     "width": 256,
     "height": 224
@@ -794,6 +794,18 @@
           "frameWidth": 96,
           "frameHeight": 120
         },
+        "crown-sweep": {
+          "file": "crown-sweep.png",
+          "frames": 11,
+          "frameWidth": 96,
+          "frameHeight": 120
+        },
+        "reveal-rays": {
+          "file": "reveal-rays.png",
+          "frames": 5,
+          "frameWidth": 96,
+          "frameHeight": 120
+        },
         "reel-bed": {
           "file": "reel-bed.png",
           "frames": 1,
@@ -802,6 +814,12 @@
         },
         "reel-finish": {
           "file": "reel-finish.png",
+          "frames": 7,
+          "frameWidth": 96,
+          "frameHeight": 120
+        },
+        "reel-reflection": {
+          "file": "reel-reflection.png",
           "frames": 7,
           "frameWidth": 96,
           "frameHeight": 120
@@ -859,12 +877,15 @@
         "spin-b"
       ],
       "layerOrder": [
+        "reveal-rays",
         "reel-bed",
+        "reel-reflection",
         "game reel contents",
         "cabinet",
         "reel-finish",
         "face",
         "bulbs",
+        "crown-sweep",
         "stage-lights",
         "broken-bulb",
         "lever",
@@ -983,6 +1004,18 @@
           "frameWidth": 256,
           "frameHeight": 224
         },
+        "crown-sweep": {
+          "file": "crown-sweep.png",
+          "frames": 11,
+          "frameWidth": 256,
+          "frameHeight": 224
+        },
+        "reveal-rays": {
+          "file": "reveal-rays.png",
+          "frames": 5,
+          "frameWidth": 256,
+          "frameHeight": 224
+        },
         "reel-bed": {
           "file": "reel-bed.png",
           "frames": 1,
@@ -991,6 +1024,12 @@
         },
         "reel-finish": {
           "file": "reel-finish.png",
+          "frames": 7,
+          "frameWidth": 256,
+          "frameHeight": 224
+        },
+        "reel-reflection": {
+          "file": "reel-reflection.png",
           "frames": 7,
           "frameWidth": 256,
           "frameHeight": 224
@@ -1010,12 +1049,6 @@
         "glitch": {
           "file": "glitch.png",
           "frames": 3,
-          "frameWidth": 256,
-          "frameHeight": 224
-        },
-        "reel-shine": {
-          "file": "reel-shine.png",
-          "frames": 7,
           "frameWidth": 256,
           "frameHeight": 224
         }
@@ -1041,13 +1074,15 @@
       ],
       "symbolFrames": null,
       "layerOrder": [
+        "reveal-rays",
         "reel-bed",
-        "reel-shine",
+        "reel-reflection",
         "game reel contents",
         "cabinet",
         "reel-finish",
         "face",
         "bulbs",
+        "crown-sweep",
         "stage-lights",
         "broken-bulb",
         "lever",

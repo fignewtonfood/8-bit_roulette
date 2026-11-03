@@ -1,5 +1,6 @@
-// The Act III machine's choreography (art team's performance.mjs, theatrical
-// revision v2). The cue tables are theirs, unchanged; the code is reformatted.
+// The Act III machine's choreography (art team's performance.mjs, spectacle
+// pass v3). The cue tables and effect timings are theirs, unchanged; the code
+// is reformatted.
 //
 // Presentation only. It never sees a result, never uses the game's RNG and
 // never delays input. The scene calls play(cue) when something really happens
@@ -28,8 +29,23 @@ export const CUES = {
 const SPIN_LOOP = 640;
 const GLITCH_MS = 50;
 
-// render(pose) gets { face, bulbs, stageLights, lever, reelFinish, spectacle, glitch, bodyY }.
-// Reduced motion keeps faces and the lever; no lights, stars, glitches or lift.
+// The crown sweep (frames 1-8 travel across the crown, 9 bright peak, 10
+// recovery) and the reveal rays behind the cabinet (1-4 fan out).
+// Pulling and spinning: the sweep steps every 100 ms. Celebrating: it races
+// (every 40 ms) until 320 ms, then the crown peaks while the rays fan out
+// (every 80 ms) until 640 ms, then it settles until 880 ms and clears.
+function crownEffects(cue, elapsed) {
+  if (cue === 'spin' || cue === 'pull') return { crownSweep: 1 + (Math.floor(elapsed / 100) % 8), revealRays: 0 };
+  if (cue !== 'celebrate') return { crownSweep: 0, revealRays: 0 };
+  if (elapsed < 320) return { crownSweep: 1 + (Math.floor(elapsed / 40) % 8), revealRays: 0 };
+  if (elapsed < 640) return { crownSweep: 9, revealRays: 1 + Math.min(3, Math.floor((elapsed - 320) / 80)) };
+  if (elapsed < 880) return { crownSweep: 10, revealRays: 0 };
+  return { crownSweep: 0, revealRays: 0 };
+}
+
+// render(pose) gets { face, bulbs, stageLights, crownSweep, revealRays, lever,
+// reelFinish, spectacle, glitch, bodyY }.
+// Reduced motion keeps faces and the lever; no lights, sweep, rays, stars, glitches or lift.
 export function createPerformance(render, { reducedMotion = false } = {}) {
   let cue = 'idle';
   let elapsed = 0;
@@ -45,11 +61,14 @@ export function createPerformance(render, { reducedMotion = false } = {}) {
     for (const r of rows) if (r[0] <= t) row = r;
     const [, face, lights, lever, bodyY, spectacle] = row;
     const still = reducedMotion;
+    const { crownSweep, revealRays } = crownEffects(cue, elapsed);
     render({
       face,
       lever,
       bulbs: still ? 0 : lights,
       stageLights: still ? 0 : lights,
+      crownSweep: still ? 0 : crownSweep,
+      revealRays: still ? 0 : revealRays,
       bodyY: still ? 0 : bodyY,
       spectacle: still ? 0 : spectacle,
       // 1 = the steady row frame; 2-5 = a reflection sweeping across while spinning

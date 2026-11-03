@@ -7,10 +7,12 @@
 // and tells the machine what just happened with react(); the pictured
 // cherries and stars never mean anything.
 //
-// Layers, back to front: reel bed, (Act III slot machine) reel shine,
-// game-owned reel content, cabinet, then (Act III) reel finish, face, bulbs, (Act III) stage lights, broken bulb,
-// lever, and (Act III) stars and the face-screen glitch. The broken bulb never
-// lights, not even in a celebration, and nothing here repairs the wear.
+// Layers, back to front, come from each variant's layerOrder in the manifest.
+// Acts I and II: reel bed, game-owned reel content, cabinet, face, bulbs,
+// broken bulb, lever. Act III adds reveal rays (behind everything), reel
+// reflections (behind the reel text), the reel finish, a crown sweep, stage
+// lights, stars and the face-screen glitch. The broken bulb never lights, not
+// even in a celebration, and nothing here repairs the wear.
 
 import Phaser from 'phaser';
 import manifest from '../data/machineArt.json';
@@ -66,11 +68,20 @@ export function createMachineArt(scene, kind, { centerX = 128, floorY = 192 } = 
     return img;
   };
 
-  layer('reel-bed');
-  // Act III's reflections sweep behind the reel text, never over it.
-  const reelShine = v.sheets['reel-shine'] ? layer('reel-shine') : null;
-  const reelContent = scene.add.container(0, 0);
-  root.add(reelContent);
+  // Build the stack in the art team's order. 'game reel contents' is ours;
+  // 'game text' is the scene's, drawn on top of the whole machine.
+  const FIRST_FRAME = { bulbs: theatre ? 0 : BULBS.on, 'reel-finish': 1, lever: LEVER.up };
+  const layers = {};
+  let reelContent = null;
+  for (const name of v.layerOrder) {
+    if (name === 'game text') continue;
+    if (name === 'game reel contents') {
+      reelContent = scene.add.container(0, 0);
+      root.add(reelContent);
+    } else layers[name] = layer(name, FIRST_FRAME[name] ?? 0);
+  }
+  const { face, bulbs, lever } = layers;
+
   // The reel windows in screen pixels, for game text: [x, y, w, h].
   const windows = v.reelWindows.map(([rx, ry, w, h]) => [x + rx * scale, y + ry * scale, w * scale, h * scale]);
   const symbols = hub
@@ -80,15 +91,6 @@ export function createMachineArt(scene, kind, { centerX = 128, floorY = 192 } = 
         return img;
       })
     : [];
-  layer('cabinet');
-  const reelFinish = theatre ? layer('reel-finish', 1) : null;
-  const face = layer('face');
-  const bulbs = layer('bulbs', theatre ? 0 : BULBS.on);
-  const stageLights = theatre ? layer('stage-lights') : null;
-  layer('broken-bulb');
-  const lever = layer('lever', LEVER.up);
-  const stars = theatre ? layer('spectacle') : null;
-  const glitch = theatre ? layer('glitch') : null;
 
   // Text that scrolls or clunks inside a window stays inside it.
   // (Masks are in screen space; only the hub ever lifts, and its symbols aren't masked.)
@@ -169,15 +171,14 @@ export function createMachineArt(scene, kind, { centerX = 128, floorY = 192 } = 
   let perf = null;
   if (theatre) {
     const reducedMotion = typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    // Which pose field sets which layer's frame (reflections follow the reel finish).
+    const DRIVEN_BY = {
+      face: 'face', bulbs: 'bulbs', 'stage-lights': 'stageLights', 'crown-sweep': 'crownSweep',
+      'reveal-rays': 'revealRays', lever: 'lever', 'reel-finish': 'reelFinish',
+      'reel-reflection': 'reelFinish', spectacle: 'spectacle', glitch: 'glitch',
+    };
     perf = createPerformance((pose) => {
-      face.setFrame(pose.face);
-      bulbs.setFrame(pose.bulbs);
-      stageLights.setFrame(pose.stageLights);
-      lever.setFrame(pose.lever);
-      reelFinish.setFrame(pose.reelFinish);
-      reelShine?.setFrame(pose.reelFinish);
-      stars.setFrame(pose.spectacle);
-      glitch.setFrame(pose.glitch);
+      for (const [name, field] of Object.entries(DRIVEN_BY)) layers[name]?.setFrame(pose[field]);
       // The hub machine hops a pixel or two; collision and prompts don't move.
       // The slot machine screen stays put so the reel text lines up.
       if (hub) root.y = y + pose.bodyY * scale;

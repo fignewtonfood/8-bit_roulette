@@ -35,6 +35,7 @@ import { createMachineArt } from '../ui/machineArt.js';
 
 const REELS = ['theme', 'genre', 'twist'];
 const PANEL_X = 127;        // middle of the panel under the reels
+const ACT3_NEIGHBOUR = '#756a69'; // the machine palette's scuff grey
 const PANEL_CHARS = 34;     // big-font characters that fit across it; longer prompts use the small font
 
 // Show knobs (seconds)
@@ -70,6 +71,8 @@ export default class SpinScene extends Phaser.Scene {
     // Reel windows: the entry on the payline in the big font, its neighbours
     // small and faint. Everything in a window is clipped to it and sits under
     // the cabinet. A locked reel's entry is red.
+    // Act III's reels have darker shading, so its neighbours are a darker grey (art team).
+    const neighbour = (this.neighbour = this.machine.act === 3 ? ACT3_NEIGHBOUR : C.faint);
     this.reels = REELS.map((reel, i) => {
       const [wx, wy, w, h] = this.machine.windows[i];
       const x = wx + w / 2;
@@ -77,7 +80,7 @@ export default class SpinScene extends Phaser.Scene {
       const outline = this.add.rectangle(wx + 1, wy + 1, w - 2, h - 2).setOrigin(0).setVisible(false);
       const strip = content.reels[reel].map((e) => ({ id: e.id, label: this.label(reel, e.id) }));
       const lines = [-12, 0, 12].map((dy, j) =>
-        pixelText(this, x, y + dy, '', { small: j !== 1, color: j === 1 ? (this.locks[reel] ? C.warn : C.ink) : C.faint }).setOrigin(0.5));
+        pixelText(this, x, y + dy, '', { small: j !== 1, color: j === 1 ? (this.locks[reel] ? C.warn : C.ink) : neighbour }).setOrigin(0.5));
       // The level picker replaces the bottom neighbour once the reels land.
       const level = pixelText(this, x, y + 12, '', { small: true, color: C.gold }).setOrigin(0.5);
       [outline, ...lines, level].forEach((o) => this.machine.reelContent.add(this.machine.clip(o, i)));
@@ -223,7 +226,7 @@ export default class SpinScene extends Phaser.Scene {
       const on = reel === this.active;
       const label = on ? `${lv > 1 ? '<' : ' '} LV ${lv} ${lv < cap ? '>' : ' '}` : `LV ${lv}`;
       const r = this.reels[REELS.indexOf(reel)];
-      r.level.setText(cap > 1 ? label : '').setColor(on ? C.gold : C.faint);
+      r.level.setText(cap > 1 ? label : '').setColor(on ? C.gold : this.neighbour);
       r.lines[2].setVisible(cap <= 1);
     }
     // The description is the one for whatever you're picking: the genre's
