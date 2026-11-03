@@ -125,7 +125,8 @@ export default class SpinScene extends Phaser.Scene {
     // A glitch takes over the face screen for a moment.
     const [fx, fy, fw, fh] = this.machine.faceRegion;
     this.glitchText = pixelText(this, fx + fw / 2, fy + fh / 2, '8-B?T R0UL#TTE', { color: C.screenText }).setOrigin(0.5).setVisible(false);
-    this.tweens.add({ targets: this.prompt.targets, alpha: 0.25, duration: 500, yoyo: true, repeat: -1 });
+    // The prompt pulses but stays readable at its dimmest.
+    this.tweens.add({ targets: this.prompt.targets, alpha: 0.6, duration: 500, yoyo: true, repeat: -1 });
 
     // The bet: every length, locked ones included so you can see what's coming.
     this.lengths = lengthOptions(content, getSave(), session.unlockAll || this.practice);
