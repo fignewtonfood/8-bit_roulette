@@ -1,5 +1,5 @@
 {
-  "_help": "The story, one beat at a time. Beats unlock in order: a beat needs everything in its 'unlock' AND every beat above it. Unlock keys: runs, wins, tokensEarned, glitches (all lifetime totals from the save), and upgrade: { id, level } to sell a log in the shop. 'log' is what the terminal shows (up to 9 lines of 31 characters). 'hub' adds something to the hub when the beat unlocks: scratches (marks on the wall, read with Up; text in 'wall'), stranger (another player; what they say is in 'says'), watching (the machine's lights turn on you). A later beat's 'says' replaces an earlier one. Glitch spins: 'first' is when the first one is forced (it is the next real spin after these are met); after that each spin has 'chance' of glitching. A glitch spin puts 'theme' on the theme reel.",
+  "_help": "The story, one beat at a time. Beats unlock in order: a beat needs everything in its 'unlock' AND every beat above it. Unlock keys: runs, wins, tokensEarned, glitches (all lifetime totals from the save), and upgrade: { id, level } to sell a log in the shop. 'log' is what the terminal shows (up to 9 lines of 31 characters). 'hub' adds something to the hub when the beat unlocks: scratches (marks on the wall, read with Up; text in 'wall'), stranger (another player; what they say is in 'says'). A later beat's 'says' replaces an earlier one. Glitch spins: 'first' is when the first one is forced (it is the next real spin after these are met); after that each spin has 'chance' of glitching. A glitch spin puts 'theme' on the theme reel.",
   "glitch": {
     "theme": "corrupted",
     "first": { "runs": 4 },
@@ -83,29 +83,6 @@
         "I WON EVERYTHING ONCE. I'M STILL HERE.",
         "DON'T WATCH THE REELS. WATCH THE GAPS.",
         "HOW MANY TOKENS IS A DOOR?"
-      ]
-    },
-    {
-      "id": "on-purpose",
-      "title": "ON PURPOSE",
-      "unlock": { "tokensEarned": 300, "glitches": 2 },
-      "hub": "watching",
-      "log": [
-        "> DIAGNOSTIC: REEL WEIGHTS",
-        "",
-        "EVERY SPIN, EVERY GAME, EVERY",
-        "PLAYER: THE MACHINE WROTE IT",
-        "ALL DOWN.",
-        "THE REELS AREN'T RANDOM.",
-        "THEY NEVER WERE.",
-        "IT'S CHOOSING. FOR YOU.",
-        "> TO BE CONTINUED_"
-      ],
-      "says": [
-        "SO NOW YOU KNOW.",
-        "IT PICKED ME A THOUSAND WRONG GAMES.",
-        "IT'S NOT CRUEL. IT'S SEARCHING.",
-        "MAYBE IT'S LOOKING FOR YOU."
       ]
     }
   ]

@@ -19,7 +19,7 @@ export const SCREEN_CHARS = 42;
 // The story terminal's window is narrower than the screen.
 export const LOG_CHARS = 31;
 export const LOG_LINES = 9;
-const STORY_HUB = ['scratches', 'stranger', 'watching'];
+const STORY_HUB = ['scratches', 'stranger'];
 const UNLOCK_KEYS = ['runs', 'wins', 'tokensEarned', 'glitches', 'upgrade'];
 const ON_FAIL = ['consolation', 'partial'];
 // Objective twists change how a stage is won (see twists/collector.json).

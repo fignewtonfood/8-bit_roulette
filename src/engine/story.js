@@ -9,7 +9,7 @@
 import { levelOf } from './run.js';
 
 const STAT_KEYS = ['runs', 'wins', 'tokensEarned', 'glitches'];
-export const HUB_FEATURES = ['scratches', 'stranger', 'watching'];
+export const HUB_FEATURES = ['scratches', 'stranger'];
 
 // Does the save meet one unlock rule, e.g. { runs: 2, upgrade: { id, level } }?
 export function meets(save, rule = {}) {
@@ -45,7 +45,7 @@ export function newlyUnlocked(content, before, after) {
   return unlockedBeats(content, after).filter((b) => !had.has(b.id));
 }
 
-// What the hub should show: { scratches, stranger, watching, wall, says }.
+// What the hub should show: { scratches, stranger, wall, says }.
 export function hubState(content, save) {
   const state = { wall: [], says: [] };
   for (const beat of unlockedBeats(content, save)) {

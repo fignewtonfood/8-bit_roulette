@@ -54,11 +54,17 @@ expect(markRead(read, beats[0].id) === read, 'reading a log twice should change 
 
 // ---------- Hub ----------
 const hubAt = (n) => hubState(content, withStoryUnlocked(content, fresh, n));
-expect(!hubAt(1).scratches && !hubAt(1).stranger && !hubAt(1).watching, 'a new save should have a plain hub');
+expect(!hubAt(1).scratches && !hubAt(1).stranger, 'a new save should have a plain hub');
 const full = hubAt(beats.length);
 for (const b of beats.filter((x) => x.hub)) expect(full[b.hub], `the hub should show "${b.hub}" once ${b.id} is unlocked`);
 const lastSays = [...beats].reverse().find((b) => b.says);
 if (lastSays) expect(full.says === lastSays.says, 'the other player should say the latest beat\'s lines');
+
+// A save that read the retired "on-purpose" log (and its "watching" hub look)
+// must not bring either back.
+const legacy = { ...all, story: { read: ['on-purpose'] } };
+expect(![...unlockedBeats(content, legacy), ...unreadBeats(content, legacy)].some((b) => b.id === 'on-purpose'), 'the retired on-purpose log should stay gone');
+expect(!('watching' in hubState(content, legacy)), 'the retired watching hub look should stay gone');
 
 // ---------- Glitches ----------
 if (glitch) {

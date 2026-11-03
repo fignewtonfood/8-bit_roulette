@@ -6,6 +6,7 @@ import { makeRun } from '../engine/run.js';
 import { getSave, setSave, resetSave, session } from '../engine/profile.js';
 import { randomSeed } from '../gen/rng.js';
 import { makePixelFont } from '../ui/font.js';
+import { preloadMachine } from '../ui/phaserMachine.js';
 import { withStoryUnlocked } from '../engine/story.js';
 
 // Reads the URL, then opens the hub or (for testing) jumps somewhere else.
@@ -30,6 +31,11 @@ import { withStoryUnlocked } from '../engine/story.js';
 export default class BootScene extends Phaser.Scene {
   constructor() {
     super('Boot');
+  }
+
+  // Load the Act I machine sprite once; the hub and the slot machine share it.
+  preload() {
+    preloadMachine(this, `${import.meta.env.BASE_URL}assets/machine-act1`);
   }
 
   create() {
