@@ -60,6 +60,12 @@ for (const b of beats.filter((x) => x.hub)) expect(full[b.hub], `the hub should 
 const lastSays = [...beats].reverse().find((b) => b.says);
 if (lastSays) expect(full.says === lastSays.says, 'the other player should say the latest beat\'s lines');
 
+// A save that read the retired "on-purpose" log (and its "watching" hub look)
+// must not bring either back.
+const legacy = { ...all, story: { read: ['on-purpose'] } };
+expect(![...unlockedBeats(content, legacy), ...unreadBeats(content, legacy)].some((b) => b.id === 'on-purpose'), 'the retired on-purpose log should stay gone');
+expect(!('watching' in hubState(content, legacy)), 'the retired watching hub look should stay gone');
+
 // ---------- Glitches ----------
 if (glitch) {
   const never = () => 0.999;
@@ -143,10 +149,4 @@ for (const chance of [0.5, 0.75]) {
   }
 }
 
-
-// Legacy read IDs must not resurrect a retired story log or hub feature.
-const legacy = { ...all, story: { read: ['on-purpose'] } };
-if (unlockedBeats(content, legacy).some(b => b.id === 'on-purpose') ||
-    unreadBeats(content, legacy).some(b => b.id === 'on-purpose') ||
-    'watching' in hubState(content, legacy)) throw new Error('Retired story beat resurfaced');
 process.exit(problems.length ? 1 : 0);

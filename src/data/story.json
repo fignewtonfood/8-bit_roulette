@@ -2,9 +2,7 @@
   "_help": "The story, one beat at a time. Beats unlock in order: a beat needs everything in its 'unlock' AND every beat above it. Unlock keys: runs, wins, tokensEarned, glitches (all lifetime totals from the save), and upgrade: { id, level } to sell a log in the shop. 'log' is what the terminal shows (up to 9 lines of 31 characters). 'hub' adds something to the hub when the beat unlocks: scratches (marks on the wall, read with Up; text in 'wall'), stranger (another player; what they say is in 'says'). A later beat's 'says' replaces an earlier one. Glitch spins: 'first' is when the first one is forced (it is the next real spin after these are met); after that each spin has 'chance' of glitching. A glitch spin puts 'theme' on the theme reel.",
   "glitch": {
     "theme": "corrupted",
-    "first": {
-      "runs": 4
-    },
+    "first": { "runs": 4 },
     "chance": 0.08
   },
   "beats": [
@@ -27,9 +25,7 @@
     {
       "id": "scratches",
       "title": "SCRATCHES",
-      "unlock": {
-        "runs": 2
-      },
+      "unlock": { "runs": 2 },
       "hub": "scratches",
       "log": [
         "> NEW MARKS ON THE WALL.",
@@ -52,9 +48,7 @@
     {
       "id": "static",
       "title": "STATIC",
-      "unlock": {
-        "glitches": 1
-      },
+      "unlock": { "glitches": 1 },
       "log": [
         "> SIGNAL INTERRUPTED.",
         "",
@@ -70,9 +64,7 @@
     {
       "id": "player-two",
       "title": "PLAYER 2",
-      "unlock": {
-        "runs": 9
-      },
+      "unlock": { "runs": 9 },
       "hub": "stranger",
       "log": [
         "> PLAYER 2 DETECTED.",
