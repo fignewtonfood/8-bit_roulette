@@ -6,7 +6,7 @@ import { makeRun } from '../engine/run.js';
 import { getSave, setSave, resetSave, session } from '../engine/profile.js';
 import { randomSeed } from '../gen/rng.js';
 import { makePixelFont } from '../ui/font.js';
-import { preloadMachine } from '../ui/phaserMachine.js';
+import { preloadMachineArt } from '../ui/machineArt.js';
 import { withStoryUnlocked } from '../engine/story.js';
 
 // Reads the URL, then opens the hub or (for testing) jumps somewhere else.
@@ -27,15 +27,16 @@ import { withStoryUnlocked } from '../engine/story.js';
 //   ?reset                    wipe your save and start over
 //   ?story=3                  unlock the first 3 story beats (raises your lifetime stats)
 //   ?glitch                   the next spin glitches (this visit only)
+//   ?act=2                    show the Act II machine (this visit only)
 //   ?plays=50                 set every theme, genre and twist to 50 plays (levels)
 export default class BootScene extends Phaser.Scene {
   constructor() {
     super('Boot');
   }
 
-  // Load the Act I machine sprite once; the hub and the slot machine share it.
+  // Load the machine's sprites once (every act); the hub and the slot machine share them.
   preload() {
-    preloadMachine(this, `${import.meta.env.BASE_URL}assets/machine-act1`);
+    preloadMachineArt(this);
   }
 
   create() {
@@ -61,6 +62,7 @@ export default class BootScene extends Phaser.Scene {
     }
     session.unlockAll = params.has('unlock');
     session.forceGlitch = params.has('glitch');
+    session.act = Number(params.get('act')) || 1;
     const storyBeats = Number(params.get('story'));
     if (storyBeats > 0) {
       setSave(withStoryUnlocked(content, getSave(), Math.floor(storyBeats)));

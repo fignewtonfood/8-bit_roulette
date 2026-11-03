@@ -81,35 +81,108 @@ const GLYPHS = {
   '■': '..... ##### ##### ##### ##### ##### .....',
   '□': '..... ##### #...# #...# #...# ##### .....',
 };
-const CHARS = Object.keys(GLYPHS).join('');
-const PER_ROW = 16;
+// The small font: 3x5 glyphs in a 4x6 cell, for the slot machine's lower
+// panel (51 characters fit across its 204 pixels). Same characters as above.
+const SMALL = {
+  A: '.#. #.# ### #.# #.#',
+  B: '##. #.# ##. #.# ##.',
+  C: '.## #.. #.. #.. .##',
+  D: '##. #.# #.# #.# ##.',
+  E: '### #.. ##. #.. ###',
+  F: '### #.. ##. #.. #..',
+  G: '.## #.. #.# #.# .##',
+  H: '#.# #.# ### #.# #.#',
+  I: '### .#. .#. .#. ###',
+  J: '..# ..# ..# #.# .#.',
+  K: '#.# #.# ##. #.# #.#',
+  L: '#.. #.. #.. #.. ###',
+  M: '#.# ### ### #.# #.#',
+  N: '##. #.# #.# #.# #.#',
+  O: '.#. #.# #.# #.# .#.',
+  P: '##. #.# ##. #.. #..',
+  Q: '.#. #.# #.# ##. .##',
+  R: '##. #.# ##. #.# #.#',
+  S: '.## #.. .#. ..# ##.',
+  T: '### .#. .#. .#. .#.',
+  U: '#.# #.# #.# #.# ###',
+  V: '#.# #.# #.# #.# .#.',
+  W: '#.# #.# ### ### #.#',
+  X: '#.# #.# .#. #.# #.#',
+  Y: '#.# #.# .#. .#. .#.',
+  Z: '### ..# .#. #.. ###',
+  0: '### #.# #.# #.# ###',
+  1: '.#. ##. .#. .#. ###',
+  2: '##. ..# .#. #.. ###',
+  3: '##. ..# .#. ..# ##.',
+  4: '#.# #.# ### ..# ..#',
+  5: '### #.. ##. ..# ##.',
+  6: '.## #.. ### #.# ###',
+  7: '### ..# .#. .#. .#.',
+  8: '### #.# ### #.# ###',
+  9: '### #.# ### ..# ##.',
+  ' ': '... ... ... ... ...',
+  '.': '... ... ... ... .#.',
+  ',': '... ... ... .#. #..',
+  ':': '... .#. ... .#. ...',
+  ';': '... .#. ... .#. #..',
+  '!': '.#. .#. .#. ... .#.',
+  '?': '##. ..# .#. ... .#.',
+  "'": '.#. .#. ... ... ...',
+  '"': '#.# #.# ... ... ...',
+  '-': '... ... ### ... ...',
+  '+': '... .#. ### .#. ...',
+  '=': '... ### ... ### ...',
+  '/': '..# ..# .#. #.. #..',
+  '(': '.#. #.. #.. #.. .#.',
+  ')': '.#. ..# ..# ..# .#.',
+  '[': '##. #.. #.. #.. ##.',
+  ']': '.## ..# ..# ..# .##',
+  '<': '..# .#. #.. .#. ..#',
+  '>': '#.. .#. ..# .#. #..',
+  '_': '... ... ... ... ###',
+  '#': '#.# ### #.# ### #.#',
+  $: '.## ##. .#. .## ##.',
+  '%': '#.# ..# .#. #.. #.#',
+  '*': '... #.# .#. #.# ...',
+  '&': '.#. #.# .#. #.# .##',
+  '@': '### #.# ### #.. .##',
+  '^': '.#. #.# ... ... ...',
+  '|': '.#. .#. .#. .#. .#.',
+  '·': '... ... .#. ... ...',
+  '■': '... ### ### ### ...',
+  '□': '... ### #.# ### ...',
+};
 
-// Draws the font into a texture and registers it. Call once, from BootScene.
+const PER_ROW = 16;
+const FONTS = {
+  [FONT]: { glyphs: GLYPHS, w: CELL_W, h: CELL_H, gap: LINE_GAP },
+  'pixel-small': { glyphs: SMALL, w: 4, h: 6, gap: 2 },
+};
+
+// Draws the fonts into textures and registers them. Call once, from BootScene.
 export function makePixelFont(scene) {
-  if (scene.cache.bitmapFont.exists(FONT)) return;
-  const rows = Math.ceil(CHARS.length / PER_ROW);
-  const canvas = scene.textures.createCanvas(FONT, PER_ROW * CELL_W, rows * CELL_H);
-  const ctx = canvas.getContext();
-  ctx.fillStyle = '#ffffff';
-  [...CHARS].forEach((ch, i) => {
-    const ox = (i % PER_ROW) * CELL_W;
-    const oy = Math.floor(i / PER_ROW) * CELL_H;
-    GLYPHS[ch].split(' ').forEach((row, y) => {
-      [...row].forEach((px, x) => px === '#' && ctx.fillRect(ox + x, oy + y, 1, 1));
+  for (const [name, { glyphs, w, h, gap }] of Object.entries(FONTS)) {
+    if (scene.cache.bitmapFont.exists(name)) continue;
+    const chars = Object.keys(glyphs).join('');
+    const rows = Math.ceil(chars.length / PER_ROW);
+    const canvas = scene.textures.createCanvas(name, PER_ROW * w, rows * h);
+    const ctx = canvas.getContext();
+    ctx.fillStyle = '#ffffff';
+    [...chars].forEach((ch, i) => {
+      const ox = (i % PER_ROW) * w;
+      const oy = Math.floor(i / PER_ROW) * h;
+      glyphs[ch].split(' ').forEach((row, y) => {
+        [...row].forEach((px, x) => px === '#' && ctx.fillRect(ox + x, oy + y, 1, 1));
+      });
     });
-  });
-  canvas.refresh();
-  scene.cache.bitmapFont.add(
-    FONT,
-    Phaser.GameObjects.RetroFont.Parse(scene, {
-      image: FONT,
-      width: CELL_W,
-      height: CELL_H,
-      chars: CHARS,
-      charsPerRow: PER_ROW,
-      lineSpacing: LINE_GAP,
-    }),
-  );
+    canvas.refresh();
+    scene.cache.bitmapFont.add(
+      name,
+      Phaser.GameObjects.RetroFont.Parse(scene, {
+        image: name, width: w, height: h, chars, charsPerRow: PER_ROW, lineSpacing: gap,
+      }),
+    );
+  }
 }
 
 // Capitals only; anything the font can't draw becomes "?".
@@ -119,9 +192,11 @@ export const toFontText = (s) => [...String(s).toUpperCase()].map((ch) => (GLYPH
 //   size   1 = normal (8px tall), 2 = big titles
 //   color  '#rrggbb'
 //   align  'left' | 'center' | 'right' for multi-line text
+//   small  true = the 3x5 font (6px line), for the slot machine's panel
 // Returns a BitmapText with setText/setColor that work like the old Text ones.
-export function pixelText(scene, x, y, text, { size = 1, color = '#ffffff', align = 'left' } = {}) {
-  const t = scene.add.bitmapText(x, y, FONT, toFontText(text), CELL_W * size) // the font's native size is its cell width;
+export function pixelText(scene, x, y, text, { size = 1, color = '#ffffff', align = 'left', small = false } = {}) {
+  const font = small ? 'pixel-small' : FONT;
+  const t = scene.add.bitmapText(x, y, font, toFontText(text), FONTS[font].w * size) // the font's native size is its cell width;
   const setText = t.setText.bind(t);
   t.setText = (s) => setText(toFontText(s));
   t.setColor = (c) => t.setTint(Phaser.Display.Color.HexStringToColor(c).color);

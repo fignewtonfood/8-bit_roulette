@@ -10,7 +10,7 @@ import { levelOfEntry } from '../engine/progress.js';
 import { twistAt, twistMaxLevel, genreAt, genreMaxLevel, themeAt, themeMaxLevel } from '../engine/content.js';
 import { C, hex, onPress } from '../ui/machine.js';
 import { pixelText } from '../ui/font.js';
-import { createMachine } from '../ui/phaserMachine.js';
+import { createMachineArt, FACE } from '../ui/machineArt.js';
 
 // The slot machine: pick a bet (game length), pull, and three reels land on a
 // theme, a genre and a twist. The result is decided by spin() the moment you
@@ -23,14 +23,19 @@ import { createMachine } from '../ui/phaserMachine.js';
 // Sometimes the machine glitches (story.js decides when): the theme reel
 // scrambles and lands on a theme that isn't on the strip.
 //
+// The whole screen is the machine (machineArt.js): the game writes the reels
+// into its three windows and the run into the panel below them.
+//
 // Levels: what lands isn't a choice, but the level you play it at is. If the
 // theme, genre or twist that lands has reached level 2 or 3 (progress.js)
 // and has settings for it ("levels" in its theme file, genres.json or its
-// twist file), Left/Right picks its level before you play. If more than one
+// twist file), Left/Right picks its level before you play (shown at the
+// bottom of that reel's window). If more than one
 // can level, Up/Down switches between them. Practice mode offers every level.
 
 const REELS = ['theme', 'genre', 'twist'];
-const LABELS = { theme: 'THEME', genre: 'GENRE', twist: 'TWIST' };
+const PANEL_X = 127;        // middle of the panel under the reels
+const PANEL_CHARS = 34;     // big-font characters that fit across it; longer prompts use the small font
 
 // Show knobs (seconds)
 const FIRST_STOP = 0.9;      // when the first reel stops
@@ -52,58 +57,75 @@ export default class SpinScene extends Phaser.Scene {
   }
 
   create() {
-    const W = this.scale.width;
     this.cameras.main.setBackgroundColor(C.bg);
-    const text = (x, y, s, size, color) =>
-      pixelText(this, x, y, s, { size: size / 8, color, align: 'center' }).setOrigin(0.5);
+    const text = (x, y, str, small, color, originX = 0.5) =>
+      pixelText(this, x, y, str, { small, color, align: 'center' }).setOrigin(originX, 0);
 
-    this.title = pixelText(this, 44, 10, '8-BIT ROULETTE', { size: 2, color: C.gold }).setOrigin(0, 0);
+    // The machine, with its title and column headings already painted on.
+    this.machine = createMachineArt(this, 'spin');
+    this.machine.startBlinking(() => this.mode === 'ready');
+    const { textRegions: tr } = this.machine;
+    text(tr.tokens[0], tr.tokens[1], this.practice ? 'PRACTICE' : `TOKENS ${getSave().tokens}`, true, this.practice ? C.warn : C.gold, 0);
 
-    // The machine itself, beside the title. Its little reels follow the real
-    // ones below: they spin while a reel spins and stop when it lands, always
-    // on cherry, star, heart. They're decoration; the text reels are the result.
-    this.machine = createMachine(this, 8, 4);
-    this.machine.reels.forEach((r, i) => r.setFrame(i));
-    this.reelPhase = 0;
-    this.time.addEvent({ delay: 80, loop: true, callback: () => (this.reelPhase ^= 1) });
-    this.scheduleBlink();
-    pixelText(this, 4, 220, this.practice ? 'PRACTICE' : `TOKENS ${getSave().tokens}`, { color: this.practice ? C.warn : C.gold }).setOrigin(0, 1);
-
-    // Cabinet
-    const g = this.add.graphics();
-    g.fillStyle(hex(C.cabinetDark)).fillRect(10, 48, W - 20, 96);
-    g.fillStyle(hex(C.cabinet)).fillRect(12, 50, W - 24, 92);
-    g.fillStyle(hex(C.gold)).fillRect(12, 50, W - 24, 2).fillRect(12, 140, W - 24, 2);
-
-    // Reel windows
+    // Reel windows: the entry on the payline in the big font, its neighbours
+    // small and faint. Everything in a window is clipped to it and sits under
+    // the cabinet. A locked reel's entry is red.
     this.reels = REELS.map((reel, i) => {
-      const x = 50 + i * 78;
-      const y = 92;
-      text(x, 60, LABELS[reel], 8, this.locks[reel] ? C.warn : C.gold);
-      const frame = this.add.rectangle(x, y, 70, 44, hex(C.window)).setStrokeStyle(2, hex(C.cabinetDark));
+      const [wx, wy, w, h] = this.machine.windows[i];
+      const x = wx + w / 2;
+      const y = wy + h / 2;
+      const outline = this.add.rectangle(wx + 1, wy + 1, w - 2, h - 2).setOrigin(0).setVisible(false);
       const strip = content.reels[reel].map((e) => ({ id: e.id, label: this.label(reel, e.id) }));
-      const lines = [-14, 0, 14].map((dy, j) => text(x, y + dy, '', j === 1 ? 10 : 8, j === 1 ? C.ink : C.faint));
-      const state = { reel, x, y, frame, strip, lines, pos: Phaser.Math.Between(0, strip.length - 1), spinning: false };
+      const lines = [-12, 0, 12].map((dy, j) =>
+        pixelText(this, x, y + dy, '', { small: j !== 1, color: j === 1 ? (this.locks[reel] ? C.warn : C.ink) : C.faint }).setOrigin(0.5));
+      // The level picker replaces the bottom neighbour once the reels land.
+      const level = pixelText(this, x, y + 12, '', { small: true, color: C.gold }).setOrigin(0.5);
+      [outline, ...lines, level].forEach((o) => this.machine.reelContent.add(this.machine.clip(o, i)));
+      const state = { reel, x, y, outline, strip, lines, level, pos: Phaser.Math.Between(0, strip.length - 1), spinning: false };
       this.drawReel(state);
       return state;
     });
 
-    // Payline arrows
-    text(14, 92, '>', 10, C.gold);
-    text(W - 14, 92, '<', 10, C.gold);
-
-    this.info = pixelText(this, W / 2, 150, '', { color: C.text, align: 'center' }).setOrigin(0.5, 0);
-    // Bet and prompt sit clear of the token count / seed line at the bottom.
-    this.betText = text(W / 2, 182, '', 8, C.text);
-    this.prompt = text(W / 2, 197, '', 8, C.gold);
-    this.seedText = pixelText(this, W - 4, 220, '', { color: C.faint }).setOrigin(1, 1);
-    // One level picker under each reel that can have levels.
-    this.levelTexts = {
-      theme: text(this.reels[REELS.indexOf('theme')].x, 124, '', 8, C.gold),
-      genre: text(this.reels[REELS.indexOf('genre')].x, 124, '', 8, C.gold),
-      twist: text(this.reels[REELS.indexOf('twist')].x, 124, '', 8, C.gold),
+    // The panel: what landed, what it does, the bet, and what to press.
+    const top = text(PANEL_X, tr.outcome[1], '', true, C.text);
+    const about = text(PANEL_X, tr.description[1], '', true, C.text);
+    this.info = {
+      setText: (str) => {
+        const [a = '', b = ''] = String(str).split('\n');
+        top.setText(a);
+        about.setText(b);
+        return this.info;
+      },
+      setColor: (c) => {
+        top.setColor(c);
+        about.setColor(c);
+        return this.info;
+      },
     };
-    this.tweens.add({ targets: this.prompt, alpha: 0.25, duration: 500, yoyo: true, repeat: -1 });
+    this.betText = text(PANEL_X, tr.runLength[1], '', true, C.text);
+    const bigPrompt = text(PANEL_X, tr.action[1], '', false, C.gold);
+    const smallPrompt = text(PANEL_X, tr.action[1] + 1, '', true, C.gold);
+    // One prompt: the big font when it fits, otherwise the small one.
+    this.prompt = {
+      targets: [bigPrompt, smallPrompt],
+      setText: (str) => {
+        const fits = String(str).length <= PANEL_CHARS;
+        bigPrompt.setText(fits ? str : '');
+        smallPrompt.setText(fits ? '' : str);
+        return this.prompt;
+      },
+      setColor: (c) => {
+        bigPrompt.setColor(c);
+        smallPrompt.setColor(c);
+        return this.prompt;
+      },
+    };
+    // (3 px in from the region: clear of the scuff in the corner)
+    this.seedText = text(tr.seed[0] + tr.seed[2] - 3, tr.seed[1], '', true, C.faint, 1);
+    // A glitch takes over the face screen for a moment.
+    const [fx, fy, fw, fh] = this.machine.faceRegion;
+    this.glitchText = pixelText(this, fx + fw / 2, fy + fh / 2, '8-B?T R0UL#TTE', { color: C.screenText }).setOrigin(0.5).setVisible(false);
+    this.tweens.add({ targets: this.prompt.targets, alpha: 0.25, duration: 500, yoyo: true, repeat: -1 });
 
     // The bet: every length, locked ones included so you can see what's coming.
     this.lengths = lengthOptions(content, getSave(), session.unlockAll || this.practice);
@@ -127,26 +149,11 @@ export default class SpinScene extends Phaser.Scene {
 
   // ---------- The machine sprite ----------
 
-  // While you're choosing a bet it blinks for 100 ms every 3-5 seconds.
-  scheduleBlink() {
-    this.time.delayedCall(Phaser.Math.Between(3000, 5000), () => {
-      if (this.mode !== 'ready') return this.scheduleBlink();
-      this.machine.expression(1);
-      this.time.delayedCall(100, () => {
-        if (this.mode === 'ready') this.machine.expression(0);
-        this.scheduleBlink();
-      });
-    });
-  }
-
-  // Lever up, middle, down and back; eager face and lit bulb while it spins.
+  // Lever up, middle, down and back; eager face and blinking bulbs while it spins.
   pullLever() {
-    const { lever } = this.machine;
-    this.machine.expression(2);
-    this.machine.lights.setFrame(1);
-    lever.setFrame(1);
-    this.time.delayedCall(80, () => lever.setFrame(2));
-    this.time.delayedCall(240, () => lever.setFrame(0));
+    this.machine.expression(FACE.eager);
+    this.machine.flashLights();
+    this.machine.pullLever();
   }
 
   // ---------- The bet ----------
@@ -223,7 +230,9 @@ export default class SpinScene extends Phaser.Scene {
       const lv = levels[reel];
       const on = reel === this.active;
       const label = on ? `${lv > 1 ? '<' : ' '} LV ${lv} ${lv < cap ? '>' : ' '}` : `LV ${lv}`;
-      this.levelTexts[reel].setText(cap > 1 ? label : '').setColor(on ? C.gold : C.faint);
+      const r = this.reels[REELS.indexOf(reel)];
+      r.level.setText(cap > 1 ? label : '').setColor(on ? C.gold : C.faint);
+      r.lines[2].setVisible(cap <= 1);
     }
     // The description is the one for whatever you're picking: the genre's
     // level, or the twist (at its level), which is also the default.
@@ -264,13 +273,16 @@ export default class SpinScene extends Phaser.Scene {
     }
     this.info.setText('');
     this.prompt.setText('');
-    Object.values(this.levelTexts).forEach((t) => t.setText(''));
+    this.reels.forEach((r) => {
+      r.level.setText('');
+      r.lines[2].setVisible(true);
+    });
     this.seedText.setText(`SEED ${this.result.seed}`);
     this.cameras.main.shake(80, 0.004);
     this.pullLever();
 
     this.reels.forEach((r, i) => {
-      r.frame.setStrokeStyle(2, hex(C.cabinetDark));
+      r.outline.setVisible(false);
       if (this.locks[r.reel]) {
         this.land(r, this.result[r.reel]); // a locked reel doesn't move
         return;
@@ -286,18 +298,20 @@ export default class SpinScene extends Phaser.Scene {
       // Compatibility re-roll: land on the blocked roll, flash, spin again.
       this.time.delayedCall(stopAt, () => {
         this.land(r, blocked);
-        this.machine.expression(3); // concern
-        r.frame.setStrokeStyle(2, hex(C.warn));
+        this.machine.expression(FACE.concern);
+        this.machine.lights(false);
+        r.outline.setStrokeStyle(2, hex(C.warn)).setVisible(true);
         this.info.setText(`${this.label(r.reel, blocked)} won't work here. RE-ROLL!`);
         this.cameras.main.flash(120, 216, 64, 46);
       });
       this.time.delayedCall(stopAt + REROLL_PAUSE * 1000, () => {
         r.spinning = true;
-        this.machine.expression(2);
+        this.machine.expression(FACE.eager);
+        this.machine.flashLights();
         this.info.setText('');
       });
       this.time.delayedCall(stopAt + (REROLL_PAUSE + REROLL_SPIN) * 1000, () => {
-        r.frame.setStrokeStyle(2, hex(C.cabinetDark));
+        r.outline.setVisible(false);
         this.land(r, this.result[r.reel]);
       });
     });
@@ -313,17 +327,20 @@ export default class SpinScene extends Phaser.Scene {
 
   land(r, id) {
     r.spinning = false;
-    const i = this.reels.indexOf(r);
-    this.machine.reels[i].setFrame(i); // decorative: cherry, star, heart
     if (r.glitchy) {
+      // The face screen stutters out the machine's name, then comes back worried.
       r.glitchy = false;
-      this.machine.expression(3);
-      this.time.delayedCall(500, () => this.mode === 'spinning' && this.machine.expression(2));
-      r.frame.setStrokeStyle(2, hex(C.screenText));
+      this.machine.face.setVisible(false);
+      this.glitchText.setVisible(true);
+      this.machine.expression(FACE.concern);
+      r.outline.setStrokeStyle(2, hex(C.screenText)).setVisible(true);
       this.cameras.main.flash(160, 95, 224, 138);
       this.cameras.main.shake(200, 0.01);
-      this.title.setText('8-B?T R0UL#TTE').setColor(C.screenText);
-      this.time.delayedCall(500, () => this.title.setText('8-BIT ROULETTE').setColor(C.gold));
+      this.time.delayedCall(500, () => {
+        this.glitchText.setVisible(false);
+        this.machine.face.setVisible(true);
+        if (this.mode === 'spinning') this.machine.expression(FACE.eager);
+      });
     }
     r.pos = r.strip.findIndex((e) => e.id === id);
     this.drawReel(r);
@@ -349,16 +366,15 @@ export default class SpinScene extends Phaser.Scene {
     const line = `SPACE PLAY${respin}${level}`;
     this.prompt.setText(line.length > 42 ? line.replace(/ {6}/, '   ') : line).setColor(C.gold);
     this.mode = 'landed';
-    // A wink, twice, then back to a smile with the bulb faded.
-    this.machine.lights.setFrame(0);
-    [[0, 4], [160, 0], [400, 4], [560, 0]].forEach(([at, face]) =>
+    // Bulbs steady, a wink, twice, then back to a smile.
+    this.machine.lights(true);
+    [[0, FACE.wink], [160, FACE.smile], [400, FACE.wink], [560, FACE.smile]].forEach(([at, face]) =>
       this.time.delayedCall(at, () => this.mode === 'landed' && this.machine.expression(face)));
   }
 
   update(_time, delta) {
-    for (const [i, r] of this.reels.entries()) {
+    for (const r of this.reels) {
       if (!r.spinning) continue;
-      this.machine.reels[i].setFrame(4 + this.reelPhase);
       r.pos += (SPIN_RATE * delta) / 1000;
       this.drawReel(r);
     }
