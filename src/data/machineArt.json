@@ -1,6 +1,6 @@
 {
   "version": 3,
-  "status": "Authored native-pixel art; game integration pending",
+  "status": "Authored native-pixel art; Act III spectacle pass v3 added",
   "gameCanvas": {
     "width": 256,
     "height": 224
@@ -632,6 +632,463 @@
         "bulbs",
         "broken-bulb",
         "lever"
+      ],
+      "textRegions": {
+        "outcome": [
+          25,
+          159,
+          204,
+          7
+        ],
+        "description": [
+          25,
+          170,
+          204,
+          5
+        ],
+        "runLength": [
+          25,
+          181,
+          204,
+          5
+        ],
+        "action": [
+          25,
+          191,
+          204,
+          7
+        ],
+        "tokens": [
+          25,
+          210,
+          75,
+          5
+        ],
+        "seed": [
+          133,
+          210,
+          96,
+          5
+        ]
+      },
+      "palette": [
+        "#111b2a",
+        "#1c3040",
+        "#241729",
+        "#386776",
+        "#411c32",
+        "#691f38",
+        "#756a69",
+        "#78dadb",
+        "#96532f",
+        "#a7244a",
+        "#a99781",
+        "#ad3048",
+        "#c3fff0",
+        "#c58331",
+        "#d64b50",
+        "#d8c49d",
+        "#eb3151",
+        "#efb33c",
+        "#f7e7c0",
+        "#ffd761",
+        "#fff0af",
+        "#fff8da"
+      ]
+    },
+    "hub-act3": {
+      "id": "hub-act3",
+      "frame": {
+        "width": 96,
+        "height": 120
+      },
+      "origin": [
+        0,
+        0
+      ],
+      "floorContactY": 119,
+      "recommendedScale": 1,
+      "hubPlacement": {
+        "centerX": 128,
+        "floorY": 192,
+        "x": 80,
+        "y": 73,
+        "prompt": [
+          128,
+          61
+        ]
+      },
+      "playerHeightRatio": 7.5,
+      "reelWindows": [
+        [
+          16,
+          75,
+          17,
+          22
+        ],
+        [
+          36,
+          75,
+          17,
+          22
+        ],
+        [
+          56,
+          75,
+          17,
+          22
+        ]
+      ],
+      "faceRegion": [
+        19,
+        46,
+        49,
+        19
+      ],
+      "leverHinge": [
+        82,
+        76
+      ],
+      "bodyRectangle": [
+        8,
+        38,
+        72,
+        82
+      ],
+      "brokenBulb": {
+        "index": 5,
+        "center": [
+          64,
+          18
+        ],
+        "alwaysStatic": true
+      },
+      "sheets": {
+        "cabinet": {
+          "file": "cabinet.png",
+          "frames": 1,
+          "frameWidth": 96,
+          "frameHeight": 120
+        },
+        "broken-bulb": {
+          "file": "broken-bulb.png",
+          "frames": 1,
+          "frameWidth": 96,
+          "frameHeight": 120
+        },
+        "lever": {
+          "file": "lever.png",
+          "frames": 3,
+          "frameWidth": 96,
+          "frameHeight": 120
+        },
+        "face": {
+          "file": "face.png",
+          "frames": 8,
+          "frameWidth": 96,
+          "frameHeight": 120
+        },
+        "stage-lights": {
+          "file": "stage-lights.png",
+          "frames": 8,
+          "frameWidth": 96,
+          "frameHeight": 120
+        },
+        "crown-sweep": {
+          "file": "crown-sweep.png",
+          "frames": 11,
+          "frameWidth": 96,
+          "frameHeight": 120
+        },
+        "reveal-rays": {
+          "file": "reveal-rays.png",
+          "frames": 5,
+          "frameWidth": 96,
+          "frameHeight": 120
+        },
+        "reel-bed": {
+          "file": "reel-bed.png",
+          "frames": 1,
+          "frameWidth": 96,
+          "frameHeight": 120
+        },
+        "reel-finish": {
+          "file": "reel-finish.png",
+          "frames": 7,
+          "frameWidth": 96,
+          "frameHeight": 120
+        },
+        "reel-reflection": {
+          "file": "reel-reflection.png",
+          "frames": 7,
+          "frameWidth": 96,
+          "frameHeight": 120
+        },
+        "bulbs": {
+          "file": "bulbs.png",
+          "frames": 8,
+          "frameWidth": 96,
+          "frameHeight": 120
+        },
+        "spectacle": {
+          "file": "spectacle.png",
+          "frames": 7,
+          "frameWidth": 96,
+          "frameHeight": 120
+        },
+        "glitch": {
+          "file": "glitch.png",
+          "frames": 3,
+          "frameWidth": 96,
+          "frameHeight": 120
+        },
+        "symbols": {
+          "file": "symbols.png",
+          "frames": 6,
+          "frameWidth": 17,
+          "frameHeight": 22
+        }
+      },
+      "faceFrames": [
+        "ready",
+        "delight",
+        "anticipation",
+        "proud-reveal",
+        "pride",
+        "quiet",
+        "blink",
+        "vulnerable"
+      ],
+      "leverFrames": [
+        "up",
+        "midpoint",
+        "down"
+      ],
+      "bulbFrames": [
+        "dim",
+        "on"
+      ],
+      "symbolFrames": [
+        "cherry",
+        "star",
+        "heart",
+        "bar",
+        "spin-a",
+        "spin-b"
+      ],
+      "layerOrder": [
+        "reveal-rays",
+        "reel-bed",
+        "reel-reflection",
+        "game reel contents",
+        "cabinet",
+        "reel-finish",
+        "face",
+        "bulbs",
+        "crown-sweep",
+        "stage-lights",
+        "broken-bulb",
+        "lever",
+        "spectacle",
+        "glitch",
+        "game text"
+      ],
+      "textRegions": null,
+      "palette": [
+        "#111b2a",
+        "#1c3040",
+        "#241729",
+        "#386776",
+        "#411c32",
+        "#691f38",
+        "#756a69",
+        "#78dadb",
+        "#96532f",
+        "#a7244a",
+        "#a99781",
+        "#ad3048",
+        "#c3fff0",
+        "#c58331",
+        "#d64b50",
+        "#d8c49d",
+        "#eb3151",
+        "#ed7960",
+        "#efb33c",
+        "#f7e7c0",
+        "#ffd761",
+        "#fff0af",
+        "#fff8da"
+      ]
+    },
+    "spin-act3": {
+      "id": "spin-act3",
+      "frame": {
+        "width": 256,
+        "height": 224
+      },
+      "origin": [
+        0,
+        0
+      ],
+      "floorContactY": 222,
+      "recommendedScale": 1,
+      "hubPlacement": null,
+      "playerHeightRatio": null,
+      "reelWindows": [
+        [
+          26,
+          107,
+          62,
+          38
+        ],
+        [
+          96,
+          107,
+          62,
+          38
+        ],
+        [
+          166,
+          107,
+          62,
+          38
+        ]
+      ],
+      "faceRegion": [
+        30,
+        64,
+        192,
+        22
+      ],
+      "leverHinge": [
+        241,
+        143
+      ],
+      "bodyRectangle": null,
+      "brokenBulb": {
+        "index": 7,
+        "center": [
+          197,
+          23
+        ],
+        "alwaysStatic": true
+      },
+      "sheets": {
+        "cabinet": {
+          "file": "cabinet.png",
+          "frames": 1,
+          "frameWidth": 256,
+          "frameHeight": 224
+        },
+        "broken-bulb": {
+          "file": "broken-bulb.png",
+          "frames": 1,
+          "frameWidth": 256,
+          "frameHeight": 224
+        },
+        "lever": {
+          "file": "lever.png",
+          "frames": 3,
+          "frameWidth": 256,
+          "frameHeight": 224
+        },
+        "face": {
+          "file": "face.png",
+          "frames": 8,
+          "frameWidth": 256,
+          "frameHeight": 224
+        },
+        "stage-lights": {
+          "file": "stage-lights.png",
+          "frames": 8,
+          "frameWidth": 256,
+          "frameHeight": 224
+        },
+        "crown-sweep": {
+          "file": "crown-sweep.png",
+          "frames": 11,
+          "frameWidth": 256,
+          "frameHeight": 224
+        },
+        "reveal-rays": {
+          "file": "reveal-rays.png",
+          "frames": 5,
+          "frameWidth": 256,
+          "frameHeight": 224
+        },
+        "reel-bed": {
+          "file": "reel-bed.png",
+          "frames": 1,
+          "frameWidth": 256,
+          "frameHeight": 224
+        },
+        "reel-finish": {
+          "file": "reel-finish.png",
+          "frames": 7,
+          "frameWidth": 256,
+          "frameHeight": 224
+        },
+        "reel-reflection": {
+          "file": "reel-reflection.png",
+          "frames": 7,
+          "frameWidth": 256,
+          "frameHeight": 224
+        },
+        "bulbs": {
+          "file": "bulbs.png",
+          "frames": 8,
+          "frameWidth": 256,
+          "frameHeight": 224
+        },
+        "spectacle": {
+          "file": "spectacle.png",
+          "frames": 7,
+          "frameWidth": 256,
+          "frameHeight": 224
+        },
+        "glitch": {
+          "file": "glitch.png",
+          "frames": 3,
+          "frameWidth": 256,
+          "frameHeight": 224
+        }
+      },
+      "faceFrames": [
+        "ready",
+        "delight",
+        "anticipation",
+        "proud-reveal",
+        "pride",
+        "quiet",
+        "blink",
+        "vulnerable"
+      ],
+      "leverFrames": [
+        "up",
+        "midpoint",
+        "down"
+      ],
+      "bulbFrames": [
+        "dim",
+        "on"
+      ],
+      "symbolFrames": null,
+      "layerOrder": [
+        "reveal-rays",
+        "reel-bed",
+        "reel-reflection",
+        "game reel contents",
+        "cabinet",
+        "reel-finish",
+        "face",
+        "bulbs",
+        "crown-sweep",
+        "stage-lights",
+        "broken-bulb",
+        "lever",
+        "spectacle",
+        "glitch",
+        "game text"
       ],
       "textRegions": {
         "outcome": [
