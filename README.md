@@ -67,6 +67,8 @@ Save tools:
 - `?story=3` unlocks the first 3 story beats (it raises your lifetime stats to
   what they need, so it sticks; combine with `?reset` to start over)
 - `?glitch` makes your next spin a glitch (this visit only)
+- `?act=2` shows the Act II machine in the hub and at the slot machine (this visit
+  only). Act II itself arrives with the first machine upgrade; until then the game uses Act I
 - `?plays=50` sets every theme, genre and twist to 50 plays, to see levels on
   the terminal's progress page (`?plays=0` clears them; take it off the URL
   afterwards)
@@ -311,8 +313,9 @@ log arrives on.
 | `src/engine/save.js` | Reading and repairing the save file |
 | `src/engine/profile.js` | The live save in the browser, plus this-visit settings |
 | `src/engine/startRun.js` | Starts a stage; decides next stage or payout when one ends |
-| `src/ui/font.js` | The pixel font (drawn in code; add a letter by drawing it) |
+| `src/ui/font.js` | The pixel fonts, normal 5x7 and small 3x5 (drawn in code; add a letter by drawing it in both) |
 | `src/ui/machine.js` | The machine's colours and text, shared by hub, machine and shop |
+| `src/ui/machineArt.js` | The Machine's sprites (hub and slot machine, Act I and II); PNGs in `public/assets/machine-v3/`, sizes and reel windows in `src/data/machineArt.json` |
 | `src/scenes/HubScene.js` | The hub room |
 | `src/scenes/ShopScene.js` | The shop |
 | `src/scenes/SpinScene.js` | The slot machine screen and the bet |

@@ -8,19 +8,19 @@ import { LOG_LINES } from '../engine/content.js';
 import { makePlaceholderTextures, tex } from '../art/placeholder.js';
 import { C, hex, label, onPress, HUB_THEME } from '../ui/machine.js';
 import { pixelText } from '../ui/font.js';
-import { createMachine } from '../ui/phaserMachine.js';
+import { createMachineArt, machineAct, FACE } from '../ui/machineArt.js';
 
 // The hub: a small room with the slot machine, the shop and the story
 // terminal. Walk up to one and press Up to use it.
 //
 // The room changes as the story unlocks (story.json): marks appear on the
-// wall and another player shows up.
+// wall and another player shows up. In Act II the machine is bigger, so the
+// marks and the other player move aside to make room for it.
 
 const FLOOR_Y = 192;
-const MACHINE_Y = FLOOR_Y - 38 * 2; // 2x artwork; base contact stays on the floor
 const RUN_SPEED = 90;
 const JUMP_VELOCITY = 240;
-const REACH = 22; // how close (px) you need to stand to use a station
+const REACH = 22; // how close (px) you need to stand to use a station (unless it says otherwise)
 const TYPE_MS = 12; // how fast a new log types out, per character
 
 const BASE_STATIONS = [
@@ -28,8 +28,16 @@ const BASE_STATIONS = [
   { id: 'machine', x: 128, verb: 'SPIN' },
   { id: 'terminal', x: 216, verb: 'READ' },
 ];
-const WALL = { id: 'wall', x: 80, verb: 'READ' };
-const STRANGER = { id: 'stranger', x: 172, verb: 'TALK' };
+// Per act: where the tally marks (marksX = their left edge) and the other
+// player go, how far the machine reaches, and where you start (at first, and
+// after the machine; null = the old spot, in front of it).
+// Act II's cabinet is wider, so you start beside it: left edge x=86, and your
+// 12 px body ends 10 px short of it. Its reach covers that spot, and the
+// wall's is short so Up there means SPIN, not READ or SHOP.
+const LAYOUT = {
+  1: { wallX: 80, wallReach: REACH, marksX: 64, strangerX: 172, machineReach: REACH, startX: null },
+  2: { wallX: 52, wallReach: 8, marksX: 44, strangerX: 186, machineReach: 60, startX: 70 },
+};
 
 export default class HubScene extends Phaser.Scene {
   constructor() {
@@ -45,15 +53,17 @@ export default class HubScene extends Phaser.Scene {
     this.panel = null;
     this.pulling = false;
     this.story = hubState(content, save);
-    this.stations = [...BASE_STATIONS];
-    if (this.story.scratches) this.stations.push(WALL);
-    if (this.story.stranger) this.stations.push(STRANGER);
+    this.layout = LAYOUT[machineAct()];
+    this.stations = BASE_STATIONS.map((s) => (s.id === 'machine' ? { ...s, reach: this.layout.machineReach } : s));
+    if (this.story.scratches) this.stations.push({ id: 'wall', x: this.layout.wallX, reach: this.layout.wallReach, verb: 'READ' });
+    if (this.story.stranger) this.stations.push({ id: 'stranger', x: this.layout.strangerX, verb: 'TALK' });
 
     this.drawRoom(W);
 
     // Player
     const spot = this.stations.find((s) => s.id === session.hubSpot);
-    const startX = spot ? spot.x + (spot.x > W / 2 ? -18 : 18) : 88;
+    const besideMachine = this.layout.startX && (!spot || spot.id === 'machine');
+    const startX = besideMachine ? this.layout.startX : spot ? spot.x + (spot.x > W / 2 ? -18 : 18) : 88;
     this.player = this.physics.add.sprite(startX, FLOOR_Y - 7, tex(HUB_THEME, 'player'));
     this.player.setCollideWorldBounds(true);
     const floor = this.add.zone(W / 2, FLOOR_Y + 8, W, 16);
@@ -66,7 +76,7 @@ export default class HubScene extends Phaser.Scene {
     label(this, W - 6, 10, `LIVES ${startLives(content, save)}${respins ? `  RE-SPIN ${respins}` : ''}`, 8, C.faint, 1);
 
     this.prompt = label(this, 0, 0, '', 8, C.gold).setVisible(false);
-    this.tweens.add({ targets: this.prompt, alpha: 0.35, duration: 450, yoyo: true, repeat: -1 });
+    this.tweens.add({ targets: this.prompt, alpha: 0.6, duration: 450, yoyo: true, repeat: -1 });
 
     if (save.stats.runs === 0) {
       const hint = label(this, W / 2, 30, 'ARROWS WALK   SPACE JUMP   UP USE', 8, C.faint);
@@ -98,12 +108,23 @@ export default class HubScene extends Phaser.Scene {
     g.fillStyle(hex(HUB_THEME.palette.groundDark));
     for (let x = 8; x < W; x += 16) g.fillRect(x, FLOOR_Y + 4, 8, 1);
 
+    // Act II: a lit ceiling rail, two lamps (art team's room mockup)
+    if (machineAct() === 2) {
+      g.fillStyle(hex(C.gold)).fillRect(0, 42, W, 1);
+      g.fillStyle(hex(C.cabinet)).fillRect(0, 43, W, 2);
+      for (const lx of [82, 210]) {
+        g.fillStyle(hex(C.cabinetDark)).fillRect(lx - 1, 45, 2, 3);
+        g.fillStyle(hex(C.gold)).fillRect(lx - 4, 48, 8, 2);
+        g.fillStyle(hex(C.window)).fillRect(lx - 2, 50, 4, 1);
+      }
+    }
+
     // Tally marks scratched into the wall (story: scratches)
     if (this.story.scratches) {
       g.fillStyle(hex(C.faint));
       for (let row = 0; row < 4; row++) {
         for (let group = 0; group < (row === 3 ? 2 : 3); group++) {
-          const ox = 64 + group * 12; // rows 56-93: above the UP READ prompt,
+          const ox = this.layout.marksX + group * 12; // rows 56-93: above the UP READ prompt,
           const oy = 56 + row * 10;   // below what the other player says
           for (let i = 0; i < 4; i++) g.fillRect(ox + i * 2, oy, 1, 7);
           if (row < 3 || group === 0) g.fillRect(ox - 1, oy + 3, 9, 1); // the strike through
@@ -119,10 +140,9 @@ export default class HubScene extends Phaser.Scene {
     g.fillStyle(hex(C.window)).fillRect(22, 118, 36, 14);
     label(this, 40, 125, 'SHOP', 8, C.ink);
 
-    // Larger pixels make the Machine the centerpiece without adding detail.
-    this.machine = createMachine(this, 96, MACHINE_Y);
-    this.machine.root.setScale(2);
-    this.scheduleBlink();
+    // The machine stands on the floor in the middle of the room.
+    this.machine = createMachineArt(this, 'hub', { centerX: 128, floorY: FLOOR_Y });
+    this.machine.startBlinking(() => !this.pulling);
 
     // Story terminal, with a NEW light when there's an unread log
     g.fillStyle(hex(C.faint)).fillRect(213, 172, 6, 20);
@@ -137,39 +157,34 @@ export default class HubScene extends Phaser.Scene {
 
     // The other player (story: stranger): gray, flickering, never quite there.
     if (this.story.stranger) {
-      this.stranger = this.add.sprite(STRANGER.x, FLOOR_Y - 7, tex(HUB_THEME, 'player')).setFlipX(true).setTint(0x6a6470).setAlpha(0.6);
+      const strangerX = this.layout.strangerX;
+      this.stranger = this.add.sprite(strangerX, FLOOR_Y - 7, tex(HUB_THEME, 'player')).setFlipX(true).setTint(0x6a6470).setAlpha(0.6);
       this.time.addEvent({
         delay: 140,
         loop: true,
         callback: () => {
           const r = Math.random();
           this.stranger.setAlpha(r < 0.04 ? 0 : 0.45 + Math.random() * 0.25);
-          this.stranger.x = STRANGER.x + (r > 0.97 ? Phaser.Math.Between(-2, 2) : 0);
+          this.stranger.x = strangerX + (r > 0.97 ? Phaser.Math.Between(-2, 2) : 0);
         },
       });
       this.speech = label(this, W / 2, 44, '', 8, C.faint).setVisible(false); // above the tally marks
     }
   }
 
-  // Idle: the machine blinks for 100 ms every 3-5 seconds.
-  scheduleBlink() {
-    this.time.delayedCall(Phaser.Math.Between(3000, 5000), () => {
-      if (this.pulling) return;
-      this.machine.expression(1);
-      this.time.delayedCall(100, () => {
-        if (!this.pulling) this.machine.expression(0);
-        this.scheduleBlink();
-      });
-    });
-  }
-
   refreshNewLight() {
     this.newLight.setVisible(unreadBeats(content, getSave()).length > 0);
   }
 
+  // The closest station within its reach (some reaches overlap).
   nearest() {
     const x = this.player.x;
-    return this.stations.find((s) => Math.abs(s.x - x) <= REACH) || null;
+    let best = null;
+    for (const s of this.stations) {
+      const d = Math.abs(s.x - x);
+      if (d <= (s.reach ?? REACH) && (!best || d < Math.abs(best.x - x))) best = s;
+    }
+    return best;
   }
 
   update() {
@@ -187,7 +202,7 @@ export default class HubScene extends Phaser.Scene {
 
     const near = this.nearest();
     this.prompt.setVisible(!!near);
-    if (near) this.prompt.setText(`UP ${near.verb}`).setPosition(near.x, near.id === 'machine' ? MACHINE_Y - 12 : near.id === 'wall' ? 101 : 108);
+    if (near) this.prompt.setText(`UP ${near.verb}`).setPosition(near.x, near.id === 'machine' ? this.machine.prompt[1] : near.id === 'wall' ? 101 : 108);
   }
 
   use() {
@@ -203,10 +218,9 @@ export default class HubScene extends Phaser.Scene {
       if (this.pulling) return;
       // Pull the lever (up, middle, down), looking eager, then go spin.
       this.pulling = true;
-      const { lever } = this.machine;
-      this.machine.expression(2);
-      lever.setFrame(1);
-      this.time.delayedCall(80, () => lever.setFrame(2));
+      this.machine.expression(FACE.eager);
+      this.machine.pullLever(null);
+      this.machine.blurSymbols();
       this.time.delayedCall(240, () => this.scene.start('Spin', {}));
     } else if (near.id === 'shop') {
       this.scene.start('Shop');
