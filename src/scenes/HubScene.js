@@ -8,13 +8,13 @@ import { LOG_LINES } from '../engine/content.js';
 import { makePlaceholderTextures, tex } from '../art/placeholder.js';
 import { C, hex, label, onPress, HUB_THEME } from '../ui/machine.js';
 import { pixelText } from '../ui/font.js';
-import { createMachineArt, machineAct, FACE } from '../ui/machineArt.js';
+import { createMachineArt, machineAct } from '../ui/machineArt.js';
 
 // The hub: a small room with the slot machine, the shop and the story
 // terminal. Walk up to one and press Up to use it.
 //
 // The room changes as the story unlocks (story.json): marks appear on the
-// wall and another player shows up. In Act II the machine is bigger, so the
+// wall and another player shows up. From Act II the machine is bigger, so the
 // marks and the other player move aside to make room for it.
 
 const FLOOR_Y = 192;
@@ -38,6 +38,7 @@ const LAYOUT = {
   1: { wallX: 80, wallReach: REACH, marksX: 64, strangerX: 172, machineReach: REACH, startX: null },
   2: { wallX: 52, wallReach: 8, marksX: 44, strangerX: 186, machineReach: 60, startX: 70 },
 };
+LAYOUT[3] = LAYOUT[2]; // same cabinet outline
 
 export default class HubScene extends Phaser.Scene {
   constructor() {
@@ -108,8 +109,8 @@ export default class HubScene extends Phaser.Scene {
     g.fillStyle(hex(HUB_THEME.palette.groundDark));
     for (let x = 8; x < W; x += 16) g.fillRect(x, FLOOR_Y + 4, 8, 1);
 
-    // Act II: a lit ceiling rail, two lamps (art team's room mockup)
-    if (machineAct() === 2) {
+    // Acts II and III: a lit ceiling rail, two lamps (art team's room mockup)
+    if (machineAct() >= 2) {
       g.fillStyle(hex(C.gold)).fillRect(0, 42, W, 1);
       g.fillStyle(hex(C.cabinet)).fillRect(0, 43, W, 2);
       for (const lx of [82, 210]) {
@@ -218,9 +219,7 @@ export default class HubScene extends Phaser.Scene {
       if (this.pulling) return;
       // Pull the lever (up, middle, down), looking eager, then go spin.
       this.pulling = true;
-      this.machine.expression(FACE.eager);
-      this.machine.pullLever(null);
-      this.machine.blurSymbols();
+      this.machine.react('hubPull');
       this.time.delayedCall(240, () => this.scene.start('Spin', {}));
     } else if (near.id === 'shop') {
       this.scene.start('Shop');

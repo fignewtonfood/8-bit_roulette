@@ -10,7 +10,7 @@ import { levelOfEntry } from '../engine/progress.js';
 import { twistAt, twistMaxLevel, genreAt, genreMaxLevel, themeAt, themeMaxLevel } from '../engine/content.js';
 import { C, hex, onPress } from '../ui/machine.js';
 import { pixelText } from '../ui/font.js';
-import { createMachineArt, FACE } from '../ui/machineArt.js';
+import { createMachineArt } from '../ui/machineArt.js';
 
 // The slot machine: pick a bet (game length), pull, and three reels land on a
 // theme, a genre and a twist. The result is decided by spin() the moment you
@@ -148,15 +148,6 @@ export default class SpinScene extends Phaser.Scene {
     onPress(this, ['X', 'ESC'], () => this.mode === 'ready' && this.scene.start('Hub'));
   }
 
-  // ---------- The machine sprite ----------
-
-  // Lever up, middle, down and back; eager face and blinking bulbs while it spins.
-  pullLever() {
-    this.machine.expression(FACE.eager);
-    this.machine.flashLights();
-    this.machine.pullLever();
-  }
-
   // ---------- The bet ----------
 
   changeBet(step) {
@@ -280,7 +271,7 @@ export default class SpinScene extends Phaser.Scene {
     });
     this.seedText.setText(`SEED ${this.result.seed}`);
     this.cameras.main.shake(80, 0.004);
-    this.pullLever();
+    this.machine.react('pull');
 
     this.reels.forEach((r, i) => {
       r.outline.setVisible(false);
@@ -299,16 +290,14 @@ export default class SpinScene extends Phaser.Scene {
       // Compatibility re-roll: land on the blocked roll, flash, spin again.
       this.time.delayedCall(stopAt, () => {
         this.land(r, blocked);
-        this.machine.expression(FACE.concern);
-        this.machine.lights(false);
+        this.machine.react('reroll');
         r.outline.setStrokeStyle(2, hex(C.warn)).setVisible(true);
         this.info.setText(`${this.label(r.reel, blocked)} won't work here. RE-ROLL!`);
         this.cameras.main.flash(120, 216, 64, 46);
       });
       this.time.delayedCall(stopAt + REROLL_PAUSE * 1000, () => {
         r.spinning = true;
-        this.machine.expression(FACE.eager);
-        this.machine.flashLights();
+        this.machine.react('spinAgain');
         this.info.setText('');
       });
       this.time.delayedCall(stopAt + (REROLL_PAUSE + REROLL_SPIN) * 1000, () => {
@@ -323,6 +312,7 @@ export default class SpinScene extends Phaser.Scene {
         this.locks[r.reel] ? 0 : FIRST_STOP + i * STOP_GAP + (this.result.firstRoll[r.reel] ? REROLL_PAUSE + REROLL_SPIN : 0),
       ),
     );
+    if (lastStop > 0) this.time.delayedCall(lastStop * 1000, () => this.machine.react('stop'));
     this.time.delayedCall(lastStop * 1000 + 250, () => this.showResult());
   }
 
@@ -333,14 +323,14 @@ export default class SpinScene extends Phaser.Scene {
       r.glitchy = false;
       this.machine.face.setVisible(false);
       this.glitchText.setVisible(true);
-      this.machine.expression(FACE.concern);
+      this.machine.react('glitch');
       r.outline.setStrokeStyle(2, hex(C.screenText)).setVisible(true);
       this.cameras.main.flash(160, 95, 224, 138);
       this.cameras.main.shake(200, 0.01);
       this.time.delayedCall(500, () => {
         this.glitchText.setVisible(false);
         this.machine.face.setVisible(true);
-        if (this.mode === 'spinning') this.machine.expression(FACE.eager);
+        if (this.mode === 'spinning') this.machine.react('spinAgain');
       });
     }
     r.pos = r.strip.findIndex((e) => e.id === id);
@@ -367,10 +357,7 @@ export default class SpinScene extends Phaser.Scene {
     const line = `SPACE PLAY${respin}${level}`;
     this.prompt.setText(line.length > 42 ? line.replace(/ {6}/, '   ') : line).setColor(C.gold);
     this.mode = 'landed';
-    // Bulbs steady, a wink, twice, then back to a smile.
-    this.machine.lights(true);
-    [[0, FACE.wink], [160, FACE.smile], [400, FACE.wink], [560, FACE.smile]].forEach(([at, face]) =>
-      this.time.delayedCall(at, () => this.mode === 'landed' && this.machine.expression(face)));
+    this.machine.react('reveal');
   }
 
   update(_time, delta) {

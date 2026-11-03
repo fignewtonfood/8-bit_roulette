@@ -1,27 +1,31 @@
-// The Machine's sprites (machine art v3 from the art team). Four versions:
-// the hub cabinet and the full-screen spin console, for Act I and Act II.
+// The Machine's sprites (machine art v3 from the art team). Six versions:
+// the hub cabinet and the full-screen spin console, for Acts I, II and III.
 // The PNGs live in public/assets/machine-v3/<variant>/ and src/data/machineArt.json
 // says how big every sheet is, where the reel windows are, and so on.
 //
-// This only draws. The game decides results and timing (spin.js, SpinScene);
-// the pictured cherries and stars never mean anything.
+// This only draws. The game decides results and timing (spin.js, SpinScene)
+// and tells the machine what just happened with react(); the pictured
+// cherries and stars never mean anything.
 //
-// Layers, back to front: reel bed, game-owned reel content, cabinet, face,
-// bulbs, broken bulb, lever. The broken bulb never lights, not even in a
-// celebration, and nothing here repairs the wear.
+// Layers, back to front: reel bed, game-owned reel content, cabinet, then
+// (Act III) reel finish, face, bulbs, (Act III) stage lights, broken bulb,
+// lever, and (Act III) stars and the face-screen glitch. The broken bulb never
+// lights, not even in a celebration, and nothing here repairs the wear.
 
 import Phaser from 'phaser';
 import manifest from '../data/machineArt.json';
 import { session } from '../engine/profile.js';
+import { createPerformance } from './machinePerformance.js';
 
-export const FACE = { smile: 0, blink: 1, eager: 2, concern: 3, wink: 4 };
-export const LEVER = { up: 0, mid: 1, down: 2 };
+// Acts I and II: face, lever and bulb frames.
+const FACE = { smile: 0, blink: 1, eager: 2, concern: 3, wink: 4 };
+const LEVER = { up: 0, mid: 1, down: 2 };
 const BULBS = { dim: 0, on: 1 };
 const SPIN_FRAMES = [4, 5]; // hub symbols: the two blur patterns
 
 // Which act's machine to show. Act II arrives with the first machine upgrade
-// (Milestone 12); until then it's Act I, and ?act=2 in the URL previews Act II.
-export const machineAct = () => (session.act === 2 ? 2 : 1);
+// (Milestone 12); until then it's Act I. ?act=2 or ?act=3 in the URL previews the others.
+export const machineAct = () => ([2, 3].includes(session.act) ? session.act : 1);
 
 export function preloadMachineArt(scene, base = `${import.meta.env.BASE_URL}assets/machine-v3`) {
   for (const [id, v] of Object.entries(manifest.variants)) {
@@ -35,11 +39,23 @@ export function preloadMachineArt(scene, base = `${import.meta.env.BASE_URL}asse
   }
 }
 
+// What the game can tell the machine (react(event)):
+//   pull      the lever's pulled at the slot machine; the reels start
+//   hubPull   the lever's pulled in the hub; the slot machine screen opens next
+//   reroll    a reel landed on a combo that can't happen and will spin again
+//   glitch    the theme reel glitched
+//   spinAgain the reels are going again after a reroll or glitch
+//   stop      the last reel stopped
+//   reveal    the result is on screen
+export const MACHINE_EVENTS = ['pull', 'hubPull', 'reroll', 'glitch', 'spinAgain', 'stop', 'reveal'];
+
 // kind: 'hub' (stands on the floor at centerX) or 'spin' (fills the screen).
 export function createMachineArt(scene, kind, { centerX = 128, floorY = 192 } = {}) {
-  const id = `${kind}-act${machineAct()}`;
+  const act = machineAct();
+  const id = `${kind}-act${act}`;
   const v = manifest.variants[id];
   const hub = kind === 'hub';
+  const theatre = act === 3;
   const scale = v.recommendedScale;
   const x = hub ? centerX - (v.frame.width * scale) / 2 : 0;
   const y = hub ? floorY - v.floorContactY * scale : 0;
@@ -62,13 +78,18 @@ export function createMachineArt(scene, kind, { centerX = 128, floorY = 192 } = 
         return img;
       })
     : [];
-  const cabinet = layer('cabinet');
-  const face = layer('face', FACE.smile);
-  const bulbs = layer('bulbs', BULBS.on);
+  layer('cabinet');
+  const reelFinish = theatre ? layer('reel-finish', 1) : null;
+  const face = layer('face');
+  const bulbs = layer('bulbs', theatre ? 0 : BULBS.on);
+  const stageLights = theatre ? layer('stage-lights') : null;
   layer('broken-bulb');
   const lever = layer('lever', LEVER.up);
+  const stars = theatre ? layer('spectacle') : null;
+  const glitch = theatre ? layer('glitch') : null;
 
   // Text that scrolls or clunks inside a window stays inside it.
+  // (Masks are in screen space; only the hub ever lifts, and its symbols aren't masked.)
   const masks = [];
   const clip = (obj, i) => {
     const [wx, wy, w, h] = windows[i];
@@ -81,66 +102,144 @@ export function createMachineArt(scene, kind, { centerX = 128, floorY = 192 } = 
 
   let timers = [];
   const later = (ms, fn) => timers.push(scene.time.delayedCall(ms, fn));
-  let blinkOk = () => true;
   let flashing = null;
+  let reaction = 0; // bumps on every react(), so a stale wink sequence stops
+
+  const blurSymbols = () => {
+    let phase = 0;
+    timers.push(scene.time.addEvent({ delay: 80, loop: true, callback: () => {
+      phase ^= 1;
+      symbols.forEach((s) => s.setFrame(SPIN_FRAMES[phase]));
+    } }));
+  };
+
+  // ---------- Acts I and II: a few frames, swapped on timers ----------
+
+  const lights = (on) => {
+    flashing?.remove();
+    flashing = null;
+    bulbs.setFrame(on ? BULBS.on : BULBS.dim);
+  };
+  const flashLights = (ms = 120) => {
+    lights(true);
+    flashing = scene.time.addEvent({ delay: ms, loop: true, callback: () => bulbs.setFrame(bulbs.frame.name === BULBS.on ? BULBS.dim : BULBS.on) });
+  };
+  // Up, middle, down; back up after `upAfter` ms (or stays down if null).
+  const pullLever = (upAfter = 240) => {
+    lever.setFrame(LEVER.mid);
+    later(80, () => lever.setFrame(LEVER.down));
+    if (upAfter != null) later(upAfter, () => lever.setFrame(LEVER.up));
+  };
+  const classic = {
+    pull() {
+      face.setFrame(FACE.eager);
+      flashLights();
+      pullLever();
+    },
+    hubPull() {
+      face.setFrame(FACE.eager);
+      pullLever(null);
+      blurSymbols();
+    },
+    reroll() {
+      face.setFrame(FACE.concern);
+      lights(false);
+    },
+    glitch() {
+      face.setFrame(FACE.concern);
+    },
+    spinAgain() {
+      face.setFrame(FACE.eager);
+      flashLights();
+    },
+    stop() {},
+    // Bulbs steady, a wink, twice, then back to a smile.
+    reveal() {
+      lights(true);
+      const mine = reaction;
+      [[0, FACE.wink], [160, FACE.smile], [400, FACE.wink], [560, FACE.smile]].forEach(([at, f]) =>
+        later(at, () => mine === reaction && face.setFrame(f)));
+    },
+  };
+
+  // ---------- Act III: the art team's choreography ----------
+
+  let perf = null;
+  if (theatre) {
+    const reducedMotion = typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    perf = createPerformance((pose) => {
+      face.setFrame(pose.face);
+      bulbs.setFrame(pose.bulbs);
+      stageLights.setFrame(pose.stageLights);
+      lever.setFrame(pose.lever);
+      reelFinish.setFrame(pose.reelFinish);
+      stars.setFrame(pose.spectacle);
+      glitch.setFrame(pose.glitch);
+      // The hub machine hops a pixel or two; collision and prompts don't move.
+      // The slot machine screen stays put so the reel text lines up.
+      if (hub) root.y = y + pose.bodyY * scale;
+    }, { reducedMotion });
+    perf.play('welcome', 'idle');
+  }
+  const theatrical = {
+    pull: () => perf.play('pull', 'spin'),
+    hubPull() {
+      perf.play('pull');
+      blurSymbols();
+    },
+    reroll: () => perf.play('doubt'),
+    glitch: () => perf.play('doubt'),
+    spinAgain: () => perf.play('spin'),
+    stop: () => perf.play('settle'),
+    reveal: () => perf.play('celebrate'), // ends quiet, eyes closed, and holds
+  };
+  const onUpdate = (_time, delta) => perf.update(delta);
+  if (perf) scene.events.on('update', onUpdate);
+
+  const cleanUp = () => {
+    timers.forEach((t) => t.remove());
+    timers = [];
+    flashing?.remove();
+    flashing = null;
+    if (perf) {
+      scene.events.off('update', onUpdate);
+      perf.destroy();
+    }
+    masks.forEach(({ shape }) => shape.destroy());
+    masks.length = 0;
+  };
 
   const machine = {
-    id, act: machineAct(), root, reelContent, windows, symbols, cabinet, face, bulbs, lever,
+    id, act, root, reelContent, windows, symbols, face,
     faceRegion: v.faceRegion.map((n, i) => (i === 0 ? x + n * scale : i === 1 ? y + n * scale : n * scale)),
     textRegions: v.textRegions,
     prompt: v.hubPlacement?.prompt,
     clip,
-    expression(frame = FACE.smile) {
-      face.setFrame(frame);
+    react(event) {
+      if (!MACHINE_EVENTS.includes(event)) throw Error(`Unknown machine event ${event}`);
+      reaction++;
+      (theatre ? theatrical : classic)[event]();
     },
-    lights(on) {
-      flashing?.remove();
-      flashing = null;
-      bulbs.setFrame(on ? BULBS.on : BULBS.dim);
-    },
-    // Bulbs blink on and off (while the reels spin).
-    flashLights(ms = 120) {
-      machine.lights(true);
-      flashing = scene.time.addEvent({ delay: ms, loop: true, callback: () => bulbs.setFrame(bulbs.frame.name === BULBS.on ? BULBS.dim : BULBS.on) });
-    },
-    // Up, middle, down; back up after `upAfter` ms (or stays down if null).
-    pullLever(upAfter = 240) {
-      lever.setFrame(LEVER.mid);
-      later(80, () => lever.setFrame(LEVER.down));
-      if (upAfter != null) later(upAfter, () => lever.setFrame(LEVER.up));
-    },
-    // Hub only: the little symbols blur, as if spinning.
-    blurSymbols() {
-      let phase = 0;
-      timers.push(scene.time.addEvent({ delay: 80, loop: true, callback: () => {
-        phase ^= 1;
-        symbols.forEach((s) => s.setFrame(SPIN_FRAMES[phase]));
-      } }));
-    },
-    // Idle: blink for 100 ms every 3-5 seconds, whenever canBlink() says so.
+    // Idle: a 100 ms blink, whenever canBlink() says so. Acts I and II blink
+    // every 3-5 seconds; Act III after 4 seconds at rest, and never while quiet.
     startBlinking(canBlink = () => true) {
-      blinkOk = canBlink;
-      const next = () => later(Phaser.Math.Between(3000, 5000), () => {
-        if (!blinkOk() || face.frame.name !== FACE.smile) return next();
-        face.setFrame(FACE.blink);
-        later(100, () => {
-          if (face.frame.name === FACE.blink) face.setFrame(FACE.smile);
-          next();
-        });
+      const next = () => later(theatre ? 4000 : Phaser.Math.Between(3000, 5000), () => {
+        const resting = theatre ? perf.cue === 'idle' : face.frame.name === FACE.smile;
+        if (!canBlink() || !resting) return next();
+        if (theatre) perf.play('blink', 'idle');
+        else {
+          face.setFrame(FACE.blink);
+          later(100, () => face.frame.name === FACE.blink && face.setFrame(FACE.smile));
+        }
+        later(100, next);
       });
       next();
     },
     destroy() {
-      timers.forEach((t) => t.remove());
-      timers = [];
-      flashing?.remove();
-      masks.forEach(({ shape }) => shape.destroy());
+      cleanUp();
       root.destroy();
     },
   };
-  scene.events.once('shutdown', () => {
-    timers.forEach((t) => t.remove());
-    masks.forEach(({ shape }) => shape.destroy());
-  });
+  scene.events.once('shutdown', cleanUp);
   return machine;
 }
